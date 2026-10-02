@@ -6,9 +6,11 @@
   "license": "MIT",
   "scripts": {
     "test": "node --test",
-    "start": "python3 -m http.server 8080 --bind 0.0.0.0"
+    "start": "python3 -m http.server 8080 --bind 0.0.0.0",
+    "test:browser": "node scripts/browser-smoke.js"
   },
   "devDependencies": {
-    "jsdom": "^26.0.0"
+    "jsdom": "^26.0.0",
+    "playwright": "^1.63.0"
   }
 }

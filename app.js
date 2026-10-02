@@ -65,6 +65,8 @@
     sidebar: true,
     split: 50,
     locale: 'en',
+    taskSource: '',
+    documentId: 0,
     tasks: [],
     tasksOk: true,
     taskReason: '',
@@ -252,6 +254,7 @@
   /* ------------------------------------------------------------- document I/O */
 
   function setDoc(text, name, handle, meta) {
+    state.documentId++;
     el.editor.value = text;
     state.name = name || '';
     state.saved = text;
@@ -271,6 +274,7 @@
   }
 
   function setEmpty() {
+    state.documentId++;
     el.editor.value = '';
     state.name = '';
     state.saved = '';
@@ -352,10 +356,11 @@
 
   function reloadFromDisk() {
     if (!state.handle) { toast(t('error.reload'), 'warning'); return; }
+    var handle = state.handle;
     confirmDiscard().then(function (proceed) {
-      if (!proceed) return;
-      state.handle.getFile().then(function (file) {
-        return loadFile(file, state.handle);
+      if (!proceed || state.handle !== handle) return;
+      handle.getFile().then(function (file) {
+        return loadFile(file, handle);
       }).then(function (ok) {
         if (ok) toast(t('info.reloaded', { name: state.name }), 'success');
       }).catch(function (err) {
@@ -379,23 +384,32 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
   }
 
-  function downloadFallback(payload) {
-    download(payload, state.name || 'README.md', 'text/markdown;charset=utf-8');
-  }
-
   /**
    * Save the document. Resolves true when the file on disk (or the download) now matches the
    * editor, false when the user cancelled or the write failed.
    */
+  var pendingSave = null;
+
   function save(forceNew) {
+    if (pendingSave) return pendingSave;
+    pendingSave = saveDocument(forceNew).finally(function () { pendingSave = null; });
+    return pendingSave;
+  }
+
+  function saveDocument(forceNew) {
     if (!state.hasDocument) return Promise.resolve(false);
     var text = el.editor.value;
+    var documentId = state.documentId;
+    var name = state.name;
     var payload = Encoding.encode(text, { bom: state.bom, eol: state.eol });
 
     var finish = function (handle) {
+      if (state.documentId !== documentId) return true;
       state.saved = text;
-      if (handle) state.handle = handle;
-      setDirty(false);
+      state.handle = handle || null;
+      state.name = handle ? handle.name : name;
+      state.encoding = 'utf-8';
+      setDirty(el.editor.value !== text);
       saveSettings();
       toast(t('info.saved', { name: state.name }), 'success');
       return true;
@@ -408,8 +422,7 @@
       }).then(function () { return finish(h); }).catch(function (err) {
         // Permission lost (e.g. the file moved): fall back to a download instead of failing.
         if (err && (err.name === 'NotAllowedError' || err.name === 'NotFoundError')) {
-          state.handle = null;
-          downloadFallback(payload);
+          download(payload, name || 'README.md', 'text/markdown;charset=utf-8');
           return finish(null);
         }
         toast(t('error.save', {
@@ -428,25 +441,31 @@
         types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown', '.txt'] } }]
       }).then(function (h) {
         if (!h) return false;
-        state.name = h.name;
         return writeTo(h);
       }).catch(function (err) {
         if (err && err.name === 'AbortError') return false;
-        downloadFallback(payload);
+        download(payload, name || 'README.md', 'text/markdown;charset=utf-8');
         return finish(null);
       });
     }
 
-    downloadFallback(payload);
+    download(payload, name || 'README.md', 'text/markdown;charset=utf-8');
     return Promise.resolve(finish(null));
   }
 
   function exportHtml() {
     if (!state.hasDocument) return;
+    render({ immediate: true });
     var src = el.editor.value;
+    var snapshot = el.preview.cloneNode(true);
+    eachNode('input[type=checkbox]', function (box) {
+      if (box.checked) box.setAttribute('checked', '');
+      else box.removeAttribute('checked');
+      box.disabled = true;
+    }, snapshot);
     var doc = Exporter.build({
       title: state.name || 'README',
-      html: el.preview.innerHTML,
+      html: snapshot.innerHTML,
       theme: state.theme === 'auto' ? (isDark() ? 'dark' : 'light') : state.theme,
       lang: Direction.detectLanguage(src),
       dir: state.dirMode === 'auto' ? Direction.dominantDir(src) : state.dirMode
@@ -494,7 +513,7 @@
       icon: 'alert'
     }).then(function (choice) {
       if (choice === 'discard') return true;
-      if (choice === 'save') return save(false);
+      if (choice === 'save') return save(false).then(function (ok) { return ok && !state.dirty; });
       return false;
     });
   }
@@ -601,6 +620,7 @@
         }
       }
     }
+    state.taskSource = src;
     state.tasks = result.tasks;
     state.tasksOk = ok;
     state.taskReason = reason;
@@ -788,6 +808,11 @@
       toast(t('edit.unavailable', { reason: state.taskReason }), 'warning');
       return;
     }
+    if (state.taskSource !== el.editor.value) {
+      toast(t('edit.stale'), 'warning');
+      scheduleRender(null, 0);
+      return;
+    }
     var index = parseInt(box.getAttribute('data-rv-task'), 10);
     var task = state.tasks[index];
     var result = Tasks.toggleTask(el.editor.value, task);
@@ -801,6 +826,7 @@
     // The source is now the truth; mirror it immediately so the click feels instant.
     box.checked = result.checked;
     task.checked = result.checked;
+    state.taskSource = el.editor.value;
     updateTaskStats();
     scheduleRender({ focusTask: index }, 60);
   }
@@ -1184,7 +1210,9 @@
     el.btnExport.addEventListener('click', exportHtml);
     el.btnTheme.addEventListener('click', cycleTheme);
     el.btnEmptyOpen.addEventListener('click', pickOpen);
-    el.btnEmptySample.addEventListener('click', function () { loadSample(); });
+    el.btnEmptySample.addEventListener('click', function () {
+      confirmDiscard().then(function (proceed) { if (proceed) loadSample(); });
+    });
 
     el.btnWrap.addEventListener('click', function () {
       state.wrap = !state.wrap;
@@ -1323,19 +1351,32 @@
     var s = ed.selectionStart;
     var e = ed.selectionEnd;
     var ls = v.lastIndexOf('\n', s - 1) + 1;
-    var le = v.indexOf('\n', e);
+    var last = e > s && v.charAt(e - 1) === '\n' ? e - 1 : e;
+    var le = v.indexOf('\n', last);
     if (le < 0) le = v.length;
     var block = v.slice(ls, le);
     var lines = block.split('\n');
-    var next = lines.map(function (l) {
-      if (!l.length) return l;
-      return outdent ? l.replace(/^( {1,2}|\t)/, '') : '  ' + l;
+    var offset = ls;
+    var changes = [];
+    var next = lines.map(function (line) {
+      var removed = outdent ? (/^( {1,2}|\t)/.exec(line) || [''])[0].length : 0;
+      var added = outdent ? 0 : 2;
+      changes.push({ start: offset, removed: removed, added: added });
+      offset += line.length + 1;
+      return outdent ? line.slice(removed) : '  ' + line;
     }).join('\n');
-    var delta = next.length - block.length;
+    function move(pos) {
+      var delta = 0;
+      changes.forEach(function (change) {
+        if (pos >= change.start) {
+          delta += change.added - Math.min(change.removed, pos - change.start);
+        }
+      });
+      return pos + delta;
+    }
     ed.focus({ preventScroll: true });
-    ed.setSelectionRange(ls, le);
     ed.setRangeText(next, ls, le, 'end');
-    ed.setSelectionRange(s + delta, e + delta);
+    ed.setSelectionRange(move(s), move(e));
     markDirtyFromValue();
     scheduleRender();
   }
@@ -1484,10 +1525,12 @@
     if (!mdFile) return;
     confirmDiscard().then(function (proceed) {
       if (!proceed) return;
-      var first = items[0];
+      var first = items.filter(function (item) {
+        return item.kind === 'file' && item.getAsFile && item.getAsFile() === mdFile;
+      })[0];
       if (first && first.getAsFileSystemHandle) {
         first.getAsFileSystemHandle().then(function (h) {
-          loadFile(mdFile, h || null);
+          loadFile(mdFile, h && h.kind === 'file' ? h : null);
         }).catch(function () { loadFile(mdFile, null); });
       } else {
         loadFile(mdFile, null);

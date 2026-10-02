@@ -5,7 +5,24 @@ scrolling, and **interactive task lists**: with *Edit in preview* turned on, you
 in the rendered document and the Markdown source is updated — one `[ ]` → `[x]` at a time, with
 every other byte of the file left exactly as it was.
 
-No build step, no server, no network calls. Everything happens in your browser.
+No build step or server is needed. The application works offline in your browser.
+Remote images and external links in a document can still use the network.
+
+## Install on Windows
+
+Download the installer from [GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/latest)
+and run it. It installs for your Windows account without administrator privileges and adds a Start
+menu shortcut. No Node.js or Python installation is needed.
+
+For portable use, download the ZIP, **extract the whole archive**, and double-click
+`Launch-README-Viewer.bat`. Keep `index.html`, `src/`, and `vendor/` together.
+
+Click **Open**, choose your README, and use **Edit in preview** to toggle task checkboxes.
+Click **Save** afterwards. If your browser cannot save back to the original file, it downloads an
+updated copy; replace the original with that copy if needed. Chrome and Edge are recommended.
+
+The installer is unsigned; Windows may ask you to confirm the publisher. You can uninstall it
+from Windows Settings → Apps.
 
 ```
 open index.html          # macOS
@@ -82,8 +99,8 @@ if the document moved underneath the map, it refreshes and asks you to click aga
 editing blind. If the token tree and the source ever disagree, interactive editing switches itself
 off for that document and says why, instead of risking a wrong edit.
 
-The edit is applied with `textarea.setRangeText()`, which keeps the native undo stack — `Ctrl+Z` in
-the source pane undoes a preview click.
+The edit is applied with `textarea.setRangeText()`, preserving the source selection. Browser-native
+undo behavior for programmatic edits varies; save important edits before closing the app.
 
 ## Architecture
 
@@ -113,11 +130,11 @@ is the only place where the two meet.
 ## Tests
 
 ```bash
-npm install     # only needed for the optional DOM suite (jsdom)
+npm ci          # installs the locked test dependencies (including jsdom)
 npm test
 ```
 
-72 tests, no build step:
+82 tests, no build step:
 
 - `tests/tasks.test.js` — the interactive task-list contract: ordering, duplicates, nesting,
   Persian text, block quotes, ordered lists, code blocks, byte-level preservation, stale maps.
@@ -154,4 +171,12 @@ highlighter languages need the app to be reachable over `http(s)` or `file://` (
 
 `marked` (MIT), `DOMPurify` (MPL-2.0/Apache-2.0), `highlight.js` (BSD-3),
 `github-markdown-css` (MIT). They are committed in `vendor/` so the app works offline; nothing is
-fetched at runtime, and nothing you open ever leaves your machine.
+fetched by the application at runtime. Remote document images and links follow normal browser
+network behavior. Saving converts decoded text to UTF-8 and preserves UTF-8 BOM and LF/CRLF style.
+
+## Release builds
+
+`python3 scripts/package-release.py` validates runtime assets and builds the portable ZIP with a
+SHA-256 checksum. The GitHub Actions release workflow runs the complete test suite, builds the
+Windows installer with Inno Setup, checks installation and uninstallation, then publishes the
+version in `package.json`. Existing releases are never overwritten.

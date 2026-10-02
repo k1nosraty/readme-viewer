@@ -25,3 +25,6 @@ tmp/
 
 # NOTE: vendor/ is intentionally tracked — the app runs offline from file://
 #       and needs its libraries committed.
+
+# Release build output
+dist/

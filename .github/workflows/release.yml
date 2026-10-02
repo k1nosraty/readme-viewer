@@ -1,0 +1,85 @@
+name: Test and release
+on:
+  push:
+    branches: ["arena/01a0fdac-readme-viewer"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: readme-viewer-release
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - run: python3 scripts/package-release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portable
+          path: dist/*
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $compiler)) { choco install innosetup --yes --no-progress }
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          & $compiler "/DAppVersion=$version" packaging/windows.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Smoke test install and uninstall
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem dist/*Setup.exe).FullName
+          $installDir = Join-Path $env:RUNNER_TEMP 'README Viewer Smoke'
+          $process = Start-Process $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$installDir`"" -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw 'Installation failed' }
+          foreach ($asset in @('index.html', 'app.js', 'styles.css', 'src/tasks.js', 'vendor/marked.umd.js', 'Launch-README-Viewer.bat')) {
+            if (!(Test-Path (Join-Path $installDir $asset))) { throw "Missing installed asset: $asset" }
+          }
+          $process = Start-Process (Join-Path $installDir 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw 'Uninstallation failed' }
+      - name: Checksum
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/*.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)" | Set-Content ($_.FullName + '.sha256')
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/*
+  release:
+    needs: [test, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish first release after all checks pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "v$version already exists; leaving published assets unchanged."
+            exit 0
+          fi
+          gh release create "v$version" dist/* --target "$GITHUB_SHA" --title "README Viewer v$version" --notes-file RELEASE-NOTES.md

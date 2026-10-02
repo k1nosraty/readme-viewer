@@ -2,8 +2,7 @@
  * src/export.js — standalone HTML export.
  *
  * The exported file must be readable with no network access and no sibling folders, so it carries
- * its own compact stylesheet instead of linking to the app's vendor CSS. If the export happens to
- * sit next to a copy of vendor/, the GitHub stylesheet is linked as well and simply wins.
+ * its own compact stylesheet instead of linking to the app's vendor CSS. The stylesheet does not depend on the application folder.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -12,7 +11,8 @@
   'use strict';
 
   var BASE_CSS = [
-    ':root { color-scheme: light dark; }',
+    ':root { color-scheme: light; }',
+    'html[data-theme="dark"] { color-scheme: dark; }',
     '*, *::before, *::after { box-sizing: border-box; }',
     'body { margin: 0; padding: 32px 20px 80px; display: flex; justify-content: center;',
     '  background: #fff; color: #1f2328;',
@@ -51,18 +51,30 @@
     'kbd { border: 1px solid #d1d9e0; border-bottom-width: 2px; border-radius: 6px;',
     '  background: #f6f8fa; padding: .1em .4em; font-size: 85%; }',
     '.heading-anchor { display: none; }',
+    '  body[data-theme="dark"]{ background: #0d1117; color: #e6edf3; }',
+    '  body[data-theme="dark"] a{ color: #4493f8; }',
+    '  body[data-theme="dark"] h1,',
+    '  body[data-theme="dark"] h2{ border-color: #3d444d; }',
+    '  body[data-theme="dark"] pre{ background: #161b22; border-color: #3d444d; }',
+    '  body[data-theme="dark"] .code-bar{ background: #010409; border-color: #3d444d; color: #9198a1; }',
+    '  body[data-theme="dark"] blockquote{ color: #9198a1; border-color: #3d444d; }',
+    '  body[data-theme="dark"] hr{ background: #3d444d; }',
+    '  body[data-theme="dark"] th,',
+    '  body[data-theme="dark"] td{ border-color: #3d444d; }',
+    '  body[data-theme="dark"] tr:nth-child(2n){ background: #161b22; }',
     '@media (prefers-color-scheme: dark) {',
-    '  body[data-theme="dark"], body[data-theme="system"] { background: #0d1117; color: #e6edf3; }',
-    '  body[data-theme="dark"] a, body[data-theme="system"] a { color: #4493f8; }',
-    '  body[data-theme="dark"] h1, body[data-theme="system"] h1,',
-    '  body[data-theme="dark"] h2, body[data-theme="system"] h2 { border-color: #3d444d; }',
-    '  body[data-theme="dark"] pre, body[data-theme="system"] pre { background: #161b22; border-color: #3d444d; }',
-    '  body[data-theme="dark"] .code-bar, body[data-theme="system"] .code-bar { background: #010409; border-color: #3d444d; color: #9198a1; }',
-    '  body[data-theme="dark"] blockquote, body[data-theme="system"] blockquote { color: #9198a1; border-color: #3d444d; }',
-    '  body[data-theme="dark"] hr, body[data-theme="system"] hr { background: #3d444d; }',
-    '  body[data-theme="dark"] th, body[data-theme="system"] th,',
-    '  body[data-theme="dark"] td, body[data-theme="system"] td { border-color: #3d444d; }',
-    '  body[data-theme="dark"] tr:nth-child(2n), body[data-theme="system"] tr:nth-child(2n) { background: #161b22; }',
+    '  html[data-theme="system"] { color-scheme: dark; }',
+    '  body[data-theme="system"]{ background: #0d1117; color: #e6edf3; }',
+    '  body[data-theme="system"] a{ color: #4493f8; }',
+    '  body[data-theme="system"] h1,',
+    '  body[data-theme="system"] h2{ border-color: #3d444d; }',
+    '  body[data-theme="system"] pre{ background: #161b22; border-color: #3d444d; }',
+    '  body[data-theme="system"] .code-bar{ background: #010409; border-color: #3d444d; color: #9198a1; }',
+    '  body[data-theme="system"] blockquote{ color: #9198a1; border-color: #3d444d; }',
+    '  body[data-theme="system"] hr{ background: #3d444d; }',
+    '  body[data-theme="system"] th,',
+    '  body[data-theme="system"] td{ border-color: #3d444d; }',
+    '  body[data-theme="system"] tr:nth-child(2n){ background: #161b22; }',
     '}'
   ].join('\n');
 
@@ -93,7 +105,6 @@
       '<meta name="viewport" content="width=device-width, initial-scale=1">',
       '<meta name="generator" content="README Viewer">',
       '<title>' + title + '</title>',
-      '<link rel="stylesheet" href="vendor/github-markdown-' + (theme === 'dark' ? 'dark' : 'light') + '.css">',
       '<style>',
       BASE_CSS,
       '</style>',

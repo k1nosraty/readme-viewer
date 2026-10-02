@@ -678,3 +678,153 @@ test('keyboard shortcuts reach the app from anywhere', async function (t) {
   await harness.settle(40);
   assert.deepEqual(app.errors, [], app.errors.join(' | '));
 });
+
+test('a stale preview cannot toggle another task after source reordering', async function (t) {
+  if (skipIfNoDom(t)) return;
+  await open('- [ ] first\n- [ ] second\n');
+  RVApp.setEditPreview(true);
+  const box = taskBoxes()[0];
+  const changed = '- [ ] second\n- [ ] first\n';
+  doc.getElementById('editor').value = changed;
+  harness.click(win, box);
+  assert.equal(editorValue(), changed);
+  await harness.settle(160);
+  assert.equal(RVApp.state.tasks[0].label, 'second');
+});
+
+function deferredHandle(name, fail) {
+  let complete;
+  const gate = new Promise(resolve => { complete = resolve; });
+  let writes = 0;
+  const handle = { name, kind: 'file', createWritable: async () => ({
+    write: async () => { writes++; await gate; if (fail) throw new Error('disk full'); },
+    close: async () => {}
+  }) };
+  return { handle, complete, writes: () => writes };
+}
+
+test('typing during save stays dirty and simultaneous saves share one write', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const disk = deferredHandle('draft.md');
+  RVApp.setDoc('old', 'draft.md', disk.handle);
+  const first = RVApp.save(false);
+  const second = RVApp.save(false);
+  assert.equal(first, second);
+  doc.getElementById('editor').value = 'new';
+  doc.getElementById('editor').dispatchEvent(new win.Event('input', { bubbles: true }));
+  disk.complete();
+  assert.equal(await first, true);
+  assert.equal(disk.writes(), 1);
+  assert.equal(RVApp.state.saved, 'old');
+  assert.equal(RVApp.state.dirty, true);
+});
+
+test('completion of an older save never overwrites a newly opened document', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const disk = deferredHandle('old.md');
+  RVApp.setDoc('old', 'old.md', disk.handle);
+  const saving = RVApp.save(false);
+  RVApp.setDoc('replacement', 'new.md', null);
+  disk.complete();
+  await saving;
+  assert.equal(RVApp.state.name, 'new.md');
+  assert.equal(RVApp.state.saved, 'replacement');
+  assert.equal(RVApp.state.handle, null);
+});
+
+test('failed Save As preserves the original file name and handle', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const old = deferredHandle('old.md');
+  const disk = deferredHandle('new.md', true);
+  RVApp.setDoc('content', 'old.md', old.handle);
+  win.showSaveFilePicker = async () => disk.handle;
+  try {
+    const saving = RVApp.save(true);
+    disk.complete();
+    assert.equal(await saving, false);
+    assert.equal(RVApp.state.name, 'old.md');
+    assert.equal(RVApp.state.handle, old.handle);
+  } finally { delete win.showSaveFilePicker; }
+});
+
+test('saving from the discard dialog does not discard text typed during the write', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const disk = deferredHandle('draft.md');
+  RVApp.setDoc('saved', 'draft.md', disk.handle);
+  const editor = doc.getElementById('editor');
+  editor.value = 'draft';
+  editor.dispatchEvent(new win.Event('input', { bubbles: true }));
+  let opened = 0;
+  win.showOpenFilePicker = async () => { opened++; return []; };
+  try {
+    harness.click(win, doc.getElementById('btnOpen'));
+    await harness.settle(20);
+    harness.click(win, doc.getElementById('btnConfirmSave'));
+    await harness.settle(20);
+    editor.value = 'newer draft';
+    editor.dispatchEvent(new win.Event('input', { bubbles: true }));
+    disk.complete();
+    await harness.settle(60);
+    assert.equal(opened, 0);
+    assert.equal(RVApp.state.dirty, true);
+  } finally { delete win.showOpenFilePicker; }
+});
+
+test('HTML export renders pending source changes and freezes checkboxes', async function (t) {
+  if (skipIfNoDom(t)) return;
+  await open('# Old\n\n- [ ] task\n');
+  RVApp.setEditPreview(true);
+  doc.getElementById('editor').value = '# Latest\n\n- [x] task\n';
+  let exported;
+  const original = win.RV.Export.build;
+  win.RV.Export.build = opts => { exported = opts; return original(opts); };
+  try { harness.click(win, doc.getElementById('btnExport')); }
+  finally { win.RV.Export.build = original; }
+  assert.match(exported.html, /Latest/);
+  const holder = doc.createElement('div');
+  holder.innerHTML = exported.html;
+  assert.equal(holder.querySelector('input').checked, true);
+  assert.equal(holder.querySelector('input').disabled, true);
+});
+
+test('Tab indents an empty line and keeps multiline selection aligned', async function (t) {
+  if (skipIfNoDom(t)) return;
+  await open('');
+  const editor = doc.getElementById('editor');
+  const tab = shift => editor.dispatchEvent(new win.KeyboardEvent('keydown', {
+    key: 'Tab', shiftKey: shift, bubbles: true, cancelable: true
+  }));
+  tab(false);
+  assert.equal(editor.value, '  ');
+  assert.equal(editor.selectionStart, 2);
+  editor.value = 'a\nb\nc';
+  editor.setSelectionRange(0, 4);
+  tab(false);
+  assert.equal(editor.value, '  a\n  b\nc');
+  assert.equal(editor.selectionStart, 2);
+  assert.equal(editor.selectionEnd, 8);
+  tab(true);
+  assert.equal(editor.value, 'a\nb\nc');
+  assert.equal(editor.selectionStart, 0);
+  assert.equal(editor.selectionEnd, 4);
+});
+
+test('dropping multiple files attaches the handle of the chosen Markdown file', async function (t) {
+  if (skipIfNoDom(t)) return;
+  RVApp.setEmpty();
+  const data = new TextEncoder().encode('# Chosen');
+  const other = { name: 'photo.png' };
+  const chosen = { name: 'chosen.md', arrayBuffer: async () => data.buffer };
+  const wrong = { name: 'photo.png', kind: 'file' };
+  const correct = { name: 'chosen.md', kind: 'file' };
+  const dt = { types: ['Files'], files: [other, chosen], items: [
+    { kind: 'file', getAsFile: () => other, getAsFileSystemHandle: async () => wrong },
+    { kind: 'file', getAsFile: () => chosen, getAsFileSystemHandle: async () => correct }
+  ] };
+  const event = new win.Event('drop', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'dataTransfer', { value: dt });
+  win.dispatchEvent(event);
+  await harness.settle(60);
+  assert.equal(RVApp.state.name, 'chosen.md');
+  assert.equal(RVApp.state.handle, correct);
+});
