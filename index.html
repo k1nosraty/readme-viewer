@@ -20,27 +20,37 @@
   </div>
 
   <div class="toolbar" role="toolbar" aria-label="ابزارها">
+    <div class="tgroup tgroup-seg" role="group" aria-label="حالت نمایش">
+      <button type="button" class="seg seg-icon" data-mode-btn="write" title="فقط ویرایشگر (Ctrl+1)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
+        <span>نوشتن</span>
+      </button>
+      <button type="button" class="seg seg-icon" data-mode-btn="split" title="دو ستون (Ctrl+2)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></svg>
+        <span>دوتایی</span>
+      </button>
+      <button type="button" class="seg seg-icon" data-mode-btn="preview" title="فقط پیش‌نمایش (Ctrl+3)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>پیش‌نمایش</span>
+      </button>
+    </div>
+
     <div class="tgroup">
       <button type="button" id="btnOpen" title="باز کردن فایل (Ctrl+O)">باز کردن</button>
       <button type="button" id="btnSave" title="ذخیره (Ctrl+S)">ذخیره</button>
       <button type="button" id="btnSaveAs" title="ذخیره با نام دیگر (Ctrl+Shift+S)">ذخیره به‌نام</button>
     </div>
 
-    <div class="tgroup" role="group" aria-label="حالت نمایش">
-      <button type="button" class="seg" data-mode-btn="write" title="فقط ویرایشگر (Ctrl+1)">نوشتن</button>
-      <button type="button" class="seg" data-mode-btn="split" title="دو ستون (Ctrl+2)">دوتایی</button>
-      <button type="button" class="seg" data-mode-btn="preview" title="فقط پیش‌نمایش (Ctrl+3)">پیش‌نمایش</button>
-    </div>
-
     <div class="tgroup" role="group" aria-label="جهت متن">
       <button type="button" class="seg" data-dir="auto" title="جهت خودکار بر اساس محتوا">خودکار</button>
-      <button type="button" class="seg" data-dir="ltr" title="چپ به راست">LTR</button>
+      <button type="button" class="seg" data-dir="ltr" title="چپ به راست" dir="ltr">LTR</button>
       <button type="button" class="seg" data-dir="rtl" title="راست به چپ">RTL</button>
     </div>
 
     <div class="tgroup" role="group" aria-label="اندازه متن">
-      <button type="button" id="btnFontDown" title="کوچک‌تر">A−</button>
-      <button type="button" id="btnFontUp" title="بزرگ‌تر">A+</button>
+      <button type="button" id="btnFontDown" title="کوچک‌تر" dir="ltr">A−</button>
+      <span class="tgroup-value" id="fontValue" dir="ltr">16</span>
+      <button type="button" id="btnFontUp" title="بزرگ‌تر" dir="ltr">A+</button>
     </div>
 
     <div class="tgroup">
@@ -60,8 +70,18 @@
 <div class="layout" id="layout" data-mode="split">
 
   <aside class="sidebar" id="sidebar" hidden>
-    <div class="sidebar-head">فهرست مطالب</div>
-    <nav class="toc" id="toc" aria-label="فهرست مطالب"></nav>
+    <div class="sidebar-head">
+      <span>فهرست مطالب</span>
+      <div class="toc-filter">
+        <input type="text" id="tocFilter" spellcheck="false" autocomplete="off"
+               placeholder="جستجو در فهرست…" aria-label="جستجو در فهرست مطالب">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+    </div>
+    <div class="toc-scroll">
+      <nav class="toc" id="toc" aria-label="فهرست مطالب"></nav>
+      <div class="toc-empty" id="tocEmpty" hidden>بدون نتیجه</div>
+    </div>
     <div class="sidebar-foot">
       <label for="baseUrl">آدرس پایه لینک‌های نسبی</label>
       <input type="text" id="baseUrl" dir="ltr" spellcheck="false"
@@ -106,15 +126,18 @@
 </div>
 
 <footer class="statusbar">
-  <span id="statusFile">آماده</span>
-  <span class="sep">·</span>
-  <span id="statusPos">سطر ۱، ستون ۱</span>
-  <span class="sep">·</span>
-  <span id="statusCount">۰ واژه · ۰ نویسه</span>
-  <span class="sep">·</span>
-  <span id="statusPerf"></span>
+  <span class="sb-fact"><span class="sb-label">وضعیت:</span> <b id="statusFile">آماده</b></span>
+  <span class="sb-div" aria-hidden="true"></span>
+  <span class="sb-fact"><span class="sb-label">موقعیت:</span> <span id="statusPos" class="sb-mono">سطر ۱، ستون ۱</span></span>
+  <span class="sb-div" aria-hidden="true"></span>
+  <span id="statusCount" class="sb-mono">۰ واژه · ۰ نویسه</span>
+  <span class="sb-div" aria-hidden="true"></span>
+  <span class="sb-fact"><span class="sb-label">رندر:</span> <span id="statusPerf" class="sb-mono"></span></span>
   <span class="spacer"></span>
-  <span id="statusLang" dir="ltr"></span>
+  <span class="sb-lang" dir="ltr">
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+    <span id="statusLang"></span>
+  </span>
 </footer>
 
 <input type="file" id="fileInput" hidden

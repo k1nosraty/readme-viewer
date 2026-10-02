@@ -45,6 +45,7 @@
     toc: [],
     lines: 0,
     curLine: -1,
+    tocFilter: '',
     wrap: false,
     sync: true,
     dirMode: 'auto',
@@ -530,6 +531,19 @@
     }
   }
 
+  function applyTocFilter() {
+    var q = (state.tocFilter || '').trim().toLowerCase();
+    var links = el.toc.querySelectorAll('a[data-i]');
+    var shown = 0;
+    for (var i = 0; i < links.length; i++) {
+      var hit = !q || links[i].textContent.toLowerCase().indexOf(q) !== -1;
+      links[i].hidden = !hit;
+      if (hit) shown++;
+    }
+    var empty = $('tocEmpty');
+    if (empty) empty.hidden = shown !== 0 || links.length === 0;
+  }
+
   function renderToc() {
     var html = '';
     for (var i = 0; i < state.toc.length; i++) {
@@ -538,6 +552,7 @@
         '" title="سطر ' + t.line + '">' + esc(t.text) + '</a>';
     }
     el.toc.innerHTML = html || '<a class="h1" data-empty="1">بدون عنوان</a>';
+    applyTocFilter();
   }
 
   function markActiveToc() {
@@ -792,6 +807,8 @@
 
   function applyFont() {
     el.root.style.setProperty('--rv-font', state.font);
+    var fv = $('fontValue');
+    if (fv) fv.textContent = state.font;
   }
 
   function applyWrap() {
@@ -1003,6 +1020,14 @@
       var t = state.toc[i];
       if (t) jumpToLine(t.line, t.id);
     });
+    var tf = $('tocFilter');
+    if (tf) {
+      tf.addEventListener('input', function () {
+        state.tocFilter = tf.value;
+        applyTocFilter();
+        markActiveToc();
+      });
+    }
   }
 
   function wireDragDrop() {

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "/": {
+      "targetKind": "existing-ui",
+      "projectId": "4a3d4541-7cce-4096-9502-307eda835414",
+      "baselineDraftId": "afde970c-87e2-456e-997e-92bd0bf33e70",
+      "activeDraftId": "afde970c-87e2-456e-997e-92bd0bf33e70",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [],
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "index.html",
+        "styles.css"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "ad1134f95d7aeb5c267e4e8d0d4609ff0427c1b3ef537e37f9bdcc86603d2186",
+        "index.html": "aec144b6e60f1e9c15c01b7009d586617b6e61229398f0761db685791d39b4a2",
+        "styles.css": "3af58bfed083f5c0b0615e1763c98c0946b4b028f8e291546227be104095678f"
+      },
+      "components": [
+        {
+          "name": "TopBar",
+          "id": "efba0b5d-d114-4b74-a616-686c66c9b1fe",
+          "sourcePath": "index.html:15"
+        },
+        {
+          "name": "TocSidebar",
+          "id": "54a702f5-0a66-4b80-9a43-2a22c640e499",
+          "sourcePath": "index.html:62"
+        },
+        {
+          "name": "StatusBar",
+          "id": "4d1104f0-cb88-45b2-87c2-226848e866d1",
+          "sourcePath": "index.html:108"
+        }
+      ],
+      "drafts": {
+        "afde970c-87e2-456e-997e-92bd0bf33e70": {
+          "title": "Current readme-viewer (reproduction)",
+          "visualDirection": "pixel-perfect reproduction of the existing GitHub-neutral UI",
+          "parentDraftId": null,
+          "currentVersion": 1
+        },
+        "7031b1fb-ad1c-42d8-8225-c3f6acf21cf3": {
+          "title": "README Viewer - Refined Hierarchy",
+          "visualDirection": "same GitHub-neutral tokens, higher hierarchy: airier 60px topbar, grouped toolbar clusters, icon-led view-mode segmented control, inset elevated pane headers, TOC filter field, labeled status facts",
+          "parentDraftId": "afde970c-87e2-456e-997e-92bd0bf33e70",
+          "currentVersion": 1
+        },
+        "ead90433-df20-4d5d-8e16-3aaaaad9be97": {
+          "title": "Warm Paper Edition — README Viewer",
+          "visualDirection": "warm paper editorial: warm off-white/near-black surfaces, single terracotta accent, 10-12px radii, editor as warm paper sheet, TOC as overlay drawer",
+          "parentDraftId": "afde970c-87e2-456e-997e-92bd0bf33e70",
+          "currentVersion": 1
+        }
+      },
+      "updatedAt": "2026-10-02T00:00:00.000Z"
+    }
+  }
+}

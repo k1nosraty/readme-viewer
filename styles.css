@@ -6,13 +6,14 @@
   --split: 50%;
   --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", "Cascadia Code", Consolas,
           "DejaVu Sans Mono", "Noto Sans Mono", "Liberation Mono", Menlo, monospace,
-          "Noto Sans Arabic", "Noto Naskh Arabic", Tahoma, "Segoe UI";
+          "Noto Sans Arabic", "Noto Sans Naskh Arabic", Tahoma, "Segoe UI";
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans",
-          "Vazirmatn", "IRANSans", Tahoma, "Noto Sans Arabic", "Noto Naskh Arabic", Arial, sans-serif;
+          "Vazirmatn", "IRANSans", Tahoma, "Noto Sans Arabic", "Noto Sans Naskh Arabic", Arial, sans-serif;
   --code-size: 85%;
   --radius: 6px;
-  --topbar-h: 52px;
+  --topbar-h: 60px;
   --status-h: 26px;
+  --raised: 0 1px 2px rgba(31, 35, 40, .07);
 }
 
 [data-theme="light"] {
@@ -41,6 +42,7 @@
   --accent-fg: #0d1117;
   --danger: #f85149;
   --shadow: 0 8px 28px rgba(1, 4, 9, .7);
+  --raised: 0 1px 2px rgba(1, 4, 9, .5);
 }
 
 html, body { height: 100%; }
@@ -65,9 +67,9 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
 .topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   height: var(--topbar-h);
-  padding-inline: 12px;
+  padding-inline: 16px;
   background: var(--bg-subtle);
   border-block-end: 1px solid var(--border);
   flex-wrap: nowrap;
@@ -88,7 +90,7 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
 }
 
 .brand-text {
-  max-width: 26ch;
+  max-width: 20ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -104,16 +106,18 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
 
 .toolbar { display: flex; align-items: center; gap: 8px; }
 
+/* each cluster is its own bordered pill instead of a hairline divider */
 .tgroup {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding-inline-end: 8px;
-  border-inline-end: 1px solid var(--border);
+  padding: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--raised);
   flex: none;
 }
-
-.tgroup:last-child { border-inline-end: 0; padding-inline-end: 0; }
 
 .tgroup button {
   background: transparent;
@@ -123,6 +127,7 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
   cursor: pointer;
   white-space: nowrap;
   line-height: 1.3;
+  color: var(--fg);
 }
 
 .tgroup button:hover { background: var(--bg-inset); border-color: var(--border); }
@@ -131,6 +136,28 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
   background: var(--accent);
   border-color: transparent;
   color: var(--accent-fg);
+}
+
+/* icon-led view-mode control: glyph above a 10px label */
+.seg-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 11px !important;
+}
+
+.seg-icon svg { flex: none; }
+
+.seg-icon span { font-size: 10px; font-weight: 500; line-height: 1.1; }
+
+.tgroup-value {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  min-inline-size: 2ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- layout ---------- */
@@ -154,12 +181,45 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
 }
 
 .sidebar-head {
-  padding: 10px 14px;
-  font-weight: 600;
+  padding: 12px 12px 8px;
   border-block-end: 1px solid var(--border);
 }
 
-.toc { overflow: auto; padding: 10px 8px; }
+.sidebar-head > span {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-block-end: 8px;
+}
+
+.toc-filter { position: relative; }
+
+.toc-filter input {
+  inline-size: 100%;
+  padding: 4px 28px 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.toc-filter input:focus-visible { outline-offset: -1px; }
+
+.toc-filter svg {
+  position: absolute;
+  inset-inline-end: 8px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.toc-scroll {
+  overflow: auto;
+  padding: 10px 8px;
+}
 
 .toc a {
   display: block;
@@ -176,6 +236,13 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
 .toc .h2 { padding-inline-start: 18px; }
 .toc .h3 { padding-inline-start: 30px; }
 .toc .h4, .toc .h5, .toc .h6 { padding-inline-start: 42px; font-size: .92em; color: var(--muted); }
+
+.toc-empty {
+  padding: 10px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
 
 .sidebar-foot {
   border-block-start: 1px solid var(--border);
@@ -219,17 +286,43 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 12px;
+  height: 34px;
+  padding-inline: 12px;
   font-size: 12px;
   color: var(--muted);
-  background: var(--bg);
+  background: var(--bg-subtle);
   border-block-end: 1px solid var(--border);
+  box-shadow: var(--raised);
+}
+
+.pane-head > span:first-child {
+  color: var(--fg);
+  font-weight: 500;
 }
 
 .pane-head-meta { font-family: var(--mono); font-size: 11px; }
 
-.resizer { cursor: col-resize; background: var(--border); }
+.resizer {
+  position: relative;
+  cursor: col-resize;
+  background: var(--bg-inset);
+}
+
+.resizer::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: 50%;
+  margin-inline-start: -1px;
+  margin-block-start: -4px;
+  inline-size: 2px;
+  block-size: 8px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
 .resizer:hover, .resizer:focus-visible { background: var(--accent); }
+.resizer:hover::after, .resizer:focus-visible::after { background: var(--accent-fg); }
 
 /* ---------- editor ---------- */
 
@@ -383,20 +476,43 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
 .statusbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   height: var(--status-h);
   padding-inline: 12px;
   background: var(--bg-subtle);
   border-block-start: 1px solid var(--border);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
 }
 
-.statusbar .sep { opacity: .5; }
 .statusbar .spacer { flex: 1; }
 .statusbar b { color: var(--fg); font-weight: 600; }
+
+.sb-fact { display: inline-flex; align-items: baseline; gap: 4px; }
+
+.sb-label { color: var(--muted); opacity: .75; }
+
+.sb-mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-div {
+  inline-size: 1px;
+  block-size: 12px;
+  background: var(--border);
+  flex: none;
+}
+
+.sb-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  color: var(--accent);
+}
 
 /* ---------- modal ---------- */
 
@@ -461,6 +577,7 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
   .panes { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: 1fr 7px 1fr; }
   .pane { grid-column: 1; }
   .resizer { cursor: row-resize; }
+  .resizer::after { inline-size: 8px; block-size: 2px; margin-inline-start: -4px; margin-block-start: -1px; }
   .sidebar { position: fixed; inset-block: var(--topbar-h) 0; inset-inline-end: 0; z-index: 20; box-shadow: var(--shadow); }
 }
 

@@ -1,0 +1,24 @@
+# Superdesign temporary artifacts (component templates, fetched draft HTML)
+.superdesign/tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs and local scratch
+*.log
+npm-debug.log*
+scratch/
+tmp/
+
+# NOTE: vendor/ is intentionally tracked — the app runs offline from file://
+#       and needs its libraries committed.
