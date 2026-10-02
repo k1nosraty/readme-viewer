@@ -1,6 +1,9 @@
 # Superdesign temporary artifacts (component templates, fetched draft HTML)
 .superdesign/tmp/
 
+# Test dependencies (the app itself has no build step)
+node_modules/
+
 # OS files
 .DS_Store
 Thumbs.db

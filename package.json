@@ -1,0 +1,14 @@
+{
+  "name": "readme-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A local, offline Markdown and README viewer with live preview and interactive task lists.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test",
+    "start": "python3 -m http.server 8080 --bind 0.0.0.0"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0"
+  }
+}

@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" data-theme="light">
+<html lang="en" dir="ltr" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>نمایشگر README — خوانایی هر زبان</title>
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="A local, offline Markdown and README viewer with live preview and interactive task lists.">
+<title>README Viewer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230969da' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M7 15.5V9l3 3 3-3v6.5'/%3E%3Cpath d='M17 9v4.5'/%3E%3Cpath d='m15.2 12.2 1.8 2 1.8-2'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="vendor/github-markdown-light.css" id="ghLight">
 <link rel="stylesheet" href="vendor/github-markdown-dark.css" id="ghDark">
 <link rel="stylesheet" href="vendor/hljs-github.min.css" id="hljsLight">
@@ -14,87 +17,111 @@
 
 <header class="topbar">
   <div class="brand">
-    <span class="brand-mark">md</span>
-    <span class="brand-text" id="fileName">README.md</span>
-    <span class="dirty-dot" id="dirtyDot" hidden title="تغییرات ذخیره نشده"></span>
+    <span class="brand-mark" id="brandMark"></span>
+    <span class="brand-text">
+      <span class="brand-name" id="fileName" title="">README Viewer</span>
+      <span class="brand-sub" id="fileState" data-state="empty"></span>
+    </span>
   </div>
 
-  <div class="toolbar" role="toolbar" aria-label="ابزارها">
-    <div class="tgroup tgroup-seg" role="group" aria-label="حالت نمایش">
-      <button type="button" class="seg seg-icon" data-mode-btn="write" title="فقط ویرایشگر (Ctrl+1)">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
-        <span>نوشتن</span>
+  <div class="toolbar" role="toolbar" aria-label="Tools" id="toolbar">
+    <div class="tgroup">
+      <button type="button" class="btn" id="btnOpen" data-i18n-title="action.open">
+        <i data-icon="open" data-size="16"></i><span class="btn-label" data-i18n="action.open">Open</span>
       </button>
-      <button type="button" class="seg seg-icon" data-mode-btn="split" title="دو ستون (Ctrl+2)">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></svg>
-        <span>دوتایی</span>
+      <button type="button" class="btn" id="btnSave" data-i18n-title="action.save" disabled>
+        <i data-icon="save" data-size="16"></i><span class="btn-label" data-i18n="action.save">Save</span>
       </button>
-      <button type="button" class="seg seg-icon" data-mode-btn="preview" title="فقط پیش‌نمایش (Ctrl+3)">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></svg>
-        <span>پیش‌نمایش</span>
+      <button type="button" class="btn btn-icon" id="btnSaveAs" data-i18n-title="action.saveAs" disabled>
+        <i data-icon="saveAs" data-size="16"></i>
+      </button>
+      <button type="button" class="btn btn-icon" id="btnReload" data-i18n-title="action.reload" disabled>
+        <i data-icon="reload" data-size="16"></i>
+      </button>
+    </div>
+
+    <div class="tgroup tgroup-seg" role="group" data-i18n-aria="mode.label">
+      <button type="button" class="seg" data-mode-btn="write" data-i18n-title="mode.source">
+        <i data-icon="code" data-size="16"></i><span class="seg-label" data-i18n="mode.source">Source</span>
+      </button>
+      <button type="button" class="seg" data-mode-btn="split" data-i18n-title="mode.split">
+        <i data-icon="columns" data-size="16"></i><span class="seg-label" data-i18n="mode.split">Split</span>
+      </button>
+      <button type="button" class="seg" data-mode-btn="preview" data-i18n-title="mode.preview">
+        <i data-icon="eye" data-size="16"></i><span class="seg-label" data-i18n="mode.preview">Preview</span>
       </button>
     </div>
 
     <div class="tgroup">
-      <button type="button" id="btnOpen" title="باز کردن فایل (Ctrl+O)">باز کردن</button>
-      <button type="button" id="btnSave" title="ذخیره (Ctrl+S)">ذخیره</button>
-      <button type="button" id="btnSaveAs" title="ذخیره با نام دیگر (Ctrl+Shift+S)">ذخیره به‌نام</button>
+      <button type="button" class="btn btn-accent" id="btnEdit" aria-pressed="false" data-i18n-title="toggle.edit">
+        <i data-icon="taskOn" data-size="16"></i><span class="btn-label" data-i18n="toggle.edit">Edit in preview</span>
+      </button>
     </div>
 
-    <div class="tgroup" role="group" aria-label="جهت متن">
-      <button type="button" class="seg" data-dir="auto" title="جهت خودکار بر اساس محتوا">خودکار</button>
-      <button type="button" class="seg" data-dir="ltr" title="چپ به راست" dir="ltr">LTR</button>
-      <button type="button" class="seg" data-dir="rtl" title="راست به چپ">RTL</button>
-    </div>
-
-    <div class="tgroup" role="group" aria-label="اندازه متن">
-      <button type="button" id="btnFontDown" title="کوچک‌تر" dir="ltr">A−</button>
-      <span class="tgroup-value" id="fontValue" dir="ltr">16</span>
-      <button type="button" id="btnFontUp" title="بزرگ‌تر" dir="ltr">A+</button>
-    </div>
-
-    <div class="tgroup">
-      <button type="button" id="btnTheme" title="روشن / تیره / خودکار">پوسته</button>
-      <button type="button" id="btnWrap" title="شکستن خطوط بلند">شکستن خط</button>
-      <button type="button" id="btnSync" title="اسکرول همگام ویرایشگر و پیش‌نمایش">همگام</button>
-      <button type="button" id="btnToc" title="نمایش فهرست مطالب" aria-pressed="true">فهرست</button>
-      <button type="button" id="btnExport" title="دریافت خروجی HTML مستقل">خروجی HTML</button>
+    <div class="tgroup tgroup-seg" role="group" data-i18n-aria="dir.label">
+      <button type="button" class="seg seg-icon" data-dir="auto" data-i18n-title="dir.auto.hint">
+        <i data-icon="globe" data-size="16"></i><span class="seg-label" data-i18n="dir.auto">Auto</span>
+      </button>
+      <button type="button" class="seg seg-icon" data-dir="ltr" data-i18n-title="dir.ltr">
+        <i data-icon="ltr" data-size="16"></i><span class="seg-label">LTR</span>
+      </button>
+      <button type="button" class="seg seg-icon" data-dir="rtl" data-i18n-title="dir.rtl">
+        <i data-icon="rtl" data-size="16"></i><span class="seg-label">RTL</span>
+      </button>
     </div>
 
     <div class="tgroup">
-      <button type="button" id="btnHelp" title="راهنما و میان‌برها">؟</button>
+      <button type="button" class="btn btn-icon" id="btnFontDown" data-i18n-title="font.decrease"><i data-icon="minus" data-size="16"></i></button>
+      <span class="tgroup-value" id="fontValue" title="Text size">16</span>
+      <button type="button" class="btn btn-icon" id="btnFontUp" data-i18n-title="font.increase"><i data-icon="plus" data-size="16"></i></button>
+    </div>
+
+    <div class="tgroup">
+      <button type="button" class="btn btn-icon" id="btnTheme" data-i18n-title="theme.label"><i data-icon="monitor" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnWrap" aria-pressed="false" data-i18n-title="toggle.wrap"><i data-icon="wrap" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnSync" aria-pressed="true" data-i18n-title="toggle.sync"><i data-icon="sync" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnToc" aria-pressed="true" data-i18n-title="toggle.toc"><i data-icon="toc" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnExport" data-i18n-title="action.export"><i data-icon="download" data-size="16"></i></button>
+    </div>
+
+    <div class="tgroup">
+      <button type="button" class="btn btn-icon" id="btnHelp" data-i18n-title="action.help"><i data-icon="help" data-size="16"></i></button>
     </div>
   </div>
 </header>
 
-<div class="layout" id="layout" data-mode="split">
+<div class="layout" id="layout" data-sidebar="on">
 
-  <aside class="sidebar" id="sidebar" hidden>
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">
-      <span>فهرست مطالب</span>
+      <span class="sidebar-title" data-i18n="toc.title">Contents</span>
       <div class="toc-filter">
-        <input type="text" id="tocFilter" spellcheck="false" autocomplete="off"
-               placeholder="جستجو در فهرست…" aria-label="جستجو در فهرست مطالب">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <i data-icon="search" data-size="14"></i>
+        <input type="search" id="tocFilter" spellcheck="false" autocomplete="off"
+               data-i18n-placeholder="toc.filter" data-i18n-aria="toc.filter" placeholder="Filter headings">
+        <button type="button" class="toc-clear" id="tocClear" hidden data-i18n-title="action.close">
+          <i data-icon="close" data-size="12"></i>
+        </button>
       </div>
     </div>
     <div class="toc-scroll">
-      <nav class="toc" id="toc" aria-label="فهرست مطالب"></nav>
-      <div class="toc-empty" id="tocEmpty" hidden>بدون نتیجه</div>
+      <nav class="toc" id="toc" aria-label="Table of contents"></nav>
+      <p class="toc-empty" id="tocEmpty" hidden>No matching headings</p>
     </div>
     <div class="sidebar-foot">
-      <label for="baseUrl">آدرس پایه لینک‌های نسبی</label>
+      <label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label>
       <input type="text" id="baseUrl" dir="ltr" spellcheck="false"
+             data-i18n-placeholder="baseUrl.placeholder"
              placeholder="https://github.com/user/repo/blob/main/">
     </div>
   </aside>
 
-  <main class="panes" id="panes">
+  <main class="panes" id="panes" data-mode="split">
 
     <section class="pane pane-editor" id="paneEditor">
       <div class="pane-head">
-        <span>ویرایشگر</span>
-        <span class="pane-head-meta" id="editorMeta"></span>
+        <span class="pane-title" data-i18n="pane.source">Markdown source</span>
+        <span class="pane-meta" id="editorMeta"></span>
       </div>
       <div class="editor-wrap" id="editorWrap">
         <div class="gutter" id="gutter" aria-hidden="true"><div class="gutter-inner" id="gutterInner"></div></div>
@@ -104,21 +131,40 @@
                   autocapitalize="off"
                   autocomplete="off"
                   autocorrect="off"
-                  aria-label="ویرایشگر متن README"></textarea>
-        <div class="drop-hint" id="dropHint">فایل README را اینجا رها کنید</div>
+                  data-i18n-aria="pane.editor"
+                  data-i18n-placeholder="editor.placeholder"
+                  aria-label="Markdown source"></textarea>
       </div>
     </section>
 
     <div class="resizer" id="resizer" role="separator" aria-orientation="vertical" tabindex="0"
-         title="برای تغییر عرض بکشید"></div>
+         data-i18n-title="resizer.hint" aria-label="Resize panes"></div>
 
     <section class="pane pane-preview" id="panePreview">
       <div class="pane-head">
-        <span>پیش‌نمایش</span>
-        <span class="pane-head-meta" id="previewMeta"></span>
+        <span class="pane-title" data-i18n="pane.preview">Preview</span>
+        <span class="pane-meta" id="previewMeta"></span>
+        <span class="edit-badge" id="editBadge" data-kind="off" hidden>
+          <i data-icon="taskOn" data-size="13"></i><span data-i18n="edit.badge">Editing</span>
+        </span>
       </div>
       <div class="preview" id="previewScroll" tabindex="0">
         <article class="markdown-body" id="preview" dir="auto"></article>
+
+        <div class="empty-state" id="emptyState">
+          <span class="empty-icon"><i data-icon="file" data-size="34"></i></span>
+          <h2 data-i18n="empty.title">No document open</h2>
+          <p data-i18n="empty.body">Open a Markdown file, or drop one anywhere in this window.</p>
+          <div class="empty-actions">
+            <button type="button" class="btn btn-primary" id="btnEmptyOpen">
+              <i data-icon="open" data-size="16"></i><span data-i18n="action.openFile">Open file…</span>
+            </button>
+            <button type="button" class="btn" id="btnEmptySample">
+              <i data-icon="file" data-size="16"></i><span data-i18n="empty.sample">Load sample document</span>
+            </button>
+          </div>
+          <p class="empty-hint"><i data-icon="info" data-size="13"></i><span data-i18n="empty.hint">Everything is processed locally in your browser. Nothing is uploaded.</span></p>
+        </div>
       </div>
     </section>
 
@@ -126,44 +172,78 @@
 </div>
 
 <footer class="statusbar">
-  <span class="sb-fact"><span class="sb-label">وضعیت:</span> <b id="statusFile">آماده</b></span>
-  <span class="sb-div" aria-hidden="true"></span>
-  <span class="sb-fact"><span class="sb-label">موقعیت:</span> <span id="statusPos" class="sb-mono">سطر ۱، ستون ۱</span></span>
-  <span class="sb-div" aria-hidden="true"></span>
-  <span id="statusCount" class="sb-mono">۰ واژه · ۰ نویسه</span>
-  <span class="sb-div" aria-hidden="true"></span>
-  <span class="sb-fact"><span class="sb-label">رندر:</span> <span id="statusPerf" class="sb-mono"></span></span>
+  <span class="sb-item" id="statusFile">Ready</span>
+  <span class="sb-sep" aria-hidden="true"></span>
+  <span class="sb-item sb-mono" id="statusPos">Ln 1, Col 1</span>
+  <span class="sb-sep" aria-hidden="true"></span>
+  <span class="sb-item sb-mono" id="statusCount">0 words · 0 characters</span>
+  <span class="sb-sep" aria-hidden="true"></span>
+  <span class="sb-item sb-mono" id="statusTasks"></span>
   <span class="spacer"></span>
-  <span class="sb-lang" dir="ltr">
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-    <span id="statusLang"></span>
-  </span>
+  <span class="sb-item sb-mono" id="statusEncoding"></span>
+  <span class="sb-sep" aria-hidden="true"></span>
+  <span class="sb-item sb-lang"><i data-icon="globe" data-size="12"></i><span id="statusLang">en</span></span>
+  <span class="sb-sep" aria-hidden="true"></span>
+  <span class="sb-item sb-mono" id="statusPerf"></span>
 </footer>
 
 <input type="file" id="fileInput" hidden
-       accept=".md,.markdown,.mdown,.mkd,.txt,text/markdown,text/plain">
+       accept=".md,.markdown,.mdown,.mkd,.mdwn,.txt,text/markdown,text/plain">
 
 <div class="modal" id="helpModal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
-    <h2 id="helpTitle">راهنما</h2>
-    <ul class="help-list">
-      <li><b>Ctrl+O</b> باز کردن فایل · <b>Ctrl+S</b> ذخیره · <b>Ctrl+Shift+S</b> ذخیره به‌نام</li>
-      <li><b>Tab</b> فاصله‌گذاری (فقط خارج از حالت ترکیب کاراکتر)</li>
-      <li><b>کشیدن و رها کردن</b> فایل README روی پنجره، یا پوشه برای تصاویر نسبی</li>
-      <li>برای هر زبان و کیبوردی کار می‌کند: از کیبورد خود مرورگر استفاده می‌شود و ترکیب نویسه‌ها دست‌نخورده می‌ماند.</li>
-      <li><b>جهت خودکار</b>: جهت هر پاراگراف جداگانه از روی اولین حرف قوی تشخیص داده می‌شود، پس متن فارسی/عربی/چینی در میان متن انگلیسی درست نمایش داده می‌شود.</li>
-      <li><b>اسکرول همگام</b>: جابه‌جایی در ویرایشگر، پیش‌نمایش را دنبال می‌کند و برعکس.</li>
-      <li>فایل‌ها به‌صورت محلی پردازش می‌شوند؛ هیچ داده‌ای به اینترنت ارسال نمی‌شود.</li>
-    </ul>
-    <button type="button" id="btnHelpClose">بستن</button>
+    <div class="modal-head">
+      <h2 id="helpTitle" data-i18n="help.title">Help and shortcuts</h2>
+      <button type="button" class="btn btn-icon" id="btnHelpClose" data-i18n-title="action.close"><i data-icon="close" data-size="16"></i></button>
+    </div>
+    <ul class="help-list" id="helpList"></ul>
+    <div class="modal-foot">
+      <label class="lang-picker" for="localeSelect">
+        <i data-icon="globe" data-size="14"></i>
+        <span data-i18n="help.language">Interface language</span>
+      </label>
+      <select id="localeSelect"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-primary" id="btnHelpDone" data-i18n="help.close">Close</button>
+    </div>
   </div>
 </div>
 
-<div class="toast" id="toast" hidden aria-live="polite"></div>
+<div class="modal" id="confirmModal" hidden>
+  <div class="modal-box modal-box-sm" role="alertdialog" aria-modal="true"
+       aria-labelledby="confirmTitle" aria-describedby="confirmBody">
+    <div class="modal-head">
+      <span class="modal-icon" id="confirmIcon"></span>
+      <h2 id="confirmTitle">Unsaved changes</h2>
+    </div>
+    <p class="modal-body" id="confirmBody"></p>
+    <div class="modal-foot">
+      <button type="button" class="btn" id="btnConfirmCancel" data-i18n="action.cancel">Cancel</button>
+      <button type="button" class="btn btn-danger" id="btnConfirmDiscard" data-i18n="action.discard">Discard</button>
+      <button type="button" class="btn btn-primary" id="btnConfirmSave" data-i18n="action.save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="drop-hint" id="dropHint">
+  <i data-icon="upload" data-size="24"></i>
+  <span data-i18n="drop.hint">Drop a Markdown file to open it</span>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
 <script src="vendor/marked.umd.js"></script>
 <script src="vendor/purify.min.js"></script>
 <script src="vendor/highlight.min.js"></script>
+<script src="src/util.js"></script>
+<script src="src/i18n.js"></script>
+<script src="src/icons.js"></script>
+<script src="src/direction.js"></script>
+<script src="src/encoding.js"></script>
+<script src="src/tasks.js"></script>
+<script src="src/markdown.js"></script>
+<script src="src/highlight.js"></script>
+<script src="src/export.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
