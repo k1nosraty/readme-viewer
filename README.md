@@ -5,16 +5,17 @@ scrolling, and **interactive task lists**: with *Edit in preview* turned on, you
 in the rendered document and the Markdown source is updated — one `[ ]` → `[x]` at a time, with
 every other byte of the file left exactly as it was.
 
-Version 1.1.0 adds a Tauri 2 native application for Windows and Linux, plus an Android Preview.
+Version 1.1.1 adds a Tauri 2 native application for Windows and Linux, plus an Android Preview.
 Open and Save use native file dialogs and direct file access in the app window. The portable
 browser application remains supported and needs no build step. Remote document images and
 external links can still use the network.
 
-## Native application (1.1.0)
+## Native application (1.1.1)
 
-Native 1.1.0 installers and the Android Preview have passed automated platform checks and are
-available in [GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/tag/v1.1.0).
-Existing 1.0.2 browser and Java Android downloads remain available.
+Native 1.1.1 keeps the same Tauri application and adds a smaller Android Preview APK without
+Rust debug symbols. The release workflow runs all platform checks before publishing the installers
+and APK in [GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/tag/v1.1.1).
+Existing 1.1.0 and 1.0.2 downloads remain available.
 
 | Platform | Native package and requirements |
 | --- | --- |
@@ -22,7 +23,7 @@ Existing 1.0.2 browser and Java Android downloads remain available.
 | Linux | `.deb` for Ubuntu/Debian with WebKitGTK 4.1, or `.AppImage` for compatible Linux systems. Both open an application window. |
 | Android | Universal Tauri Preview debug APK; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
 
-Install from the 1.1.0 release: run the per-user installer on Windows; install the .deb with your
+Install from the 1.1.1 release: run the per-user installer on Windows; install the .deb with your
 software manager or make the .AppImage executable and open it on Linux; on Android, install the
 universal APK and allow your downloader to install apps when prompted. Each asset has a SHA-256
 checksum beside it.

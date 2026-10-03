@@ -1,6 +1,6 @@
 {
   "name": "readme-viewer",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "A local, offline Markdown and README viewer with live preview and interactive task lists.",
   "license": "MIT",
