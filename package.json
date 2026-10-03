@@ -11,6 +11,7 @@
     "native:prepare": "node scripts/prepare-tauri-assets.js",
     "native:dev": "tauri dev",
     "native:build": "tauri build",
+    "tauri": "tauri",
     "android:init": "tauri android init",
     "android:build": "tauri android build",
     "android:configure": "node scripts/configure-native-android.js"
