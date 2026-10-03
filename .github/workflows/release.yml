@@ -1,7 +1,5 @@
-name: Test and release
+name: Legacy browser packages (manual)
 on:
-  push:
-    branches: ["main", "develop"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -125,25 +123,3 @@ jobs:
         with:
           name: android-preview
           path: dist/*
-  release:
-    if: github.ref == 'refs/heads/main'
-    needs: [test, windows, linux, android]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      - name: Publish first release after all checks pass
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          version=$(node -p "require('./package.json').version")
-          if gh release view "v$version" >/dev/null 2>&1; then
-            echo "v$version already exists; leaving published assets unchanged."
-            exit 0
-          fi
-          gh release create "v$version" dist/* --target "$GITHUB_SHA" --title "README Viewer v$version" --notes-file RELEASE-NOTES.md

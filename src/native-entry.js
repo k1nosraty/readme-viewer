@@ -21,9 +21,9 @@ function directory(path) {
   if (/^content:/i.test(path)) return null;
   return path.replace(/\\/g, '/').replace(/\/[^/]*$/, '/');
 }
-async function handle(path, name, authorize = true) {
+async function handle(path, name, authorize = true, writable = true) {
   if (authorize && !/^content:/i.test(path)) await invoke('authorize_document_directory', { path });
-  const file = { kind: 'file', path, name: name || fileName(path), baseUrl: directory(path) };
+  const file = { kind: 'file', path, name: name || fileName(path), baseUrl: directory(path), writable };
   file.getFile = async () => {
     const bytes = await readFile(path);
     return { name: file.name, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
@@ -52,7 +52,7 @@ const Native = {
   available,
   async pickOpen() {
     const path = await open({ multiple: false, directory: false, filters });
-    return path ? handle(path) : null;
+    return path ? handle(path, undefined, true, !/^content:/i.test(path)) : null;
   },
   async pickSave(name, mime) {
     const saveFilters = mime && /^text\/html(?:;|$)/i.test(mime)
@@ -61,7 +61,7 @@ const Native = {
     return path ? handle(path, /^content:/i.test(path) ? name : undefined, false) : null;
   },
   async openPath(path) {
-    if (/^content:/i.test(path)) return handle(path);
+    if (/^content:/i.test(path)) return handle(path, undefined, true, false);
     return handle(await invoke('resolve_document_path', { path }));
   },
   async download(payload, name, mime) {

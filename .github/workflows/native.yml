@@ -1,12 +1,12 @@
-name: Native application preview
+name: Native test and release
 on:
   push:
-    branches: [feature/tauri-native-app]
+    branches: [feature/tauri-native-app, main, develop]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: native-preview-${{ github.ref }}
+  group: native-release-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   test:
@@ -114,11 +114,8 @@ jobs:
       - run: npm ci
       - name: Initialize Tauri Android project
         run: npm run android:init -- --ci
-      - name: Install generated application's compile SDK
-        run: |
-          compile_sdk=$(sed -n 's/^[[:space:]]*compileSdk = \([0-9][0-9]*\).*/\1/p' src-tauri/gen/android/app/build.gradle.kts | head -n 1)
-          test -n "$compile_sdk"
-          sdkmanager "platforms;android-$compile_sdk"
+      - name: Use stable Android SDK 36 for the debug preview
+        run: node scripts/configure-native-android.js
       - name: Build native debug signed preview APK
         run: npm run android:build -- --ci --debug --apk --target aarch64 x86_64
       - name: Enable emulator acceleration
@@ -138,12 +135,63 @@ jobs:
           name: native-android-debug-preview
           if-no-files-found: error
           path: |
-            dist/*Android-Debug-Preview.apk*
+            dist/*Android-*-Debug-Preview.apk*
             native-test-results/*
-  # Artifacts become available only after all platform checks pass. Publishing
-  # remains deliberately absent from this feature-branch preview workflow.
   verified:
     needs: [linux, windows, android]
     runs-on: ubuntu-24.04
     steps:
       - run: echo 'All native preview platform checks passed.'
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: verified
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native-artifacts
+      - name: Select verified native release assets
+        run: |
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          import shutil
+          source = Path('native-artifacts')
+          dest = Path('dist')
+          dest.mkdir(exist_ok=True)
+          counts = dict(deb=0, appimage=0, windows=0, android=0)
+          for asset in source.rglob('*'):
+              if not asset.is_file():
+                  continue
+              name = asset.name
+              kind = ('deb' if name.endswith('.deb') else
+                      'appimage' if name.endswith('.AppImage') else
+                      'windows' if name.endswith('setup.exe') else
+                      'android' if name.startswith('README-Viewer-') and '-Android-' in name and name.endswith('-Debug-Preview.apk') else None)
+              if kind is None:
+                  continue
+              checksum = asset.with_name(name + '.sha256')
+              if not checksum.is_file():
+                  raise SystemExit(f'Missing checksum: {name}')
+              if (dest / name).exists():
+                  raise SystemExit(f'Duplicate release asset: {name}')
+              shutil.copy2(asset, dest / name)
+              shutil.copy2(checksum, dest / checksum.name)
+              counts[kind] += 1
+          if not all(counts.values()):
+              raise SystemExit(f'Missing native platform assets: {counts}')
+          PYTHON
+          (cd dist && sha256sum --check --strict *.sha256)
+      - name: Publish native release after every check passes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "v$version already exists; leaving published assets unchanged."
+            exit 0
+          fi
+          gh release create "v$version" dist/* --target "$GITHUB_SHA" --title "README Viewer v$version" --notes-file RELEASE-NOTES.md

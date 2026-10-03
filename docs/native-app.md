@@ -8,7 +8,9 @@ access.
 ## Use and limitations
 
 Open a Markdown file with **Open**, make changes, then **Save**. **Save as** chooses another
-location. Desktop packages declare `.md`, `.markdown`, `.mdown` and `.mkd` associations; your
+location. On desktop, Save writes back to the opened file. On Android, the file returned by
+Open has read-only access: your first Save asks for a destination and writes a copy, leaving the
+source file unchanged. Later saves update that chosen copy. Desktop packages declare `.md`, `.markdown`, `.mdown` and `.mkd` associations; your
 system may require choosing README Viewer with **Open with**. Drop a document onto the desktop
 window to open it. Save changes before replacing a document or closing the app.
 
@@ -45,7 +47,7 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev
 
 For Android, install Android Studio, its SDK platform, platform-tools, build-tools, command-line
 tools and side-by-side NDK. Set `JAVA_HOME`, `ANDROID_HOME` and `NDK_HOME` to your installed
-locations. The preview workflow uses JDK 17, Android SDK 35, build-tools 35.0.0 and NDK
+locations. The preview workflow uses JDK 17, Android SDK 36, build-tools 35.0.0 and NDK
 27.2.12479018. Add Rust targets:
 
 ```bash
@@ -77,8 +79,13 @@ For the Android debug Preview:
 
 ```bash
 npm run android:init -- --ci
+npm run android:configure
 npm run android:build -- --ci --debug --apk --target aarch64 x86_64
 ```
+
+`android:configure` normalizes the generated project's compile and target SDK to stable Android
+SDK 36. Run it after initialization, because the current CLI generates SDK 37 settings. These
+commands build the debug Preview APK; they are not a production Play Store release setup.
 
 Generated Android outputs are under `src-tauri/gen/android/app/build/outputs/`. The old Java
 project under `android/` is retained for historical 1.0.2 builds.

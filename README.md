@@ -23,7 +23,9 @@ for published downloads and their version. Existing 1.0.2 releases remain availa
 | Android | Tauri Preview debug APK; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
 
 No Node.js or Python is needed to use native packages. Click **Open**, choose your Markdown,
-turn on **Edit in preview** to change task checkboxes, then click **Save**. Desktop packages
+turn on **Edit in preview** to change task checkboxes, then click **Save**. Desktop Save writes
+back to the opened file. Android's first Save asks where to write a copy; the source stays
+unchanged, and later saves update your chosen copy. Desktop packages
 register Markdown file associations; choose README Viewer in your system's **Open with** menu
 if needed. You can also drop a file onto the desktop app.
 

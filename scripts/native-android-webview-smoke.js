@@ -31,6 +31,12 @@ const { chromium } = require('playwright');
     await page.waitForFunction(() => document.querySelector('#editor').value.includes('[x] پشتیبانی از ورودی چینی و ژاپنی'));
     assert.equal(await persian.isChecked(), true);
     assert.equal(await page.evaluate(() => RVApp.state.dirty), true);
+    execFileSync('adb',['shell','input','keyevent','4']);
+    await page.locator('#confirmModal').waitFor({ state:'visible' });
+    await page.locator('#btnConfirmCancel').click();
+    await page.locator('#confirmModal').waitFor({ state:'hidden' });
+    assert.equal(await page.evaluate(() => RVApp.state.dirty), true, 'Cancelling Android Back lost dirty state');
+    assert.match(await page.locator('#editor').inputValue(), /\[x\] پشتیبانی از ورودی چینی و ژاپنی/);
     await page.evaluate(() => RVApp.setMode('preview'));
     async function checkGeometry() {
       const geometry = await page.evaluate(() => {
@@ -51,7 +57,7 @@ const { chromium } = require('playwright');
     assert.match(await page.locator('#editor').inputValue(), /\[x\] پشتیبانی از ورودی چینی و ژاپنی/);
     assert.equal(await page.locator('.toast[data-kind="error"]').count(), 0);
     assert.deepEqual(errors, []);
-    await fs.writeFile('native-test-results/android-webview.json', JSON.stringify({native:true,ready:true,persianCheckbox:true,dirty:true,fullWidthPreview:true,rotationPreservedEdit:true}));
+    await fs.writeFile('native-test-results/android-webview.json', JSON.stringify({native:true,ready:true,persianCheckbox:true,dirty:true,fullWidthPreview:true,rotationPreservedEdit:true,androidBackConfirmCancel:true}));
   } finally {
     execFileSync('adb',['shell','settings','put','system','user_rotation','0']);
     execFileSync('adb',['shell','settings','put','system','accelerometer_rotation','1']);

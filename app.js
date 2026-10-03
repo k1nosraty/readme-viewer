@@ -487,7 +487,9 @@
       });
     };
 
-    if (!forceNew && state.handle) return writeTo(state.handle);
+    if (!forceNew && state.handle && !(nativeAvailable() && state.handle.writable === false)) {
+      return writeTo(state.handle);
+    }
 
     if (nativeAvailable()) {
       return RV.Native.pickSave(name || 'README.md').then(function (h) {

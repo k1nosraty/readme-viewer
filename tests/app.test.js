@@ -1010,3 +1010,38 @@ test('native asynchronous opening never replaces source edited during the read',
     assert.equal(RVApp.state.dirty, true);
   } finally { win.RV.Native = previous; }
 });
+
+test('native read-only provider documents choose a save destination and then reuse it', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const previous = win.RV.Native;
+  let picks = 0;
+  let writes = 0;
+  let cancel = true;
+  const original = { name: 'opened.md', path: 'content://provider/opened', writable: false,
+    createWritable: async () => { throw new Error('Read-only provider must not be written'); } };
+  const destination = { name: 'saved.md', path: 'content://provider/saved', writable: true,
+    createWritable: async () => ({ write: async () => { writes++; }, close: async () => {} }) };
+  win.RV.Native = { available: () => true, pickSave: async () => { picks++; return cancel ? null : destination; } };
+  try {
+    RVApp.setDoc('saved source', original.name, original);
+    RVApp.el.editor.value = 'edited source';
+    RVApp.el.editor.dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert.equal(await RVApp.save(false), false);
+    assert.equal(RVApp.state.dirty, true);
+    assert.equal(editorValue(), 'edited source');
+    assert.equal(RVApp.state.name, original.name);
+    assert.equal(RVApp.state.handle, original);
+    assert.equal(writes, 0);
+    cancel = false;
+    assert.equal(await RVApp.save(false), true);
+    assert.equal(RVApp.state.handle, destination);
+    assert.equal(RVApp.state.name, destination.name);
+    assert.equal(RVApp.state.dirty, false);
+    RVApp.el.editor.value = 'second edit';
+    RVApp.el.editor.dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert.equal(await RVApp.save(false), true);
+    assert.equal(picks, 2, 'subsequent Save reuses the writable destination');
+    assert.equal(writes, 2);
+    assert.equal(RVApp.state.saved, 'second edit');
+  } finally { win.RV.Native = previous; }
+});

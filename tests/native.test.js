@@ -145,3 +145,13 @@ test('Android Back waits for close/save decision and serializes repeated presses
   await back();
   assert.equal(exited, 1);
 });
+test('Android opened provider documents are read-only while Save As destinations are writable', async () => {
+  const path = 'content://provider/document/123';
+  const { native } = adapter({ open: async () => path, save: async () => path });
+  assert.equal((await native.pickOpen()).writable, false);
+  assert.equal((await native.openPath(path)).writable, false);
+  const saved = await native.pickSave('notes.md');
+  assert.equal(saved.writable, true);
+  assert.equal(saved.name, 'notes.md');
+  assert.equal((await adapter().native.pickOpen()).writable, true);
+});

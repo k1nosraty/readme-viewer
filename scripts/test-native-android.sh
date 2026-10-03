@@ -6,13 +6,14 @@ apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' ! -na
 test -n "$apk"
 # Select a universal or x86_64 APK, never an arm-only split for this emulator.
 for candidate in $(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' ! -name '*androidTest*'); do
-  if unzip -l "$candidate" | grep -q 'lib/x86_64/'; then apk="$candidate"; break; fi
+  if unzip -l "$candidate" | grep 'lib/x86_64/' > /dev/null; then apk="$candidate"; break; fi
 done
-unzip -l "$apk" | grep -q 'lib/x86_64/'
+unzip -l "$apk" | grep 'lib/x86_64/' > /dev/null
 build_tools="$ANDROID_HOME/build-tools/35.0.0"
 "$build_tools/apksigner" verify --verbose --print-certs "$apk" > native-test-results/android-signature.txt
 package=$("$build_tools/aapt" dump badging "$apk" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
 test -n "$package"
+package_metadata=$("$build_tools/aapt" dump badging "$apk" | sed -n '/^package: /p')
 # New Tauri-generated output is the only accepted APK source.
 unzip -l "$apk" | tee native-test-results/android-apk-files.txt | grep -E 'lib/(x86_64|arm64-v8a)/lib[^/]+\.so'
 adb install -r "$apk"
@@ -43,7 +44,29 @@ adb exec-out screencap -p > native-test-results/android-native.png
 adb logcat -d > native-test-results/android-logcat.txt
 if grep -E 'FATAL EXCEPTION|Fatal signal' native-test-results/android-logcat.txt; then exit 1; fi
 version=$(node -p "require('./package.json').version")
-output="README-Viewer-$version-Android-Debug-Preview.apk"
-cp "$apk" "dist/$output"
-(cd dist && sha256sum "$output" > "$output.sha256")
-echo 'Native Android debug preview signature, launch, UI surface, screenshot and uninstall smoke passed.'
+# Prefer a single universal APK. If Gradle emits ABI splits, label them so an
+# emulator-only X86_64 build can never be mistaken for a phone ARM64 preview.
+package_apk() {
+  local source="$1" architecture="$2"
+  local output="README-Viewer-$version-Android-$architecture-Debug-Preview.apk"
+  "$build_tools/apksigner" verify "$source"
+  local metadata
+  metadata=$("$build_tools/aapt" dump badging "$source" | sed -n '/^package: /p')
+  # Every distributed ABI must identify the exact same app/version as the APK
+  # exercised by the emulator, rather than an unrelated stale build output.
+  test "$metadata" = "$package_metadata"
+  cp "$source" "dist/$output"
+  (cd dist && sha256sum "$output" > "$output.sha256")
+}
+if unzip -l "$apk" | grep 'lib/arm64-v8a/' > /dev/null; then
+  package_apk "$apk" Universal
+else
+  package_apk "$apk" X86_64
+  arm_apk=""
+  while IFS= read -r candidate; do
+    if unzip -l "$candidate" | grep 'lib/arm64-v8a/' > /dev/null; then arm_apk="$candidate"; break; fi
+  done < <(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' ! -name '*androidTest*')
+  test -n "$arm_apk"
+  package_apk "$arm_apk" ARM64
+fi
+echo 'Native Android debug preview signature, launch, WebView editing, screenshot and uninstall smoke passed.'

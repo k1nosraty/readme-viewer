@@ -2,7 +2,9 @@
 
 The Tauri 2 application opens Markdown in its own window on Windows and Linux. Open, Save,
 Save as, reload and HTML export use native file access. Android moves to a Tauri Preview debug
-APK using the system document picker. The portable browser application remains supported.
+APK using the system document picker. On Android, the first Save of an opened document asks for
+a destination and writes a copy without overwriting the source; later saves update the chosen
+copy. Desktop Save writes back to the opened file. The portable browser application remains supported.
 
 - Windows: per-user NSIS `.exe`; Windows 10/11 with current WebView2. Unsigned installer;
   first installation needs internet if the WebView2 bootstrapper must install the runtime.
