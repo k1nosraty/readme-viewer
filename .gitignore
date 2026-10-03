@@ -28,3 +28,9 @@ tmp/
 
 # Release build output
 dist/
+
+# Android generated files
+android/.gradle/
+android/**/build/
+android/app/src/main/assets/
+android/local.properties

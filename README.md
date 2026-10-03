@@ -36,6 +36,29 @@ Or serve the folder and browse to it:
 python3 -m http.server 8080 --bind 0.0.0.0    # then open http://localhost:8080
 ```
 
+## Install on Linux
+
+Download the `.deb` from Releases on Ubuntu/Debian/Mint and install it:
+
+```bash
+sudo apt install ./README-Viewer-1.0.2-Linux-all.deb
+```
+
+Then open **README Viewer** from your applications menu. Other desktop Linux distributions can
+extract the Linux portable `.tar.gz` and run `./Launch-README-Viewer.sh`. A web browser and
+`xdg-open` (or `sensible-browser`) are required; no Node.js/Python/server is needed to use it.
+
+## Install on Android
+
+Download **Android-Preview.apk** from Releases and allow installation from your downloader when
+Android asks. Requires Android 8.0 or newer. Open and Save use the system document picker; HTML
+export also writes through that picker. The APK is offline and blocks remote images.
+
+This first Android build is **Preview**, development-signed, and not a Play Store release.
+Future builds may require uninstall/reinstall until permanent release signing is configured.
+Save documents outside the app before uninstalling; unsaved drafts do not survive process
+termination. See [Android build and limitations](android/README.md).
+
 ## Features
 
 - **GitHub-accurate rendering** — headings, tables, task lists, fenced code with syntax
@@ -134,7 +157,7 @@ npm ci          # installs the locked test dependencies (including jsdom)
 npm test
 ```
 
-82 tests, no build step:
+83 tests, no build step:
 
 - `tests/tasks.test.js` — the interactive task-list contract: ordering, duplicates, nesting,
   Persian text, block quotes, ordered lists, code blocks, byte-level preservation, stale maps.

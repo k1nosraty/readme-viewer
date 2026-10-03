@@ -1,19 +1,29 @@
-README Viewer v1.0.1 fixes Preview mode filling only a tiny part of the window.
+README Viewer v1.0.2 adds Linux packages and the first Android Preview APK.
 
-Preview now fills the available width and height, including on narrow screens. Source and Split remain available. Real-browser layout checks cover four viewport sizes.
+## Downloads
 
-## Windows installation
+- **Linux-all.deb**: install on Ubuntu, Debian, Mint and other Debian-based distributions. Launch README Viewer from the applications menu.
+- **Linux-Portable.tar.gz**: extract and run `./Launch-README-Viewer.sh` on other desktop Linux distributions. Requires a browser and `xdg-open` (or `sensible-browser`).
+- **Android-Preview.apk**: install on Android 8.0 or newer. Allow installation from the app you use to download/open the APK when Android asks.
+- **Windows-Setup.exe**: per-user Windows installer; no Node.js or Python required.
+- **Portable.zip**: extract and open `index.html`, or use the Windows launcher.
 
-Download **README-Viewer-1.0.1-Windows-Setup.exe**, run it, and follow the installer. No administrator account, Node.js, Python, or server is required. Start README Viewer from the Start menu; an optional desktop shortcut is available.
+## Linux installation
 
-## Portable edition
+```bash
+sudo apt install ./README-Viewer-1.0.2-Linux-all.deb
+```
 
-Download **README-Viewer-1.0.1-Portable.zip**, extract the entire ZIP, then double-click **Launch-README-Viewer.bat** on Windows. On macOS or Linux, open **index.html** in your browser.
+The desktop Linux version opens in your default browser. No server or build step is required.
 
-## Use
+## Android use and Preview limits
 
-Click **Open** or drop a Markdown file onto the window. Enable **Edit in preview** to toggle task checkboxes, then click **Save**. Chrome or Edge are recommended for file access; when saving in place is unavailable, Save downloads the edited file. English is the default interface; Persian is available under Help.
+The APK contains the viewer and its dependencies and works offline. Open uses Android's document picker. Save and HTML export ask you where to write the file and wait for the write to finish. No broad storage permission is requested. Save creates a copy through the system picker; reload/in-place file handles are browser-only features. Remote images are blocked inside the offline Android app; external links can open in your browser.
 
-## Validation and limits
+**Android is a Preview build**, signed with a development key and distributed directly as an APK, not through Play Store. A future Preview build may require uninstalling this build first because the signing key is not yet a permanent release key. Save your documents outside the app before uninstalling. This build does not include crash recovery for drafts if Android kills the process; save changes before switching away.
 
-Automated tests cover rendering, Persian text, task editing, file-save races, multiple-file drops, HTML export, and editor selection. Publication is gated on tests and a Windows installation/uninstallation smoke test. Browser-specific manual checks remain useful; this release does not claim that all possible bugs have been eliminated. The Windows installer is unsigned and Windows may display a publisher warning. Documents can reference remote images and links; those resources require network access.
+## Validation
+
+Publication requires the JavaScript tests, real Chromium smoke checks, Windows install/uninstall checks, Linux package install/remove checks, Android APK signature verification, and an Android emulator smoke test. Native file-picker behavior still needs hands-on testing on physical devices and different document providers.
+
+The Windows installer is unsigned. All downloadable packages include SHA-256 checksums.

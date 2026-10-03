@@ -62,8 +62,66 @@ jobs:
         with:
           name: windows-installer
           path: dist/*
+  linux:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/package-linux.py
+      - name: Test package installation and removal
+        run: |
+          sudo dpkg -i dist/*.deb
+          test -x /usr/bin/readme-viewer
+          test -f /opt/readme-viewer/index.html
+          test -f /usr/share/applications/readme-viewer.desktop
+          sudo dpkg -r readme-viewer
+          test ! -e /usr/bin/readme-viewer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/*
+  android:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+      - name: Build Android preview
+        run: |
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          gradle -p android :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: gradle -p android :app:connectedDebugAndroidTest
+      - name: Package Android preview and checksum
+        run: |
+          mkdir -p dist
+          version=$(node -p "require('./package.json').version")
+          apk="README-Viewer-$version-Android-Preview.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "dist/$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "dist/$apk"
+          (cd dist && sha256sum "$apk" > "$apk.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-preview
+          path: dist/*
   release:
-    needs: [test, windows]
+    needs: [test, windows, linux, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write

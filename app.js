@@ -372,6 +372,7 @@
   /* -------------------------------------------------------------------- save */
 
   function download(text, name, mime) {
+    if (RV.Android && RV.Android.available()) return RV.Android.download(text, name, mime);
     var blob = new Blob([text], { type: mime });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -382,6 +383,7 @@
     a.click();
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    return Promise.resolve(true);
   }
 
   /**
@@ -415,6 +417,15 @@
       return true;
     };
 
+    function fallback() {
+      return download(payload, name || 'README.md', 'text/markdown;charset=utf-8')
+        .then(function () { return finish(null); })
+        .catch(function (error) {
+          toast(t('error.save', { name: name, reason: error.message }), 'error');
+          return false;
+        });
+    }
+
     var writeTo = function (h) {
       return h.createWritable().then(function (w) {
         return w.write(new Blob([payload], { type: 'text/markdown;charset=utf-8' }))
@@ -422,8 +433,7 @@
       }).then(function () { return finish(h); }).catch(function (err) {
         // Permission lost (e.g. the file moved): fall back to a download instead of failing.
         if (err && (err.name === 'NotAllowedError' || err.name === 'NotFoundError')) {
-          download(payload, name || 'README.md', 'text/markdown;charset=utf-8');
-          return finish(null);
+          return fallback();
         }
         toast(t('error.save', {
           name: state.name,
@@ -444,13 +454,11 @@
         return writeTo(h);
       }).catch(function (err) {
         if (err && err.name === 'AbortError') return false;
-        download(payload, name || 'README.md', 'text/markdown;charset=utf-8');
-        return finish(null);
+        return fallback();
       });
     }
 
-    download(payload, name || 'README.md', 'text/markdown;charset=utf-8');
-    return Promise.resolve(finish(null));
+    return fallback();
   }
 
   function exportHtml() {
@@ -471,8 +479,11 @@
       dir: state.dirMode === 'auto' ? Direction.dominantDir(src) : state.dirMode
     });
     var name = (state.name || 'README').replace(/\.[^.]+$/, '') + '.html';
-    download(doc, name, 'text/html;charset=utf-8');
-    toast(t('info.exported', { name: name }), 'success');
+    download(doc, name, 'text/html;charset=utf-8').then(function () {
+      toast(t('info.exported', { name: name }), 'success');
+    }).catch(function (error) {
+      toast(t('error.save', { name: name, reason: error.message }), 'error');
+    });
   }
 
   /* --------------------------------------------------------- confirm dialog */

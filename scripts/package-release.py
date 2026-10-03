@@ -7,7 +7,7 @@ import zipfile
 
 root = Path(__file__).resolve().parent.parent
 version = json.loads((root / 'package.json').read_text())['version']
-names = ['index.html', 'app.js', 'styles.css', 'Launch-README-Viewer.bat', 'README.md', 'CHANGELOG.md']
+names = ['index.html', 'app.js', 'styles.css', 'Launch-README-Viewer.bat', 'README.md', 'CHANGELOG.md', 'Launch-README-Viewer.sh']
 files = [root / name for name in names]
 for directory in ['src', 'vendor']:
     files.extend(sorted((root / directory).rglob('*')))

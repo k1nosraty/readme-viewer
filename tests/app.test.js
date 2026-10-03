@@ -828,3 +828,26 @@ test('dropping multiple files attaches the handle of the chosen Markdown file', 
   assert.equal(RVApp.state.name, 'chosen.md');
   assert.equal(RVApp.state.handle, correct);
 });
+
+test('Android native save waits for the document picker and preserves dirty state on cancellation', async function (t) {
+  if (skipIfNoDom(t)) return;
+  await open('original', 'android.md');
+  const editor = doc.getElementById('editor');
+  editor.value = 'edited';
+  editor.dispatchEvent(new win.Event('input', { bubbles: true }));
+  let request;
+  win.AndroidFiles = { save: (text, name, mime, id) => { request = { text, name, mime, id }; } };
+  try {
+    const saving = RVApp.save(false);
+    assert.equal(request.text, 'edited');
+    assert.equal(request.name, 'android.md');
+    assert.equal(RVApp.state.dirty, true, 'do not mark saved before native completion');
+    win.RV.Android.complete(request.id, false, 'Save cancelled.');
+    assert.equal(await saving, false);
+    assert.equal(RVApp.state.dirty, true);
+    const retry = RVApp.save(false);
+    win.RV.Android.complete(request.id, true, '');
+    assert.equal(await retry, true);
+    assert.equal(RVApp.state.dirty, false);
+  } finally { delete win.AndroidFiles; }
+});
