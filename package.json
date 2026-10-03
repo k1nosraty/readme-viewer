@@ -10,6 +10,7 @@
     "test:browser": "node scripts/browser-smoke.js"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "jsdom": "^26.0.0",
     "playwright": "^1.63.0"
   }

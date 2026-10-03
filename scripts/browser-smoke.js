@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(pathToFileURL(path.resolve(__dirname, '../index.html')).href);
-    await page.waitForFunction(() => window.RVApp && window.RVApp.el.editor);
+    await page.waitForFunction(() => window.RVApp && window.RVApp.state.ready);
     await page.locator('#fileInput').setInputFiles({
       name: 'persian.md', mimeType: 'text/markdown',
       buffer: Buffer.from('# Test\r\n\r\n- [ ] یادگیری PostgreSQL\r\n')

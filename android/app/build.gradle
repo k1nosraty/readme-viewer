@@ -22,5 +22,12 @@ tasks.register('copyWebAssets', Copy) {
     from '../..'
     include 'index.html', 'app.js', 'styles.css', 'src/**', 'vendor/**'
     into 'src/main/assets'
+    inputs.file '../../scripts/prepare-android-assets.js'
+    doLast {
+        exec {
+            workingDir rootDir.parentFile
+            commandLine 'node', 'scripts/prepare-android-assets.js'
+        }
+    }
 }
 tasks.named('preBuild').configure { dependsOn 'copyWebAssets' }

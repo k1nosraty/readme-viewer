@@ -76,7 +76,7 @@ function loadApp(options) {
     virtualConsole: vc
   });
 
-  return waitFor(function () { return dom.window.RVApp; }, 8000).then(function () {
+  return waitFor(function () { return dom.window.RVApp && dom.window.RVApp.state.ready; }, 8000).then(function () {
     return { window: dom.window, document: dom.window.document, errors: errors, dom: dom };
   });
 }

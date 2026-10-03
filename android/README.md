@@ -4,13 +4,14 @@ An offline Android WebView shell around the same README Viewer assets. Minimum A
 
 ## Build
 
-Install JDK 17, Gradle 8.11.1, and Android SDK platform/build-tools 35, then run from the repository root:
+Install Node.js, JDK 17, Gradle 8.11.1, and Android SDK platform/build-tools 35, then run from the repository root:
 
 ```sh
+npm ci
 gradle -p android :app:assembleDebug
 ```
 
-The build copies the current `index.html`, styles, scripts, and vendored dependencies into the APK. Generated assets and build outputs are ignored by Git.
+The build copies the current `index.html`, styles, scripts, and vendored dependencies into the APK. JavaScript syntax is transformed for Chromium 74 compatibility during the APK build. Generated assets and build outputs are ignored by Git.
 
 ## Files and trust boundary
 

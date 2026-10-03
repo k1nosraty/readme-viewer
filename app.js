@@ -41,6 +41,7 @@
   var FONT_MAX = 26;
 
   var state = {
+    ready: false,
     handle: null,
     name: '',
     saved: '',
@@ -1791,6 +1792,7 @@
     applyLocale();
     setEmpty();
     markGutterCursor();
+    state.ready = true;
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

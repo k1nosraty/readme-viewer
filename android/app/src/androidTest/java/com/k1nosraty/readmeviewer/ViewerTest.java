@@ -25,7 +25,7 @@ public class ViewerTest {
     @Test public void offlineViewerBootsAndEditsPersianTasks() throws Exception {
         boolean loaded = false;
         for (int i = 0; i < 100; i++) {
-            if ("true".equals(evaluate("Boolean(window.RVApp && window.RVApp.el.editor)"))) { loaded = true; break; }
+            if ("true".equals(evaluate("Boolean(window.RVApp && window.RVApp.state.ready)"))) { loaded = true; break; }
             Thread.sleep(100);
         }
         assertTrue("Packaged viewer failed to boot", loaded);
