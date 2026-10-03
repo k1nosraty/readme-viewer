@@ -25,6 +25,16 @@
   var Markdown = RV.Markdown;
   var Highlight = RV.Highlight;
   var Exporter = RV.Export;
+  function nativeAvailable() { return !!(RV.Native && RV.Native.available()); }
+  function reportOpen(err, name) {
+    if (err && err.name === 'AbortError') return;
+    toast(t('error.open', { name: name || '', reason: (err && err.message) || String(err) }), 'error');
+  }
+  function applyHandleBase(handle) {
+    if (!handle || !Object.prototype.hasOwnProperty.call(handle, 'baseUrl')) return;
+    state.baseUrl = typeof handle.baseUrl === 'string' ? handle.baseUrl : '';
+    el.baseUrl.value = state.baseUrl;
+  }
 
   var t = function (key, vars) { return I18n.t(key, vars); };
   var esc = Util.esc;
@@ -260,6 +270,7 @@
     state.name = name || '';
     state.saved = text;
     state.handle = handle || null;
+    applyHandleBase(handle);
     state.hasDocument = true;
     state.bom = !!(meta && meta.bom);
     state.eol = (meta && meta.eol) || '\n';
@@ -307,9 +318,21 @@
     setDirty(state.hasDocument ? el.editor.value !== state.saved : el.editor.value.length > 0);
   }
 
+  function readHandle(handle) {
+    var documentId = state.documentId;
+    var source = el.editor.value;
+    return handle.getFile().then(function (file) {
+      if (state.documentId !== documentId || el.editor.value !== source) return false;
+      return loadFile(file, handle);
+    });
+  }
+
   function loadFile(file, handle) {
     if (!file) return Promise.resolve(false);
+    var documentId = state.documentId;
+    var source = el.editor.value;
     return file.arrayBuffer().then(function (buf) {
+      if (state.documentId !== documentId || el.editor.value !== source) return false;
       var decoded = Encoding.decode(new Uint8Array(buf));
       if (decoded.binary) {
         toast(t('error.binary', { name: file.name || '' }), 'error');
@@ -340,11 +363,18 @@
           }
         }]
       };
-      if (typeof window.showOpenFilePicker === 'function') {
+      if (nativeAvailable()) {
+        var documentId = state.documentId;
+        var source = el.editor.value;
+        RV.Native.pickOpen().then(function (h) {
+          if (!h || state.documentId !== documentId || el.editor.value !== source) return false;
+          return readHandle(h);
+        }).catch(function (err) { reportOpen(err); });
+      } else if (typeof window.showOpenFilePicker === 'function') {
         window.showOpenFilePicker(opts).then(function (handles) {
           var h = handles && handles[0];
           if (!h) return null;
-          return h.getFile().then(function (f) { return loadFile(f, h); });
+          return readHandle(h);
         }).catch(function (err) {
           if (err && err.name === 'AbortError') return;
           el.fileInput.click();
@@ -355,14 +385,24 @@
     });
   }
 
+  function openNativePath(path) {
+    return confirmDiscard().then(function (proceed) {
+      if (!proceed) return false;
+      var documentId = state.documentId;
+      var source = el.editor.value;
+      return RV.Native.openPath(path).then(function (h) {
+        if (!h || state.documentId !== documentId || el.editor.value !== source) return false;
+        return readHandle(h);
+      });
+    }).catch(function (err) { reportOpen(err, path); return false; });
+  }
+
   function reloadFromDisk() {
     if (!state.handle) { toast(t('error.reload'), 'warning'); return; }
     var handle = state.handle;
     confirmDiscard().then(function (proceed) {
       if (!proceed || state.handle !== handle) return;
-      handle.getFile().then(function (file) {
-        return loadFile(file, handle);
-      }).then(function (ok) {
+      readHandle(handle).then(function (ok) {
         if (ok) toast(t('info.reloaded', { name: state.name }), 'success');
       }).catch(function (err) {
         toast(t('error.read', { name: state.name }) + ': ' + ((err && err.message) || err), 'error');
@@ -373,6 +413,7 @@
   /* -------------------------------------------------------------------- save */
 
   function download(text, name, mime) {
+    if (nativeAvailable()) return RV.Native.download(text, name, mime);
     if (RV.Android && RV.Android.available()) return RV.Android.download(text, name, mime);
     var blob = new Blob([text], { type: mime });
     var url = URL.createObjectURL(blob);
@@ -411,6 +452,8 @@
       state.saved = text;
       state.handle = handle || null;
       state.name = handle ? handle.name : name;
+      applyHandleBase(handle);
+      if (handle && handle.baseUrl) render({ immediate: true });
       state.encoding = 'utf-8';
       setDirty(el.editor.value !== text);
       saveSettings();
@@ -433,7 +476,7 @@
           .then(function () { return w.close(); });
       }).then(function () { return finish(h); }).catch(function (err) {
         // Permission lost (e.g. the file moved): fall back to a download instead of failing.
-        if (err && (err.name === 'NotAllowedError' || err.name === 'NotFoundError')) {
+        if (!nativeAvailable() && err && (err.name === 'NotAllowedError' || err.name === 'NotFoundError')) {
           return fallback();
         }
         toast(t('error.save', {
@@ -445,6 +488,16 @@
     };
 
     if (!forceNew && state.handle) return writeTo(state.handle);
+
+    if (nativeAvailable()) {
+      return RV.Native.pickSave(name || 'README.md').then(function (h) {
+        return h ? writeTo(h) : false;
+      }).catch(function (err) {
+        if (err && err.name === 'AbortError') return false;
+        toast(t('error.save', { name: name, reason: (err && err.message) || String(err) }), 'error');
+        return false;
+      });
+    }
 
     if (typeof window.showSaveFilePicker === 'function') {
       return window.showSaveFilePicker({
@@ -483,6 +536,7 @@
     download(doc, name, 'text/html;charset=utf-8').then(function () {
       toast(t('info.exported', { name: name }), 'success');
     }).catch(function (error) {
+      if (error && error.name === 'AbortError') return;
       toast(t('error.save', { name: name, reason: error.message }), 'error');
     });
   }
@@ -517,9 +571,11 @@
   }
 
   /** Resolve true when it is safe to throw the current document away. */
+  var pendingDiscard = null;
   function confirmDiscard() {
+    if (pendingDiscard) return pendingDiscard;
     if (!state.dirty) return Promise.resolve(true);
-    return askConfirm({
+    pendingDiscard = askConfirm({
       title: t('unsaved.title'),
       body: t('unsaved.body', { name: state.name || 'README.md' }) + ' ' + t('unsaved.question'),
       icon: 'alert'
@@ -527,7 +583,8 @@
       if (choice === 'discard') return true;
       if (choice === 'save') return save(false).then(function (ok) { return ok && !state.dirty; });
       return false;
-    });
+    }).finally(function () { pendingDiscard = null; });
+    return pendingDiscard;
   }
 
   /* -------------------------------------------------------- render pipeline */
@@ -584,6 +641,14 @@
       var a = links[i];
       var href = a.getAttribute('href') || '';
       if (href.charAt(0) === '#') continue;
+      if (nativeAvailable()) {
+        a.setAttribute('data-native-href', href);
+        if (/^https?:|^mailto:/i.test(href)) {
+          a.setAttribute('rel', 'noopener noreferrer nofollow');
+          a.setAttribute('data-external', '1');
+        }
+        continue;
+      }
       var resolved = resolveUrl(href, base);
       if (resolved) a.setAttribute('href', resolved);
       if (/^https?:/i.test(resolved)) {
@@ -592,10 +657,14 @@
         a.setAttribute('data-external', '1');
       }
     }
-    if (!base) return;
+    if (!base && !nativeAvailable()) return;
     var imgs = el.preview.querySelectorAll('img[src]');
     for (var j = 0; j < imgs.length; j++) {
-      var r = resolveUrl(imgs[j].getAttribute('src') || '', base);
+      var src = imgs[j].getAttribute('src') || '';
+      var r = nativeAvailable()
+        ? (/^https?:/i.test(src) ? src : RV.Native.assetUrl(src, state.handle))
+        : resolveUrl(src, base);
+      if (nativeAvailable() && !r) imgs[j].removeAttribute('src');
       if (r) imgs[j].setAttribute('src', r);
     }
   }
@@ -1424,6 +1493,19 @@
       var copy = target.closest('[data-copy-code]');
       if (copy) { e.preventDefault(); copyCode(copy); return; }
 
+      var link = target.closest('a[href]');
+      if (nativeAvailable() && link && (link.getAttribute('href') || '').charAt(0) !== '#') {
+        e.preventDefault();
+        var href = link.getAttribute('data-native-href') || link.getAttribute('href') || '';
+        if (/^(https?:|mailto:)/i.test(href)) {
+          Promise.resolve(RV.Native.openExternal(href)).catch(function (err) { reportOpen(err, href); });
+        } else {
+          var path = RV.Native.resolveLocalUrl(href, state.handle);
+          if (path && /\.(md|markdown|mdown|mkd|mdwn|txt)$/i.test(path)) openNativePath(path);
+        }
+        return;
+      }
+
       var anchor = target.closest('a.heading-anchor');
       if (anchor) {
         e.preventDefault();
@@ -1469,6 +1551,12 @@
   }
 
   function wireDragDrop() {
+    if (nativeAvailable()) {
+      ['dragenter', 'dragover', 'drop'].forEach(function (type) {
+        window.addEventListener(type, function (e) { e.preventDefault(); });
+      });
+      return;
+    }
     var depth = 0;
 
     function hasFiles(e) {
@@ -1521,11 +1609,17 @@
         if (!entry) { toast(t('error.notFound'), 'error'); return; }
         return openEntry(entry).then(function (file) {
           var base = 'file://' + entry.fullPath.replace(/[^/]+$/, '');
-          state.baseUrl = base;
-          el.baseUrl.value = base;
-          saveSettings();
           return confirmDiscard().then(function (proceed) {
-            if (proceed) loadFile(file, null);
+            if (!proceed) return false;
+            return loadFile(file, null).then(function (ok) {
+              if (ok) {
+                state.baseUrl = base;
+                el.baseUrl.value = base;
+                saveSettings();
+                render({ immediate: true });
+              }
+              return ok;
+            });
           });
         });
       }).catch(function (err) {
@@ -1670,7 +1764,7 @@
     });
 
     window.addEventListener('beforeunload', function (e) {
-      if (!state.dirty) return undefined;
+      if (nativeAvailable() || !state.dirty) return undefined;
       e.preventDefault();
       e.returnValue = '';
       return '';
@@ -1793,6 +1887,12 @@
     setEmpty();
     markGutterCursor();
     state.ready = true;
+    if (nativeAvailable()) {
+      Promise.resolve(RV.Native.initialize({
+        openPath: openNativePath, confirmClose: confirmDiscard, onError: reportOpen,
+        onDrag: function (active) { document.body.classList.toggle('dragover', !!active); }
+      })).catch(function (err) { reportOpen(err); });
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
@@ -1811,6 +1911,8 @@
     setEditPreview: setEditPreview,
     setMode: setMode,
     save: save,
+    confirmDiscard: confirmDiscard,
+    openNativePath: openNativePath,
     toast: toast,
     applyLocale: applyLocale,
     SAMPLE: SAMPLE

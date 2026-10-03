@@ -871,3 +871,142 @@ test('older WebViews without at and hasOwn still render and toggle tasks', async
     assert.deepEqual(legacy.errors, []);
   } finally { legacy.window.close(); }
 });
+
+test('native open cancellation and failed reads preserve source and link base', async function (t) {
+  if (skipIfNoDom(t)) return;
+  await open('# Existing\n', 'existing.md');
+  RVApp.state.baseUrl = 'https://example.com/docs/';
+  const previous = win.RV.Native;
+  let browserPicker = 0;
+  win.showOpenFilePicker = async () => { browserPicker++; return []; };
+  win.RV.Native = { available: () => true, pickOpen: async () => null };
+  try {
+    harness.click(win, doc.getElementById('btnOpen'));
+    await harness.settle(30);
+    assert.equal(editorValue(), '# Existing\n');
+    win.RV.Native.pickOpen = async () => ({ baseUrl: 'new-base', getFile: async () => { throw new Error('unreadable'); } });
+    harness.click(win, doc.getElementById('btnOpen'));
+    await harness.settle(30);
+    assert.equal(editorValue(), '# Existing\n');
+    assert.equal(RVApp.state.baseUrl, 'https://example.com/docs/');
+    assert.equal(browserPicker, 0);
+  } finally { win.RV.Native = previous; delete win.showOpenFilePicker; }
+});
+
+test('native write failure keeps edits dirty without downloading a replacement', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const previous = win.RV.Native;
+  let downloads = 0;
+  win.RV.Native = { available: () => true, download: async () => { downloads++; } };
+  const handle = { name: 'native.md', baseUrl: 'old-base', createWritable: async () => {
+    const err = new Error('File moved'); err.name = 'NotFoundError'; throw err;
+  } };
+  try {
+    RVApp.setDoc('saved', handle.name, handle);
+    RVApp.el.editor.value = 'unsaved';
+    RVApp.el.editor.dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert.equal(await RVApp.save(false), false);
+    assert.equal(downloads, 0);
+    assert.equal(RVApp.state.dirty, true);
+    assert.equal(RVApp.state.saved, 'saved');
+    assert.equal(RVApp.state.handle, handle);
+  } finally { win.RV.Native = previous; }
+});
+
+test('native close uses the existing discard dialog and cancelled Save As keeps source', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const previous = win.RV.Native;
+  win.RV.Native = { available: () => true, pickSave: async () => null };
+  try {
+    await open('saved', 'close.md');
+    RVApp.el.editor.value = 'draft';
+    RVApp.el.editor.dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert.equal(await RVApp.save(true), false);
+    const closing = RVApp.confirmDiscard();
+    await harness.settle(10);
+    harness.click(win, doc.getElementById('btnConfirmCancel'));
+    assert.equal(await closing, false);
+    assert.equal(editorValue(), 'draft');
+    assert.equal(RVApp.state.dirty, true);
+    const discard = RVApp.confirmDiscard();
+    await harness.settle(10);
+    harness.click(win, doc.getElementById('btnConfirmDiscard'));
+    assert.equal(await discard, true);
+  } finally { win.RV.Native = previous; }
+});
+
+test('native Save As updates link base only after write and preserves BOM and CRLF', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const previous = win.RV.Native;
+  const original = { name: 'old.md', baseUrl: 'old-base' };
+  let payload;
+  const next = { name: 'new.md', baseUrl: 'new-base', createWritable: async () => ({
+    write: async blob => { payload = blob; }, close: async () => {}
+  }) };
+  win.RV.Native = { available: () => true, pickSave: async () => next, assetUrl: () => null };
+  try {
+    RVApp.setDoc('# Title\n\n- [ ] task\n', 'old.md', original, { bom: true, eol: '\r\n' });
+    assert.equal(await RVApp.save(true), true);
+    assert.equal(RVApp.state.baseUrl, 'new-base');
+    assert.equal(RVApp.state.handle, next);
+    const bytes = await new Promise(resolve => { const reader = new win.FileReader(); reader.onload = () => resolve(new Uint8Array(reader.result)); reader.readAsArrayBuffer(payload); });
+    assert.deepEqual(Array.from(bytes.slice(0, 3)), [239, 187, 191]);
+    assert.equal(Buffer.from(bytes.slice(3)).toString(), '# Title\r\n\r\n- [ ] task\r\n');
+  } finally { win.RV.Native = previous; }
+});
+
+test('native preview links use the opener and local navigation respects dirty edits', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const previous = win.RV.Native;
+  const external = [];
+  let localOpens = 0;
+  win.RV.Native = {
+    available: () => true,
+    openExternal: async url => { external.push(url); },
+    resolveLocalUrl: href => href === 'guide.md' ? '/docs/guide.md' : null,
+    assetUrl: () => null,
+    openPath: async () => { localOpens++; return null; }
+  };
+  try {
+    await open('[Web](https://example.com) [Guide](guide.md) [Bad](custom:unsafe)\n\n![Blocked](../outside.png)');
+    const links = doc.querySelectorAll('#preview a');
+    harness.click(win, links[0]);
+    assert.deepEqual(external, ['https://example.com']);
+    RVApp.el.editor.value += '\nDraft';
+    RVApp.el.editor.dispatchEvent(new win.Event('input', { bubbles: true }));
+    harness.click(win, links[1]);
+    await harness.settle(10);
+    assert.equal(doc.getElementById('confirmModal').hidden, false);
+    harness.click(win, doc.getElementById('btnConfirmCancel'));
+    await harness.settle(10);
+    assert.equal(localOpens, 0);
+    assert.equal(doc.querySelector('#preview img').hasAttribute('src'), false);
+    assert.equal(RVApp.state.dirty, true);
+  } finally { win.RV.Native = previous; }
+});
+
+test('native asynchronous opening never replaces source edited during the read', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const previous = win.RV.Native;
+  let finishRead;
+  const read = new Promise(resolve => { finishRead = resolve; });
+  const bytes = new TextEncoder().encode('# Replacement');
+  const handle = { name: 'replacement.md', baseUrl: 'replacement-base', getFile: async () => ({
+    name: 'replacement.md', arrayBuffer: () => read
+  }) };
+  win.RV.Native = { available: () => true, openPath: async () => handle };
+  try {
+    await open('# Original', 'original.md');
+    RVApp.state.baseUrl = 'original-base';
+    const opening = RVApp.openNativePath('/docs/replacement.md');
+    await harness.settle(10);
+    RVApp.el.editor.value = '# Original\nNew work';
+    RVApp.el.editor.dispatchEvent(new win.Event('input', { bubbles: true }));
+    finishRead(bytes.buffer);
+    assert.equal(await opening, false);
+    assert.equal(editorValue(), '# Original\nNew work');
+    assert.equal(RVApp.state.name, 'original.md');
+    assert.equal(RVApp.state.baseUrl, 'original-base');
+    assert.equal(RVApp.state.dirty, true);
+  } finally { win.RV.Native = previous; }
+});

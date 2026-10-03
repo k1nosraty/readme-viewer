@@ -1,0 +1,142 @@
+name: Native application preview
+on:
+  push:
+    branches: [feature/tauri-native-app]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+  linux:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Native build and WebDriver prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev webkit2gtk-driver xvfb dbus-x11
+          cargo install tauri-driver --locked
+      - run: npm ci
+      - run: npm run native:build -- --bundles deb,appimage
+      - name: Installed native WebView open, edit and save
+        run: dbus-run-session -- xvfb-run -a bash scripts/test-native-linux.sh
+      - name: Linux package checksums
+        run: |
+          find src-tauri/target/release/bundle -type f \( -name '*.deb' -o -name '*.AppImage' \) -exec sh -c 'cd "$(dirname "$1")"; sha256sum "$(basename "$1")" > "$(basename "$1").sha256"' sh {} \;
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-linux-preview
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb*
+            src-tauri/target/release/bundle/appimage/*.AppImage*
+            native-test-results/*
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run native:build -- --bundles nsis
+      - name: Native installer, application window and uninstall
+        shell: pwsh
+        run: ./scripts/test-native-windows.ps1
+      - name: Windows installer checksum
+        shell: pwsh
+        run: |
+          Get-ChildItem src-tauri/target/release/bundle/nsis/*setup.exe | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" | Set-Content ($_.FullName + '.sha256')
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-windows-preview
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/nsis/*setup.exe*
+            native-test-results/*
+  android:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Android SDK and NDK
+        run: |
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+      - run: npm ci
+      - name: Initialize Tauri Android project
+        run: npm run android:init -- --ci
+      - name: Build native debug signed preview APK
+        run: npm run android:build -- --ci --debug --apk --target aarch64 x86_64
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: bash scripts/test-native-android.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-android-debug-preview
+          if-no-files-found: error
+          path: |
+            dist/*Android-Debug-Preview.apk*
+            native-test-results/*
+  # Artifacts become available only after all platform checks pass. Publishing
+  # remains deliberately absent from this feature-branch preview workflow.
+  verified:
+    needs: [linux, windows, android]
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'All native preview platform checks passed.'

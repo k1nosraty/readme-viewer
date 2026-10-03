@@ -5,59 +5,52 @@ scrolling, and **interactive task lists**: with *Edit in preview* turned on, you
 in the rendered document and the Markdown source is updated — one `[ ]` → `[x]` at a time, with
 every other byte of the file left exactly as it was.
 
-No build step or server is needed. The application works offline in your browser.
-Remote images and external links in a document can still use the network.
+Version 1.1.0 adds a Tauri 2 native application for Windows and Linux, plus an Android Preview.
+Open and Save use native file dialogs and direct file access in the app window. The portable
+browser application remains supported and needs no build step. Remote document images and
+external links can still use the network.
 
-## Install on Windows
+## Native application (1.1.0)
 
-Download the installer from [GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/latest)
-and run it. It installs for your Windows account without administrator privileges and adds a Start
-menu shortcut. No Node.js or Python installation is needed.
+Native packages are being prepared and validated; this documentation does not certify a released
+or tested package. Check [GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases)
+for published downloads and their version. Existing 1.0.2 releases remain available.
 
-For portable use, download the ZIP, **extract the whole archive**, and double-click
-`Launch-README-Viewer.bat`. Keep `index.html`, `src/`, and `vendor/` together.
+| Platform | Native package and requirements |
+| --- | --- |
+| Windows | NSIS `.exe` installer, per user; Windows 10/11 and current Microsoft Edge WebView2. The installer is unsigned. If WebView2 is missing, its bootstrap installer needs internet on first installation. |
+| Linux | `.deb` for Ubuntu/Debian with WebKitGTK 4.1, or `.AppImage` for compatible Linux systems. Both open an application window. |
+| Android | Tauri Preview debug APK; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
 
-Click **Open**, choose your README, and use **Edit in preview** to toggle task checkboxes.
-Click **Save** afterwards. If your browser cannot save back to the original file, it downloads an
-updated copy; replace the original with that copy if needed. Chrome and Edge are recommended.
+No Node.js or Python is needed to use native packages. Click **Open**, choose your Markdown,
+turn on **Edit in preview** to change task checkboxes, then click **Save**. Desktop packages
+register Markdown file associations; choose README Viewer in your system's **Open with** menu
+if needed. You can also drop a file onto the desktop app.
 
-The installer is unsigned; Windows may ask you to confirm the publisher. You can uninstall it
-from Windows Settings → Apps.
+See [native setup, builds and limitations](docs/native-app.md). The Java Android Preview in
+[android/README.md](android/README.md) belongs to the historical 1.0.2 release.
 
-```
+## Portable browser application
+
+Download the portable ZIP, **extract the whole archive**, and keep `index.html`, `src/` and
+`vendor/` together. Double-click `index.html` or `Launch-README-Viewer.bat` on Windows.
+Historical Linux portable archives use `./Launch-README-Viewer.sh` and require a browser and
+`xdg-open` (or `sensible-browser`). Historical installers launch the browser application.
+
+```bash
 open index.html          # macOS
 xdg-open index.html      # Linux
 start index.html         # Windows
 ```
 
-Or serve the folder and browse to it:
+Or serve the folder and open http://localhost:8080:
 
 ```bash
-python3 -m http.server 8080 --bind 0.0.0.0    # then open http://localhost:8080
+python3 -m http.server 8080 --bind 0.0.0.0
 ```
 
-## Install on Linux
-
-Download the `.deb` from Releases on Ubuntu/Debian/Mint and install it:
-
-```bash
-sudo apt install ./README-Viewer-1.0.2-Linux-all.deb
-```
-
-Then open **README Viewer** from your applications menu. Other desktop Linux distributions can
-extract the Linux portable `.tar.gz` and run `./Launch-README-Viewer.sh`. A web browser and
-`xdg-open` (or `sensible-browser`) are required; no Node.js/Python/server is needed to use it.
-
-## Install on Android
-
-Download **Android-Preview.apk** from Releases and allow installation from your downloader when
-Android asks. Requires Android 8.0 or newer with an updated Android System WebView. Open and Save use the system document picker; HTML
-export also writes through that picker. The APK is offline and blocks remote images.
-
-This first Android build is **Preview**, development-signed, and not a Play Store release.
-Future builds may require uninstall/reinstall until permanent release signing is configured.
-Save documents outside the app before uninstalling; unsaved drafts do not survive process
-termination. See [Android build and limitations](android/README.md).
+Chrome and Edge support saving back to the original file where the File System Access API is
+available. Other browsers download an updated copy; replace the original with it if needed.
 
 ## Features
 
@@ -73,7 +66,7 @@ termination. See [Android build and limitations](android/README.md).
   included.
 - **Themes** — Light, Dark and System, applied to the chrome, the rendered Markdown and the
   syntax highlighting.
-- **Real file access** — save back to the same file where the File System Access API exists
+- **Real file access** — native Open/Save on desktop and Android; in the browser, save back to the same file where the File System Access API exists
   (Chromium), download elsewhere; reload from disk; drag a file *or a whole folder* onto the window
   (a dropped folder is searched for a README and used as the base for relative links).
 - **Encoding care** — UTF-8 with or without BOM, UTF-16 LE/BE with or without BOM, legacy
@@ -157,7 +150,7 @@ npm ci          # installs the locked test dependencies (including jsdom)
 npm test
 ```
 
-84 tests, no build step:
+The JavaScript suite covers:
 
 - `tests/tasks.test.js` — the interactive task-list contract: ordering, duplicates, nesting,
   Persian text, block quotes, ordered lists, code blocks, byte-level preservation, stale maps.
@@ -197,9 +190,9 @@ highlighter languages need the app to be reachable over `http(s)` or `file://` (
 fetched by the application at runtime. Remote document images and links follow normal browser
 network behavior. Saving converts decoded text to UTF-8 and preserves UTF-8 BOM and LF/CRLF style.
 
-## Release builds
+## Builds and validation
 
-`python3 scripts/package-release.py` validates runtime assets and builds the portable ZIP with a
-SHA-256 checksum. The GitHub Actions release workflow runs the complete test suite, builds the
-Windows installer with Inno Setup, checks installation and uninstallation, then publishes the
-version in `package.json`. Existing releases are never overwritten.
+See [native build instructions](docs/native-app.md) for Tauri packages and preview checks.
+`python3 scripts/package-release.py` builds the portable browser ZIP and checksum. The historical
+release workflow packages the browser launchers and Java Android Preview; native preview builds
+use `.github/workflows/native.yml`. Existing releases are never overwritten.

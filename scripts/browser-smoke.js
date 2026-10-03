@@ -6,7 +6,7 @@ const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
 
 (async function () {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
   try {
     const page = await browser.newPage();
     const errors = [];

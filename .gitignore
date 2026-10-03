@@ -34,3 +34,12 @@ android/.gradle/
 android/**/build/
 android/app/src/main/assets/
 android/local.properties
+
+# Tauri build outputs (native shell sources and Cargo.lock are tracked)
+native-dist/
+src-tauri/target/
+src-tauri/gen/schemas/
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/**/build/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/.idea/

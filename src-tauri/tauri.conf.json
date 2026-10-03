@@ -1,0 +1,76 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "README Viewer",
+  "version": "1.1.0",
+  "identifier": "io.github.readmeviewer.viewer",
+  "build": {
+    "beforeDevCommand": "npm run native:prepare",
+    "beforeBuildCommand": "npm run native:prepare",
+    "frontendDist": "../native-dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "README Viewer",
+        "width": 1200,
+        "height": 820,
+        "minWidth": 360,
+        "minHeight": 480,
+        "decorations": true,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https: data: blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-src 'none'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": []
+      },
+      "capabilities": [
+        "main"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb",
+      "appimage",
+      "nsis"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Offline Markdown and README viewer",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "md",
+          "markdown",
+          "mdown",
+          "mdwn",
+          "mkd"
+        ],
+        "name": "Markdown document",
+        "description": "Markdown document",
+        "mimeType": "text/markdown",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    },
+    "android": {
+      "minSdkVersion": 26
+    }
+  }
+}
