@@ -50,7 +50,8 @@ function appHtml() {
  * Boot the whole application in jsdom.
  * @returns {Promise<{window: Document['defaultView'], document: Document, errors: string[]}>}
  */
-function loadApp() {
+function loadApp(options) {
+  options = options || {};
   if (!jsdom) return Promise.reject(new Error('jsdom is not installed'));
   const { JSDOM, VirtualConsole } = jsdom;
   const errors = [];
@@ -68,6 +69,7 @@ function loadApp() {
 
   const dom = new JSDOM(appHtml(), {
     url: 'file://' + path.join(ROOT, 'index.html'),
+    beforeParse: options.beforeParse,
     runScripts: 'dangerously',
     resources: 'usable',
     pretendToBeVisual: true,

@@ -4,7 +4,7 @@ README Viewer v1.0.2 adds Linux packages and the first Android Preview APK.
 
 - **Linux-all.deb**: install on Ubuntu, Debian, Mint and other Debian-based distributions. Launch README Viewer from the applications menu.
 - **Linux-Portable.tar.gz**: extract and run `./Launch-README-Viewer.sh` on other desktop Linux distributions. Requires a browser and `xdg-open` (or `sensible-browser`).
-- **Android-Preview.apk**: install on Android 8.0 or newer. Allow installation from the app you use to download/open the APK when Android asks.
+- **Android-Preview.apk**: install on Android 8.0 or newer with an updated Android System WebView. Allow installation from the app you use to download/open the APK when Android asks.
 - **Windows-Setup.exe**: per-user Windows installer; no Node.js or Python required.
 - **Portable.zip**: extract and open `index.html`, or use the Windows launcher.
 

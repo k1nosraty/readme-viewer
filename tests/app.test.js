@@ -851,3 +851,23 @@ test('Android native save waits for the document picker and preserves dirty stat
     assert.equal(RVApp.state.dirty, false);
   } finally { delete win.AndroidFiles; }
 });
+
+test('older WebViews without at and hasOwn still render and toggle tasks', async function (t) {
+  if (skipIfNoDom(t)) return;
+  const legacy = await harness.loadApp({ beforeParse: window => {
+    delete window.Array.prototype.at;
+    delete window.String.prototype.at;
+    delete window.Object.hasOwn;
+  } });
+  try {
+    const viewer = legacy.window.RVApp;
+    viewer.setDoc('# فارسی\n\n- [ ] یادگیری PostgreSQL\n', 'legacy.md', null);
+    viewer.setEditPreview(true);
+    const box = legacy.document.querySelector('#preview input');
+    assert.ok(box, 'Markdown must render despite missing newer standard methods');
+    harness.click(legacy.window, box);
+    assert.match(viewer.el.editor.value, /\[x\]/);
+    assert.equal(viewer.state.dirty, true);
+    assert.deepEqual(legacy.errors, []);
+  } finally { legacy.window.close(); }
+});

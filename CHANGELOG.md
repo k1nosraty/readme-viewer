@@ -3,6 +3,7 @@
 ## 1.0.2
 
 - Add desktop Linux `.deb` and portable `.tar.gz` packages with launchers and a menu entry.
+- Support older WebView standard libraries with `at` and `hasOwn` compatibility shims.
 - Add an offline Android Preview APK with native document opening, Save and HTML export.
 - Await native writes and keep edits dirty when Android's document picker is cancelled.
 - Gate publication on Linux installation/removal and Android emulator smoke checks.

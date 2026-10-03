@@ -51,7 +51,7 @@ extract the Linux portable `.tar.gz` and run `./Launch-README-Viewer.sh`. A web 
 ## Install on Android
 
 Download **Android-Preview.apk** from Releases and allow installation from your downloader when
-Android asks. Requires Android 8.0 or newer. Open and Save use the system document picker; HTML
+Android asks. Requires Android 8.0 or newer with an updated Android System WebView. Open and Save use the system document picker; HTML
 export also writes through that picker. The APK is offline and blocks remote images.
 
 This first Android build is **Preview**, development-signed, and not a Play Store release.
@@ -157,7 +157,7 @@ npm ci          # installs the locked test dependencies (including jsdom)
 npm test
 ```
 
-83 tests, no build step:
+84 tests, no build step:
 
 - `tests/tasks.test.js` — the interactive task-list contract: ordering, duplicates, nesting,
   Persian text, block quotes, ordered lists, code blocks, byte-level preservation, stale maps.

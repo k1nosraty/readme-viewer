@@ -1,6 +1,6 @@
 # Android Preview
 
-An offline Android WebView shell around the same README Viewer assets. Minimum Android version: 8.0 (API 26). The APK uses a Preview application ID so future production builds can coexist.
+An offline Android WebView shell around the same README Viewer assets. Minimum Android version: 8.0 (API 26), with an updated Android System WebView. The APK uses a Preview application ID so future production builds can coexist.
 
 ## Build
 
