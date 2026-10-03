@@ -29,10 +29,10 @@ public class ViewerTest {
             Thread.sleep(100);
         }
         assertTrue("Packaged viewer failed to boot", loaded);
-        assertEquals("true", evaluate("window.RV.Android.available()"));
+        assertEquals("Native save bridge unavailable", "true", evaluate("window.RV.Android.available()"));
         evaluate("RVApp.setDoc('# Test\\n\\n- [ ] یادگیری PostgreSQL\\n', 'test.md', null); RVApp.setMode('preview'); RVApp.setEditPreview(true); document.querySelector('#preview input').click();");
-        assertEquals("true", evaluate("RVApp.el.editor.value.includes('[x]') && RVApp.state.dirty"));
-        assertEquals("true", evaluate("document.getElementById('panePreview').getBoundingClientRect().width > 100"));
-        assertEquals("true", evaluate("typeof AndroidFiles.save === 'function'"));
+        assertEquals("Task edit failed: " + evaluate("JSON.stringify({source:RVApp.el.editor.value, tasks:RVApp.state.tasks, reason:RVApp.state.taskReason, preview:RVApp.el.preview.textContent})"), "true", evaluate("RVApp.el.editor.value.includes('[x]') && RVApp.state.dirty"));
+        assertEquals("Preview collapsed", "true", evaluate("document.getElementById('panePreview').getBoundingClientRect().width > 100"));
+        assertEquals("Native save method unavailable", "true", evaluate("typeof AndroidFiles.save === 'function'"));
     }
 }

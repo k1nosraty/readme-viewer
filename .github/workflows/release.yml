@@ -92,6 +92,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.11.1
+          cache-read-only: false
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -110,7 +111,11 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          script: gradle -p android :app:connectedDebugAndroidTest
+          script: |
+            if ! gradle -p android :app:connectedDebugAndroidTest; then
+              find android/app/build/outputs/androidTest-results -name '*.xml' -exec cat {} \;
+              exit 1
+            fi
       - name: Package Android preview and checksum
         run: |
           mkdir -p dist
