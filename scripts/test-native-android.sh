@@ -29,7 +29,7 @@ test -s native-test-results/android-pid.txt
 # appears: a blank/failed native launch must not count as a successful smoke.
 socket=""
 for attempt in $(seq 1 60); do
-  socket=$(adb shell cat /proc/net/unix | tr -d '\r' | awk '/webview_devtools_remote/ {sub(/^@/, "", $NF); print $NF; exit}')
+  socket=$(adb shell cat /proc/net/unix | tr -d '\r' | awk '/webview_devtools_remote/ && !found {sub(/^@/, "", $NF); print $NF; found=1}')
   if test -n "$socket"; then break; fi
   sleep 1
 done
