@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "android-back",
+  "description": "Allow Android Back to exit after the main document confirms unsaved changes.",
+  "windows": [
+    "main"
+  ],
+  "platforms": [
+    "android"
+  ],
+  "permissions": [
+    "core:app:allow-exit"
+  ]
+}

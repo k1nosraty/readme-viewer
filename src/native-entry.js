@@ -1,5 +1,6 @@
 /* Bundled for the native shell; browser builds use native.js's no-op adapter. */
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { onBackButtonPress, exit } from '@tauri-apps/api/app';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { readFile, writeFile } from '@tauri-apps/plugin-fs';
@@ -9,7 +10,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 const root = window;
 const available = () => !!root.__TAURI_INTERNALS__;
 const abort = () => new DOMException('Save cancelled.', 'AbortError');
-const filters = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd', 'txt'] }];
+const filters = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mdwn', 'mkd', 'txt'] }];
 function fileName(path) {
   let text = path;
   try { text = decodeURIComponent(text); } catch (_) { /* retain literal filename */ }
@@ -29,12 +30,20 @@ async function handle(path, name, authorize = true) {
   };
   file.createWritable = async () => {
     let closed = false;
+    let written = false;
     return {
       async write(blob) {
         if (closed) throw new Error('File writer is closed.');
         await writeFile(path, new Uint8Array(await blob.arrayBuffer()));
+        written = true;
       },
-      async close() { closed = true; }
+      async close() {
+        closed = true;
+        if (written && !authorize && !/^content:/i.test(path)) {
+          try { await invoke('authorize_document_directory', { path }); }
+          catch (error) { console.warn('File saved, but local image access could not be enabled.', error); }
+        }
+      }
     };
   };
   return file;
@@ -45,8 +54,10 @@ const Native = {
     const path = await open({ multiple: false, directory: false, filters });
     return path ? handle(path) : null;
   },
-  async pickSave(name) {
-    const path = await save({ defaultPath: name, filters });
+  async pickSave(name, mime) {
+    const saveFilters = mime && /^text\/html(?:;|$)/i.test(mime)
+      ? [{ name: 'HTML', extensions: ['html', 'htm'] }] : filters;
+    const path = await save({ defaultPath: name, filters: saveFilters });
     return path ? handle(path, /^content:/i.test(path) ? name : undefined, false) : null;
   },
   async openPath(path) {
@@ -54,7 +65,7 @@ const Native = {
     return handle(await invoke('resolve_document_path', { path }));
   },
   async download(payload, name, mime) {
-    const target = await Native.pickSave(name);
+    const target = await Native.pickSave(name, mime);
     if (!target) throw abort();
     const writer = await target.createWritable();
     await writer.write(payload instanceof Blob ? payload : new Blob([payload], { type: mime }));
@@ -97,14 +108,21 @@ const Native = {
       if (data.type === 'drop') void openPaths(data.paths);
     });
     let checkingClose = false;
-    await window.onCloseRequested(async event => {
-      event.preventDefault();
+    const requestClose = async finish => {
       if (checkingClose) return;
       checkingClose = true;
-      try { if (await hooks.confirmClose()) await window.destroy(); }
+      try { if (await hooks.confirmClose()) await finish(); }
       catch (error) { report(error); }
       finally { checkingClose = false; }
+    };
+    await window.onCloseRequested(event => {
+      event.preventDefault();
+      return requestClose(() => window.destroy());
     });
+    if (/Android/i.test(root.navigator && root.navigator.userAgent || '')) {
+      // Registering takes over Android's default Back navigation and exit.
+      await onBackButtonPress(() => requestClose(() => exit(0)));
+    }
     await openPaths(await invoke('startup_paths'));
   }
 };

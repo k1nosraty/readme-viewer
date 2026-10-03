@@ -99,6 +99,8 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
@@ -107,11 +109,16 @@ jobs:
           workspaces: src-tauri
       - name: Android SDK and NDK
         run: |
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
+          sdkmanager 'platforms;android-35' 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.2.12479018'
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
       - run: npm ci
       - name: Initialize Tauri Android project
         run: npm run android:init -- --ci
+      - name: Install generated application's compile SDK
+        run: |
+          compile_sdk=$(sed -n 's/^[[:space:]]*compileSdk = \([0-9][0-9]*\).*/\1/p' src-tauri/gen/android/app/build.gradle.kts | head -n 1)
+          test -n "$compile_sdk"
+          sdkmanager "platforms;android-$compile_sdk"
       - name: Build native debug signed preview APK
         run: npm run android:build -- --ci --debug --apk --target aarch64 x86_64
       - name: Enable emulator acceleration

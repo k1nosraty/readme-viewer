@@ -19,7 +19,7 @@ function adapter(overrides = {}) {
   };
   const source = fs.readFileSync(require.resolve('../src/native-entry.js'), 'utf8').replace(/^import .*;$/gm, '');
   vm.runInNewContext(source, mocks);
-  return { native: window.RV.Native, calls };
+  return { native: mocks.window.RV.Native, calls };
 }
 
 test('native handles preserve BOM and line-ending bytes on read/write', async () => {
@@ -99,4 +99,49 @@ test('desktop open paths use the scoped Rust resolver, content URIs remain direc
   const mobile = await native.openPath('content://provider/document/123');
   assert.equal(mobile.path, 'content://provider/document/123');
   assert.equal(commands.length, 2);
+});
+test('HTML exports use HTML filters and Save As authorizes images only after writing', async () => {
+  const operations = [];
+  const { native } = adapter({
+    save: async options => { operations.push(['dialog', options.filters[0].extensions.join(',')]); return '/saved/export.html'; },
+    writeFile: async () => { operations.push(['write']); },
+    invoke: async command => { operations.push([command]); }
+  });
+  await native.download('<p>hello</p>', 'export.html', 'text/html;charset=utf-8');
+  assert.deepEqual(operations, [['dialog', 'html,htm'], ['write'], ['authorize_document_directory']]);
+});
+test('a saved file remains successful when image scope authorization fails', async () => {
+  const { native } = adapter({
+    invoke: async () => { throw new Error('scope unavailable'); },
+    console: { warn() {}, error() {} }
+  });
+  assert.equal(await native.download('hello', 'README.md', 'text/markdown'), true);
+});
+test('Android Back waits for close/save decision and serializes repeated presses', async () => {
+  let back, finishDecision, exited = 0, decisions = 0;
+  const errors = [];
+  const androidWindow = { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: 'Android' } };
+  const { native } = adapter({
+    window: androidWindow,
+    listen: async () => {},
+    getCurrentWindow: () => ({ onDragDropEvent: async () => {}, onCloseRequested: async () => {}, destroy: async () => { throw new Error('Android should exit activity'); } }),
+    onBackButtonPress: async callback => { back = callback; },
+    exit: async code => { assert.equal(code, 0); exited++; }
+  });
+  let decide = () => new Promise(resolve => { finishDecision = resolve; });
+  await native.initialize({ openPath: async () => {}, confirmClose: () => { decisions++; return decide(); }, onError: error => errors.push(error.message) });
+  const pending = back();
+  await back();
+  assert.equal(decisions, 1);
+  assert.equal(exited, 0);
+  finishDecision(false);
+  await pending;
+  assert.equal(exited, 0);
+  decide = async () => { throw new Error('save failed'); };
+  await back();
+  assert.equal(exited, 0);
+  assert.deepEqual(errors, ['save failed']);
+  decide = async () => true;
+  await back();
+  assert.equal(exited, 1);
 });

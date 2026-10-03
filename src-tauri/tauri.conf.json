@@ -28,7 +28,8 @@
         "scope": []
       },
       "capabilities": [
-        "main"
+        "main",
+        "android-back"
       ]
     }
   },
