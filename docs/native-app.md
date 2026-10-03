@@ -92,9 +92,9 @@ project under `android/` is retained for historical 1.0.2 builds.
 
 ## Validation status
 
-The native preview workflow is intended to run JavaScript and Chromium checks, Linux installed
-WebView open/edit/save checks, Windows install/app/uninstall checks, and Android signature and
-emulator checks. These packages are pending validation; workflow definitions alone are not test
-results. Check the actual workflow run and published artifacts before distribution. Also review
-file pickers on physical Android devices and document providers, desktop associations, image
-access, save/reload, dirty-document prompts and installation on supported systems.
+The [native release workflow run](https://github.com/k1nosraty/readme-viewer/actions/runs/37119020194)
+passed unit and browser checks, Linux and Windows installed-app open/edit/save/uninstall checks,
+and Android APK signature/install/launch checks. Its Android emulator test verifies Persian task-list
+editing, full-width Preview, edit preservation through rotation, and the unsaved-changes prompt on
+Back. Physical Android devices and document providers, desktop file associations, and additional
+Linux distributions still need hands-on review.

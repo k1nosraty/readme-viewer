@@ -1,4 +1,4 @@
-# README Viewer 1.1.0 — native application preview
+# README Viewer 1.1.0 — native release
 
 The Tauri 2 application opens Markdown in its own window on Windows and Linux. Open, Save,
 Save as, reload and HTML export use native file access. Android moves to a Tauri Preview debug
@@ -17,8 +17,13 @@ copy. Desktop Save writes back to the opened file. The portable browser applicat
   provide a relative image base and may show the fallback name `README.md`.
 - Saves encode decoded text as UTF-8, retaining a UTF-8 BOM and LF/CRLF style when present.
 
-Native package builds and platform checks are pending validation. Physical-device testing,
-Android document-provider behavior and desktop file associations still need hands-on review.
+Automated GitHub Actions validation passed on commit efe70d2 (workflow run
+[37119020194](https://github.com/k1nosraty/readme-viewer/actions/runs/37119020194)): unit and
+browser tests, Linux package install/open/edit/save/uninstall, Windows installer/open/edit/save/
+uninstall, and Android APK signature/install/launch, Persian task-list editing, full-width Preview,
+rotation, and Back-button confirmation on an emulator. Physical Android devices and document
+providers, desktop file associations, and additional Linux distributions still need hands-on review.
+Every release asset includes a SHA-256 checksum.
 See [native build instructions and limitations](docs/native-app.md).
 
 ## Historical 1.0.2 downloads

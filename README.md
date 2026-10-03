@@ -12,15 +12,20 @@ external links can still use the network.
 
 ## Native application (1.1.0)
 
-Native packages are being prepared and validated; this documentation does not certify a released
-or tested package. Check [GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases)
-for published downloads and their version. Existing 1.0.2 releases remain available.
+Native 1.1.0 installers and the Android Preview have passed automated platform checks and are
+available in [GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/tag/v1.1.0).
+Existing 1.0.2 browser and Java Android downloads remain available.
 
 | Platform | Native package and requirements |
 | --- | --- |
 | Windows | NSIS `.exe` installer, per user; Windows 10/11 and current Microsoft Edge WebView2. The installer is unsigned. If WebView2 is missing, its bootstrap installer needs internet on first installation. |
 | Linux | `.deb` for Ubuntu/Debian with WebKitGTK 4.1, or `.AppImage` for compatible Linux systems. Both open an application window. |
-| Android | Tauri Preview debug APK; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
+| Android | Universal Tauri Preview debug APK; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
+
+Install from the 1.1.0 release: run the per-user installer on Windows; install the .deb with your
+software manager or make the .AppImage executable and open it on Linux; on Android, install the
+universal APK and allow your downloader to install apps when prompted. Each asset has a SHA-256
+checksum beside it.
 
 No Node.js or Python is needed to use native packages. Click **Open**, choose your Markdown,
 turn on **Edit in preview** to change task checkboxes, then click **Save**. Desktop Save writes
