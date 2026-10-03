@@ -1,7 +1,7 @@
 name: Test and release
 on:
   push:
-    branches: ["arena/01a0fdac-readme-viewer"]
+    branches: ["main", "develop"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -126,6 +126,7 @@ jobs:
           name: android-preview
           path: dist/*
   release:
+    if: github.ref == 'refs/heads/main'
     needs: [test, windows, linux, android]
     runs-on: ubuntu-latest
     permissions:
