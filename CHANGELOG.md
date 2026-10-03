@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+
+- Preview now fills the available pane width and height on desktop and narrow screens.
+- Remove the reading-width cap in Preview mode so content uses the full available width.
+- Keep Source and Split layouts working; add real-browser geometry checks at four viewport sizes.
+
 ## 1.0.0
 
 First packaged release, with a per-user Windows installer and a portable offline ZIP.

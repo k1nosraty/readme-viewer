@@ -1,12 +1,14 @@
-First packaged release of README Viewer.
+README Viewer v1.0.1 fixes Preview mode filling only a tiny part of the window.
+
+Preview now fills the available width and height, including on narrow screens. Source and Split remain available. Real-browser layout checks cover four viewport sizes.
 
 ## Windows installation
 
-Download **README-Viewer-1.0.0-Windows-Setup.exe**, run it, and follow the installer. No administrator account, Node.js, Python, or server is required. Start README Viewer from the Start menu; an optional desktop shortcut is available.
+Download **README-Viewer-1.0.1-Windows-Setup.exe**, run it, and follow the installer. No administrator account, Node.js, Python, or server is required. Start README Viewer from the Start menu; an optional desktop shortcut is available.
 
 ## Portable edition
 
-Download **README-Viewer-1.0.0-Portable.zip**, extract the entire ZIP, then double-click **Launch-README-Viewer.bat** on Windows. On macOS or Linux, open **index.html** in your browser.
+Download **README-Viewer-1.0.1-Portable.zip**, extract the entire ZIP, then double-click **Launch-README-Viewer.bat** on Windows. On macOS or Linux, open **index.html** in your browser.
 
 ## Use
 
