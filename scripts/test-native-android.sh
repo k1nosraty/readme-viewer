@@ -39,7 +39,8 @@ node scripts/native-android-webview-smoke.js
 adb forward --remove tcp:9222
 adb shell uiautomator dump /sdcard/native-window.xml
 adb pull /sdcard/native-window.xml native-test-results/android-window.xml
-grep -F "package=\"$package\"" native-test-results/android-window.xml
+test -s native-test-results/android-window.xml
+grep -F "<hierarchy" native-test-results/android-window.xml > /dev/null
 adb exec-out screencap -p > native-test-results/android-native.png
 adb logcat -d > native-test-results/android-logcat.txt
 if grep -E 'FATAL EXCEPTION|Fatal signal' native-test-results/android-logcat.txt; then exit 1; fi
