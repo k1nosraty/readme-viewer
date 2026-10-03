@@ -66,8 +66,12 @@ async function main() {
     await waitFor('window.RVApp.state.name === "sample.md"', 'sample document loaded');
     assert.equal(await evaluate('document.querySelector("#editor").value.includes("پشتیبانی از ورودی چینی و ژاپنی")'), true);
     await click('#btnEdit');
-    const clickedCheckbox = await evaluate('(() => { const boxes=[...document.querySelectorAll("#preview input[type=checkbox]")]; const box=boxes.at(-1); if (!box) return false; box.click(); return box.checked; })()');
-    assert.equal(clickedCheckbox, true, 'Persian task checkbox did not toggle');
+    assert.equal(await evaluate('RVApp.state.editPreview'), true, 'Edit in preview did not turn on');
+    assert.equal(await evaluate('RVApp.state.tasksOk'), true, 'Persian task mapping is unavailable');
+    const boxState = await evaluate('(() => { const boxes=[...document.querySelectorAll("#preview input[type=checkbox]")]; const box=boxes.at(-1); return box ? {disabled:box.disabled,checked:box.checked} : null; })()');
+    assert.ok(boxState, 'Persian task checkbox missing');
+    assert.equal(boxState.disabled, false, 'Persian task checkbox is disabled');
+    await evaluate('(() => { const boxes=[...document.querySelectorAll("#preview input[type=checkbox]")]; boxes.at(-1).click(); return true; })()');
     await waitFor('document.querySelector("#editor").value.includes("[x] پشتیبانی از ورودی چینی و ژاپنی")', 'Markdown task updated');
     assert.equal(await evaluate('RVApp.state.dirty'), true);
     execFileSync('adb', ['shell', 'input', 'keyevent', '4']);
