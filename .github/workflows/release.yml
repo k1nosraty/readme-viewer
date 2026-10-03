@@ -111,11 +111,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          script: |
-            if ! gradle -p android :app:connectedDebugAndroidTest; then
-              find android/app/build/outputs/androidTest-results -name '*.xml' -exec cat {} \;
-              exit 1
-            fi
+          script: sh scripts/test-android.sh
       - name: Package Android preview and checksum
         run: |
           mkdir -p dist
