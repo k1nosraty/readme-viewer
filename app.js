@@ -1565,9 +1565,7 @@
         } else {
           var path = RV.Native.resolveLocalUrl(href, state.handle, true);
           var hash = href.indexOf('#') >= 0 ? href.slice(href.indexOf('#') + 1) : '';
-          var isDoc = path && /\.(md|markdown|mdown|mkd|mdwn|txt)$/i.test(path);
-          var isDir = path && !/\.[a-z0-9]+$/i.test(path.replace(/\/$/, ''));
-          if (isDoc || isDir) {
+          if (path) {
             openNativePath(path, true).then(function (ok) { if (ok && hash) jumpToFragment(hash); });
           }
         }
@@ -1791,6 +1789,7 @@
           state.baseUrl = '';
           el.baseUrl.value = '';
           render({ immediate: true });
+          pushHistory();
         }
         return ok;
       });
@@ -1839,13 +1838,7 @@
       var b = e.target.closest ? e.target.closest('[data-path]') : null;
       if (!b) return;
       var path = b.getAttribute('data-path');
-      openNativePath(path, true).then(function (ok) {
-        if (ok) return;
-        try {
-          localStorage.setItem(RECENT, JSON.stringify(readRecent().filter(function (p) { return p !== path; })));
-        } catch (err) { void 0; }
-        renderRecent();
-      });
+      openNativePath(path, true);
     });
   }
 
@@ -1896,24 +1889,22 @@
     clearFindMarks();
     var q = el.findBar.hidden ? '' : el.findInput.value;
     if (!q) { el.findCount.textContent = ''; return; }
-    var needle = q.toLowerCase();
+    var pattern = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu');
     var walker = document.createTreeWalker(el.preview, NodeFilter.SHOW_TEXT, null);
     var nodes = [];
     while (walker.nextNode()) nodes.push(walker.currentNode);
     for (var i = 0; i < nodes.length && find.hits.length < 1000; i++) {
       var node = nodes[i];
-      var text = node.nodeValue.toLowerCase();
-      var at = text.indexOf(needle);
-      while (at >= 0 && find.hits.length < 1000) {
-        var hit = node.splitText(at);
-        node = hit.splitText(q.length);
+      var match = pattern.exec(node.nodeValue);
+      while (match && find.hits.length < 1000) {
+        var hit = node.splitText(match.index);
+        node = hit.splitText(match[0].length);
         var mark = document.createElement('mark');
         mark.className = 'rv-find';
         hit.parentNode.replaceChild(mark, hit);
         mark.appendChild(hit);
         find.hits.push(mark);
-        text = node.nodeValue.toLowerCase();
-        at = text.indexOf(needle);
+        match = pattern.exec(node.nodeValue);
       }
     }
     if (!find.hits.length) { el.findCount.textContent = t('find.none'); return; }
@@ -2029,7 +2020,7 @@
         return proceed ? openFolderEntry(root, entry) : false;
       });
     }).then(function (ok) {
-      if (ok) { pushHistory(); if (hash) jumpToFragment(hash); }
+      if (ok && hash) jumpToFragment(hash);
     }).catch(function (err) {
       toast(t('error.open', { name: path, reason: (err && err.message) || err }), 'error');
     });
