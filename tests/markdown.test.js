@@ -161,3 +161,10 @@ test('footnote punctuation, Unicode and repeat suffixes cannot collide', functio
   assert.equal(new Set(ids).size, ids.length);
   for (const link of out.matchAll(/href="#([^"]+)"/g)) assert.ok(ids.includes(link[1]), link[1]);
 });
+
+
+test('references in ignored duplicate definitions do not create broken backlinks', function () {
+  const out = render('Text[^b]\n\n[^a]: first\n\n[^a]: ignored[^b]\n\n[^b]: B').html;
+  assert.doesNotMatch(out, /fnref-b:2/);
+  assert.equal((out.match(/class="footnote-back"/g) || []).length, 1);
+});

@@ -266,7 +266,10 @@
           if (token.type !== 'footnote' && token.type !== 'footnoteRef') return;
           var key = fnKey(token.label);
           var note = footnotes[key] || (footnotes[key] = { count: 0, definition: null });
-          if (token.type === 'footnote') { if (!note.definition) note.definition = token; }
+          if (token.type === 'footnote') {
+            if (!note.definition) note.definition = token;
+            else token.tokens = []; // Hidden duplicate definitions must not create phantom references.
+          }
           else token.refIndex = ++note.count;
         });
         return tokens;
