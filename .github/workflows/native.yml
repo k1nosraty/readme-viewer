@@ -24,6 +24,7 @@ jobs:
   linux:
     needs: test
     runs-on: ubuntu-24.04
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,14 +35,44 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - name: Native build and WebDriver prerequisites
+      - name: Update Ubuntu package indexes
+        timeout-minutes: 3
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev webkit2gtk-driver xvfb dbus-x11
-          cargo install tauri-driver --locked
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+      - name: Install Linux WebView and test libraries
+        timeout-minutes: 8
+        run: |
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Dpkg::Use-Pty=0 install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev webkit2gtk-driver xvfb dbus-x11
+      - name: Restore tauri-driver binary
+        id: tauri-driver-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/readme-viewer/tauri-driver
+          key: tauri-driver-ubuntu24-${{ runner.arch }}-2.1.0-v1
+      - name: Install pinned tauri-driver
+        if: steps.tauri-driver-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 8
+        env:
+          CARGO_NET_RETRY: 2
+          CARGO_HTTP_TIMEOUT: 30
+        run: cargo install tauri-driver --version 2.1.0 --locked --root "$HOME/.cache/readme-viewer/tauri-driver"
+      - name: Save tauri-driver binary
+        if: steps.tauri-driver-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/readme-viewer/tauri-driver
+          key: ${{ steps.tauri-driver-cache.outputs.cache-primary-key }}
+      - name: Add tauri-driver to PATH
+        run: |
+          test -x "$HOME/.cache/readme-viewer/tauri-driver/bin/tauri-driver"
+          echo "$HOME/.cache/readme-viewer/tauri-driver/bin" >> "$GITHUB_PATH"
       - run: npm ci
-      - run: npm run native:build -- --bundles deb,appimage
+        timeout-minutes: 5
+      - name: Build Linux packages
+        timeout-minutes: 15
+        run: npm run native:build -- --bundles deb,appimage
       - name: Installed native WebView open, edit and save
+        timeout-minutes: 5
         run: dbus-run-session -- xvfb-run -a bash scripts/test-native-linux.sh
       - name: Linux package checksums
         run: |
