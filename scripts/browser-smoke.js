@@ -53,6 +53,7 @@ const { chromium } = require('playwright');
     await page.evaluate(() => window.RVApp.showComparison());
     for (const width of [1440, 760, 390]) {
       await page.setViewportSize({ width, height: 900 });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const dimensions = await page.evaluate(() => {
         const main = document.getElementById('panes').getBoundingClientRect();
         const comparison = document.getElementById('comparisonPane').getBoundingClientRect();
@@ -75,6 +76,7 @@ const { chromium } = require('playwright');
     // Layout regressions need real browser geometry; DOM-only tests cannot detect collapsed grids.
     for (const width of [1440, 1024, 760, 390]) {
       await page.setViewportSize({ width, height: 900 });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       for (const mode of ['write', 'preview', 'split']) {
         await page.evaluate(mode => window.RVApp.setMode(mode), mode);
         const geometry = await page.evaluate(mode => {
@@ -102,6 +104,7 @@ const { chromium } = require('playwright');
       }
     }
     await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const readingSource = '# Reading tools\n\n- [x] Completed\n- [ ] Pending\n';
     await page.evaluate(source => window.RVApp.setDoc(source, 'reading.md'), readingSource);
     await page.locator('#readingOptions summary').click();
@@ -139,6 +142,7 @@ const { chromium } = require('playwright');
     assert.equal(footnotesValid, true);
     await page.evaluate(() => window.RVApp.setDoc('- [x] یادگیری PostgreSQL', 'persian.md', null, {}));
     await page.setViewportSize({ width: 390, height: 900 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.locator('#btnToc').click();
     await page.locator('#toolOptions > summary').click();
     assert.ok(await page.evaluate(() => { const button = document.getElementById('btnExport'); const rect = button.getBoundingClientRect(); return button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); }), 'mobile sidebar must never cover the toolbar');
