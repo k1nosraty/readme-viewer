@@ -93,6 +93,24 @@
       <button type="button" class="btn btn-icon" id="btnHelp" data-i18n-title="action.help"><i data-icon="help" data-size="16"></i></button>
     </div>
   </div>
+  <div class="workspacebar">
+    <div id="documentTabs" class="document-tabs" role="tablist" data-i18n-aria="tabs.label" aria-label="Documents"></div>
+    <details class="reading-options" id="readingOptions">
+      <summary data-i18n-title="reading.title"><i data-icon="eye" data-size="16"></i><span data-i18n="reading.title">Reading</span></summary>
+      <div class="reading-panel">
+        <label for="readingWidth" data-i18n="reading.width">Text width</label>
+        <select id="readingWidth"><option value="full" data-i18n="reading.full">Full width</option><option value="comfortable" data-i18n="reading.comfortable">Reading width</option></select>
+        <label for="readingSpacing" data-i18n="reading.spacing">Line spacing</label>
+        <select id="readingSpacing"><option value="normal" data-i18n="reading.normal">Normal</option><option value="relaxed" data-i18n="reading.relaxed">Relaxed</option></select>
+        <label class="reading-check"><input type="checkbox" id="hideCompleted"><span data-i18n="reading.hideDone">Hide completed tasks</span></label>
+        <label class="reading-check"><input type="checkbox" id="restoreSession"><span data-i18n="reading.restore">Restore open documents</span></label>
+        <p data-i18n="reading.sessionHint">When enabled, document text is saved on this device. Restored copies ask where to save.</p>
+        <button type="button" class="btn" id="clearSession" data-i18n="reading.clear">Clear saved session</button>
+      </div>
+    </details>
+    <button type="button" class="btn workspace-compare" id="btnCompare" aria-pressed="false" data-i18n-title="compare.toggle"><i data-icon="columns" data-size="16"></i><span data-i18n="compare.toggle">Side by side</span></button>
+    <button type="button" class="btn btn-icon new-tab" id="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="16"></i></button>
+  </div>
 </header>
 
 <div class="layout" id="layout" data-sidebar="on">
@@ -112,6 +130,9 @@
     <div class="toc-scroll">
       <nav class="toc" id="toc" aria-label="Table of contents"></nav>
       <p class="toc-empty" id="tocEmpty" hidden>No matching headings</p>
+      <section class="bookmark-section" id="bookmarkSection" hidden>
+        <h2 data-i18n="reading.bookmarks">Bookmarks</h2><div id="bookmarkList"></div>
+      </section>
     </div>
     <div class="sidebar-foot">
       <label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label>
@@ -121,6 +142,7 @@
     </div>
   </aside>
 
+  <div class="workspace-views" id="workspaceViews">
   <main class="panes" id="panes" data-mode="split">
 
     <section class="pane pane-editor" id="paneEditor">
@@ -184,6 +206,18 @@
     </section>
 
   </main>
+  <div id="compareDivider" class="compare-divider" role="separator" tabindex="0" aria-orientation="vertical" data-i18n-aria="compare.resize" aria-label="Resize document views" hidden></div>
+  <section id="comparisonPane" class="comparison-pane" data-i18n-aria="compare.label" aria-label="Second document" hidden>
+    <div class="comparison-head">
+      <label class="sr-only" for="comparisonSelect" data-i18n="compare.choose">Choose second document</label>
+      <select id="comparisonSelect"></select>
+      <button type="button" class="btn" id="btnActivateComparison" data-i18n="compare.activate">Activate</button>
+      <button type="button" class="btn btn-icon" id="btnCloseComparison" data-i18n-title="compare.close" data-i18n-aria="compare.close"><i data-icon="close" data-size="16"></i></button>
+    </div>
+    <div class="comparison-note" data-i18n="compare.readOnly">Reading view · Activate to edit</div>
+    <div class="preview comparison-scroll" id="comparisonScroll" tabindex="0"><article class="markdown-body" id="comparisonPreview" dir="auto"></article></div>
+  </section>
+  </div>
 </div>
 
 <footer class="statusbar">
@@ -263,6 +297,7 @@
 <script src="src/export.js"></script>
 <script src="src/android.js"></script>
 <script src="src/native.js"></script>
+<script src="src/reading.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

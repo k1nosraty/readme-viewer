@@ -57,6 +57,7 @@
     name: '',
     saved: '',
     dirty: false,
+    needsSave: false,
     hasDocument: false,
     bom: false,
     eol: '\n',
@@ -86,6 +87,572 @@
     taskReason: '',
     lock: { pane: '', until: 0 }
   };
+
+  // Document fields belong to a tab; display preferences remain application-wide.
+  var tabs = [], activeTab = null, nextTabId = 1;
+  var manualBaseUrl = '';
+  var mobileSidebar = false;
+  var documentFields = ['handle', 'name', 'saved', 'dirty', 'needsSave', 'hasDocument', 'bom', 'eol',
+    'encoding', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'curLine'];
+
+  function tabText(key, fallback) { var value = t(key); return value === key ? fallback : value; }
+  function captureTab() {
+    if (!activeTab) return;
+    documentFields.forEach(function (key) { activeTab[key] = state[key]; });
+    activeTab.source = el.editor.value;
+    activeTab.editor = el.editor;
+    activeTab.selection = [el.editor.selectionStart, el.editor.selectionEnd, el.editor.selectionDirection];
+    activeTab.scroll = [el.editor.scrollTop, el.editor.scrollLeft, el.previewScroll.scrollTop];
+    activeTab.nav = nav;
+    activeTab.find = { query: el.findInput.value, hidden: el.findBar.hidden, index: find.index };
+  }
+  var tabSignature = '';
+  function renderTabs() {
+    var bar = $('documentTabs');
+    if (!bar) return;
+    var signature = JSON.stringify(tabs.map(function (tab) {
+      return [tab.id, tab === activeTab, tab === activeTab ? state.name : tab.name,
+        tab === activeTab ? state.dirty : tab.dirty];
+    })) + I18n.getLocale();
+    if (signature === tabSignature) return;
+    tabSignature = signature;
+    var focused = document.activeElement;
+    var focusId = focused && focused.getAttribute('data-tab-focus');
+    bar.textContent = '';
+    tabs.forEach(function (tab) {
+      var selected = tab === activeTab;
+      var name = selected ? state.name : tab.name;
+      var dirty = selected ? state.dirty : tab.dirty;
+      var item = document.createElement('div');
+      item.className = 'document-tab' + (selected ? ' is-active' : '');
+      item.setAttribute('data-tab-id', tab.id);
+      var button = document.createElement('button');
+      button.type = 'button'; button.setAttribute('role', 'tab');
+      button.setAttribute('aria-selected', selected ? 'true' : 'false');
+      button.setAttribute('aria-controls', 'panes');
+      button.setAttribute('tabindex', selected ? '0' : '-1');
+      button.setAttribute('data-tab-focus', 'tab-' + tab.id);
+      button.addEventListener('keydown', function (event) {
+        var index = tabs.indexOf(tab), next = index;
+        var rtl = document.documentElement.getAttribute('dir') === 'rtl';
+        if (event.key === 'ArrowRight') next = (index + (rtl ? -1 : 1) + tabs.length) % tabs.length;
+        else if (event.key === 'ArrowLeft') next = (index + (rtl ? 1 : -1) + tabs.length) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else return;
+        event.preventDefault();
+        if (switchTab(tabs[next].id)) {
+          var target = bar.querySelector('[data-tab-focus="tab-' + tabs[next].id + '"]');
+          if (target) target.focus();
+        }
+      });
+      button.textContent = (dirty ? '• ' : '') + (name || tabText('tabs.untitled', 'Untitled'));
+      button.addEventListener('click', function () { switchTab(tab.id); });
+      var close = document.createElement('button');
+      close.type = 'button'; close.className = 'document-tab-close'; close.innerHTML = Icons.svg('close', 12);
+      close.setAttribute('data-tab-focus', 'close-' + tab.id);
+      close.setAttribute('aria-label', tabText('tabs.close', 'Close tab') + ': ' + (name || tabText('tabs.untitled', 'Untitled')));
+      close.addEventListener('click', function () { closeTab(tab.id); });
+      item.appendChild(button); item.appendChild(close); bar.appendChild(item);
+    });
+    if (focusId) {
+      var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
+      if (replacement) replacement.focus();
+    }
+  }
+  function switchTab(id, internal) {
+    var tab = tabs.filter(function (item) { return item.id === id; })[0];
+    if (!tab || (!internal && (pendingSave || pendingDiscard))) return false;
+    if (tab === activeTab) return true;
+    var previous = activeTab;
+    if (previous) previous.editType = null;
+    tab.editType = null;
+    captureTab(); activeTab = tab;
+    if (comparison.visible && comparison.id === tab.id && previous) comparison.id = previous.id;
+    documentFields.forEach(function (key) { state[key] = tab[key]; });
+    state.documentId++;
+    mountEditor(tab.editor, tab.source);
+    el.baseUrl.value = state.baseUrl;
+    el.tocFilter.value = state.tocFilter || '';
+    nav = tab.nav;
+    el.findInput.value = tab.find.query; el.findBar.hidden = tab.find.hidden;
+    find.index = tab.find.index;
+    el.emptyState.hidden = state.hasDocument;
+    if (state.hasDocument) el.previewScroll.removeAttribute('data-empty');
+    else el.previewScroll.setAttribute('data-empty', '1');
+    render({ immediate: true });
+    el.editor.setSelectionRange(tab.selection[0], tab.selection[1], tab.selection[2]);
+    el.editor.scrollTop = tab.scroll[0]; el.editor.scrollLeft = tab.scroll[1];
+    el.previewScroll.scrollTop = tab.scroll[2];
+    updateNavButtons(); updateChrome(); trackModified();
+    return true;
+  }
+  function newTab(text, name, handle, meta) {
+    if (pendingSave || pendingDiscard) return false;
+    captureTab();
+    var tab = { id: nextTabId++ };
+    tabs.push(tab); activeTab = tab;
+    nav = { list: [], index: -1, moving: false };
+    el.findInput.value = ''; el.findBar.hidden = true;
+    state.folder = null; state.tocFilter = ''; state.curLine = -1; el.tocFilter.value = '';
+    state.baseUrl = manualBaseUrl; state.autoBase = false; el.baseUrl.value = manualBaseUrl;
+    if (typeof text === 'string') setDoc(text, name || 'README.md', handle, meta);
+    else setEmpty();
+    el.editor.setSelectionRange(0, 0); el.editor.scrollTop = 0; el.previewScroll.scrollTop = 0;
+    captureTab(); renderTabs(); return tab.id;
+  }
+  function listTabs() {
+    captureTab();
+    return tabs.map(function (tab) { return { id: tab.id, name: tab.name, source: tab.source,
+      dirty: tab.dirty, hasDocument: tab.hasDocument, needsSave: tab.needsSave, active: tab === activeTab, handle: tab.handle, saved: tab.saved,
+      bom: tab.bom, eol: tab.eol, encoding: tab.encoding, baseUrl: tab.baseUrl, autoBase: tab.autoBase }; });
+  }
+  function restoreTab(snapshot) {
+    if (!snapshot || typeof snapshot.source !== 'string') return false;
+    var metadata = { bom: !!snapshot.bom, eol: snapshot.eol === '\r\n' ? '\r\n' : '\n', encoding: 'utf-8' };
+    var name = typeof snapshot.name === 'string' ? snapshot.name : 'README.md';
+    var id;
+    if (tabs.length === 1 && !state.hasDocument && !el.editor.value && !pendingSave && !pendingDiscard) {
+      setDoc(snapshot.source, name, null, metadata); id = activeTab.id;
+    } else id = newTab(snapshot.source, name, null, metadata);
+    if (!id) return false;
+    state.saved = typeof snapshot.saved === 'string' ? snapshot.saved : snapshot.source;
+    state.baseUrl = typeof snapshot.baseUrl === 'string' ? snapshot.baseUrl : '';
+    state.autoBase = false; state.needsSave = true; el.baseUrl.value = state.baseUrl;
+    setDirty(true); render({ immediate: true }); return id;
+  }
+  function closeTab(id) {
+    if (pendingSave || pendingDiscard) return Promise.resolve(false);
+    var tab = tabs.filter(function (item) { return item.id === id; })[0];
+    if (!tab) return Promise.resolve(false);
+    var previous = activeTab.id;
+    switchTab(id);
+    return confirmDiscard().then(function (ok) {
+      if (!ok) { switchTab(previous, true); return false; }
+      var index = tabs.indexOf(tab);
+      tabs.splice(index, 1); activeTab = null;
+      if (tab.editor && tab.editor !== el.editor && tab.editor.parentNode) tab.editor.parentNode.removeChild(tab.editor);
+      if (tabs.length) switchTab(tabs[Math.min(index, tabs.length - 1)].id, true);
+      else newTab();
+      renderTabs(); return true;
+    });
+  }
+  function confirmAllDirty() {
+    if (pendingSave) return pendingSave.then(function () { return confirmAllDirty(); });
+    captureTab();
+    var original = activeTab.id, ids = tabs.map(function (tab) { return tab.id; });
+    function next(index) {
+      if (index === ids.length) { switchTab(original, true); return Promise.resolve(true); }
+      switchTab(ids[index], true);
+      return confirmDiscard().then(function (ok) {
+        if (!ok) { switchTab(original, true); return false; }
+        return next(index + 1);
+      });
+    }
+    return next(0);
+  }
+  function openFileTab(file, handle) {
+    if (!file) return Promise.resolve(false);
+    return file.arrayBuffer().then(function (buffer) {
+      var decoded = Encoding.decode(new Uint8Array(buffer));
+      if (decoded.binary) { toast(t('error.binary', { name: file.name || '' }), 'error'); return false; }
+      if (pendingSave || pendingDiscard) return false;
+      var existing = handle && handle.path && tabs.filter(function (tab) {
+        var opened = tab === activeTab ? state.handle : tab.handle;
+        return opened && opened.path === handle.path;
+      })[0];
+      if (existing) return switchTab(existing.id);
+      if (activeTab && tabs.length === 1 && !state.hasDocument && !el.editor.value) {
+        setDoc(decoded.text, file.name || 'README.md', handle, decoded);
+      } else if (!newTab(decoded.text, file.name || 'README.md', handle, decoded)) return false;
+      pushHistory(); rememberRecent(); trackModified(); return true;
+    }).catch(function (err) { reportOpen(err, file.name); return false; });
+  }
+  function openHandleTab(handle) {
+    if (!handle) return Promise.resolve(false);
+    var existing = handle.path && tabs.filter(function (tab) {
+      return (tab === activeTab ? state.handle : tab.handle) &&
+        (tab === activeTab ? state.handle : tab.handle).path === handle.path;
+    })[0];
+    if (existing) return Promise.resolve(switchTab(existing.id));
+    return handle.getFile().then(function (file) { return openFileTab(file, handle); });
+  }
+
+  var comparison = { visible: false, id: null, md: null, signature: '', version: 0, urls: [], split: 50 };
+  function comparisonTab() {
+    return tabs.filter(function (tab) { return tab.id === comparison.id && tab !== activeTab; })[0];
+  }
+  function showComparison(id) {
+    var other = tabs.filter(function (tab) { return tab !== activeTab && (!id || tab.id === id); })[0];
+    if (!other) return false;
+    comparison.visible = true; comparison.id = other.id; comparison.signature = '';
+    refreshComparison(); return true;
+  }
+  function hideComparison() {
+    comparison.visible = false; comparison.id = null;
+    refreshComparison();
+  }
+  function comparisonFolderPath(folder, href) {
+    if (!folder || /^[a-z][a-z\d+.-]*:|^\/\/|^#/i.test(href)) return null;
+    var value;
+    try { value = decodeURIComponent(href.split(/[?#]/)[0]); } catch (e) { return null; }
+    var parts = value.charAt(0) === '/' ? [] : folder.path.split('/').slice(0, -1);
+    var input = value.split('/');
+    for (var i = 0; i < input.length; i++) {
+      if (!input[i] || input[i] === '.') continue;
+      if (input[i] === '..') { if (!parts.length) return null; parts.pop(); }
+      else parts.push(input[i]);
+    }
+    return parts.join('/');
+  }
+  function refreshComparison() {
+    var pane = $('comparisonPane'), divider = $('compareDivider'), views = $('workspaceViews');
+    if (!pane || !views) return;
+    var other = tabs.filter(function (tab) { return tab !== activeTab; });
+    var toggle = $('btnCompare');
+    if (toggle) { toggle.disabled = !other.length; toggle.setAttribute('aria-pressed', comparison.visible ? 'true' : 'false'); }
+    if (!comparisonTab() && comparison.visible) comparison.id = other.length ? other[0].id : null;
+    if (!comparison.id) comparison.visible = false;
+    pane.hidden = !comparison.visible;
+    if (divider) {
+      divider.hidden = !comparison.visible;
+      divider.setAttribute('aria-orientation', window.innerWidth <= 900 ? 'horizontal' : 'vertical');
+    }
+    views.setAttribute('data-compare', comparison.visible ? 'true' : 'false');
+    views.style.setProperty('--compare-split', comparison.split + '%');
+    var select = $('comparisonSelect');
+    if (select) {
+      var options = other.map(function (tab) { return [tab.id, tab.name, tab.dirty]; });
+      var optionSignature = JSON.stringify(options);
+      if (select.getAttribute('data-options') !== optionSignature) {
+        select.textContent = '';
+        other.forEach(function (tab) {
+          var option = document.createElement('option'); option.value = String(tab.id);
+          option.textContent = (tab.dirty ? '• ' : '') + (tab.name || tabText('tabs.untitled', 'Untitled'));
+          select.appendChild(option);
+        });
+        select.setAttribute('data-options', optionSignature);
+      }
+      select.value = String(comparison.id);
+    }
+    var preview = $('comparisonPreview');
+    if (!comparison.visible || !preview) {
+      if (!comparison.visible) {
+        comparison.version++; comparison.signature = '';
+        comparison.urls.forEach(function (url) { URL.revokeObjectURL(url); }); comparison.urls = [];
+        if (preview) preview.textContent = '';
+      }
+      return;
+    }
+    var tab = comparisonTab();
+    var signature = JSON.stringify([tab.id, tab.source, tab.baseUrl, state.dirMode, I18n.getLocale()]);
+    if (signature === comparison.signature) return;
+    comparison.signature = signature;
+    var version = ++comparison.version;
+    comparison.urls.forEach(function (url) { URL.revokeObjectURL(url); }); comparison.urls = [];
+    if (!comparison.md) comparison.md = Markdown.create({ marked: window.marked, purify: window.DOMPurify,
+      icons: Icons.svg }, { strings: I18n.t });
+    var renderer = comparison.md;
+    renderer.reset();
+    try {
+      var tokens = renderer.lexer(tab.source);
+      preview.innerHTML = tokens.map(function (token) { return renderer.renderBlock(token, tokens.links); }).join('');
+    } catch (err) { preview.textContent = t('error.parse', { reason: err.message || String(err) }); }
+    preview.setAttribute('dir', state.dirMode === 'auto' ? Direction.dominantDir(tab.source) : state.dirMode);
+    var prefix = 'comparison-' + tab.id + '-';
+    var originalIds = Object.create(null);
+    eachNode('[id]', function (node) { originalIds[node.id] = true; node.id = prefix + node.id; }, preview);
+    eachNode('input[type=checkbox]', function (box) { box.disabled = true; box.removeAttribute('data-rv-task'); }, preview);
+    eachNode('a[href]', function (link) {
+      var href = link.getAttribute('href') || '';
+      link.setAttribute('data-comparison-href', href);
+      if (href.charAt(0) === '#') {
+        var fragment = href.slice(1);
+        try { fragment = decodeURIComponent(fragment); } catch (err) { void 0; }
+        if (!originalIds[fragment]) {
+          if (originalIds['user-content-' + fragment]) fragment = 'user-content-' + fragment;
+          else if (originalIds['user-content-' + fragment.toLowerCase()]) fragment = 'user-content-' + fragment.toLowerCase();
+        }
+        link.setAttribute('href', '#' + prefix + fragment); return;
+      }
+      link.setAttribute('data-comparison-href', href);
+      if (!nativeAvailable() && !tab.folder) link.setAttribute('href', resolveUrl(href, tab.baseUrl));
+      link.setAttribute('target', '_blank'); link.setAttribute('rel', 'noopener noreferrer nofollow');
+    }, preview);
+    eachNode('img[src]', function (img) {
+      var src = img.getAttribute('src') || '';
+      if (nativeAvailable()) {
+        var asset = /^https?:/i.test(src) ? src : RV.Native.assetUrl(src, tab.handle);
+        if (asset) img.setAttribute('src', asset); else img.removeAttribute('src');
+      } else if (tab.folder) {
+        var path = comparisonFolderPath(tab.folder, src);
+        if (path === null) { if (!/^(https?:|data:)/i.test(src)) img.removeAttribute('src'); return; }
+        img.removeAttribute('src');
+        new Promise(function (resolve, reject) { tab.folder.root.getFile(path, {}, resolve, reject); })
+          .then(openEntry).then(function (file) {
+            if (version !== comparison.version || comparison.id !== tab.id || !comparison.visible) return;
+            var url = URL.createObjectURL(file); comparison.urls.push(url); img.setAttribute('src', url);
+          }).catch(function () { void 0; });
+      } else img.setAttribute('src', resolveUrl(src, tab.baseUrl));
+    }, preview);
+    hl.all(preview);
+  }
+  function wireComparison() {
+    var toggle = $('btnCompare'), select = $('comparisonSelect'), activate = $('btnActivateComparison');
+    var close = $('btnCloseComparison'), preview = $('comparisonPreview'), divider = $('compareDivider');
+    if (toggle) toggle.addEventListener('click', function () { if (comparison.visible) hideComparison(); else showComparison(); });
+    if (select) select.addEventListener('change', function () { showComparison(Number(select.value)); });
+    if (activate) activate.addEventListener('click', function () { if (comparison.id) switchTab(comparison.id); });
+    if (close) close.addEventListener('click', hideComparison);
+    if (preview) preview.addEventListener('click', function (event) {
+      var link = event.target.closest && event.target.closest('a[href]');
+      if (!link) return;
+      var href = link.getAttribute('href') || '';
+      link.setAttribute('data-comparison-href', href);
+      if (href.charAt(0) === '#') {
+        event.preventDefault();
+        var target = document.getElementById(href.slice(1));
+        if (target && preview.contains(target) && target.scrollIntoView) target.scrollIntoView({ block: 'start' });
+        return;
+      }
+      var raw = link.getAttribute('data-comparison-href') || href;
+      var tab = comparisonTab();
+      if (nativeAvailable()) {
+        event.preventDefault();
+        if (/^(https?:|mailto:)/i.test(raw)) { Promise.resolve(RV.Native.openExternal(raw)).catch(reportOpen); return; }
+        if (!tab || !switchTab(tab.id)) return;
+        var path = RV.Native.resolveLocalUrl(raw, state.handle, true);
+        var hash = raw.indexOf('#') >= 0 ? raw.slice(raw.indexOf('#') + 1) : '';
+        if (path) openNativePath(path, true).then(function (ok) { if (ok && hash) jumpToFragment(hash); });
+      } else if (tab && tab.folder && !/^[a-z][a-z\d+.-]*:|^\/\//i.test(raw)) {
+        event.preventDefault(); if (switchTab(tab.id)) openFolderLink(raw);
+      }
+    });
+    if (!divider) return;
+    var dragging = false;
+    function resize(value) {
+      comparison.split = clamp(value, 30, 70);
+      divider.setAttribute('aria-valuenow', String(Math.round(comparison.split)));
+      refreshComparison();
+    }
+    divider.addEventListener('pointerdown', function (event) {
+      dragging = true; event.preventDefault();
+      if (divider.setPointerCapture) { try { divider.setPointerCapture(event.pointerId); } catch (err) { void 0; } }
+    });
+    divider.addEventListener('pointermove', function (event) {
+      if (!dragging) return;
+      var rect = $('workspaceViews').getBoundingClientRect();
+      if (window.innerWidth <= 900) { if (rect.height) resize((event.clientY - rect.top) / rect.height * 100); }
+      else if (rect.width) resize((event.clientX - rect.left) / rect.width * 100);
+    });
+    ['pointerup', 'pointercancel'].forEach(function (type) {
+      divider.addEventListener(type, function () { dragging = false; measureParts(); });
+    });
+    divider.addEventListener('keydown', function (event) {
+      var stacked = window.innerWidth <= 900;
+      var delta = event.key === (stacked ? 'ArrowUp' : 'ArrowLeft') ? -3 : event.key === (stacked ? 'ArrowDown' : 'ArrowRight') ? 3 : 0;
+      if (!delta) return; event.preventDefault(); resize(comparison.split + delta); measureParts();
+    });
+  }
+
+  var linkMenu = { node: null, link: null, origin: null, href: '', press: null, suppress: 0 };
+  function hideLinkMenu(restoreFocus) {
+    if (!linkMenu.node) return;
+    linkMenu.node.hidden = true;
+    if (restoreFocus && linkMenu.link && linkMenu.link.isConnected) linkMenu.link.focus();
+  }
+  function browserLink(href, origin) {
+    var value = resolveUrl(href, origin.baseUrl);
+    if (!nativeAvailable()) {
+      try { value = new URL(href, origin.baseUrl || document.baseURI).href; } catch (err) { return ''; }
+      if (/^file:/i.test(value) && /^file:/i.test(document.baseURI)) return value;
+    }
+    return /^(https?:|mailto:)/i.test(value) ? value : '';
+  }
+  function fileBrowserUrl(path) {
+    var normalized = path.split(String.fromCharCode(92)).join('/');
+    if (normalized.charAt(0) !== '/') normalized = '/' + normalized;
+    return 'file://' + normalized.split('/').map(function (part, index) {
+      return index === 1 && /^[a-z]:$/i.test(part) ? part : encodeURIComponent(part);
+    }).join('/');
+  }
+  function openNativeBrowserPreview(path) {
+    if (typeof RV.Native.previewInBrowser !== 'function' ||
+        (RV.Native.canPreviewInBrowser && !RV.Native.canPreviewInBrowser())) return Promise.resolve(false);
+    var open = RV.Native.openLink || RV.Native.openPath;
+    return Promise.resolve(open(path)).then(function (handle) {
+      if (!handle) return false;
+      return handle.getFile().then(function (file) {
+        return file.arrayBuffer().then(function (buffer) {
+          var decoded = Encoding.decode(new Uint8Array(buffer));
+          if (decoded.binary) { toast(t('error.binary', { name: file.name || '' }), 'error'); return false; }
+          var renderer = Markdown.create({ marked: window.marked, purify: window.DOMPurify, icons: Icons.svg }, { strings: I18n.t });
+          renderer.reset(); var tokens = renderer.lexer(decoded.text);
+          var preview = document.createElement('div');
+          preview.innerHTML = tokens.map(function (token) { return renderer.renderBlock(token, tokens.links); }).join('');
+          eachNode('a[href],img[src]', function (node) {
+            var image = node.tagName === 'IMG', attr = image ? 'src' : 'href';
+            var href = node.getAttribute(attr) || '';
+            if (/^(https?:|mailto:|#)/i.test(href) || (image && /^data:image\//i.test(href))) return;
+            var resolved = RV.Native.resolveLocalUrl(href, handle, !image);
+            if (resolved) node.setAttribute(attr, fileBrowserUrl(resolved)); else node.removeAttribute(attr);
+          }, preview);
+          eachNode('input[type=checkbox]', function (box) { box.disabled = true; box.removeAttribute('data-rv-task'); }, preview);
+          return Promise.resolve(RV.Native.previewInBrowser(Exporter.build({ title: file.name || handle.name || 'README', html: preview.innerHTML,
+            theme: state.theme === 'auto' ? (isDark() ? 'dark' : 'light') : state.theme,
+            lang: Direction.detectLanguage(decoded.text), dir: Direction.dominantDir(decoded.text) }))).then(function () { return true; });
+        });
+      });
+    });
+  }
+  function openLinkAction(action, origin, href) {
+    if (!origin || tabs.indexOf(origin) < 0) return Promise.resolve(false);
+    if (action === 'browser' || /^(https?:|mailto:)/i.test(href)) {
+      var url = browserLink(href, origin);
+      if (!url) {
+        if (nativeAvailable() && action === 'browser') {
+          var localPath = RV.Native.resolveLocalUrl(href, origin.handle, true);
+          return localPath ? openNativeBrowserPreview(localPath) : Promise.resolve(false);
+        }
+        return Promise.resolve(false);
+      }
+      if (nativeAvailable()) return Promise.resolve(RV.Native.openExternal(url)).then(function () { return true; });
+      var opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (opened) opened.opener = null;
+      return Promise.resolve(true);
+    }
+    if (href.charAt(0) === '#') {
+      if (!switchTab(origin.id)) return Promise.resolve(false);
+      return Promise.resolve(jumpToFragment(href.slice(1)));
+    }
+    if (nativeAvailable()) {
+      var path = RV.Native.resolveLocalUrl(href, origin.handle, true);
+      if (!path) return Promise.resolve(false);
+      if (action === 'new') return Promise.resolve(RV.Native.openLink ? RV.Native.openLink(path) : RV.Native.openPath(path)).then(openHandleTab).then(function (ok) {
+        if (ok && href.indexOf('#') >= 0) jumpToFragment(href.slice(href.indexOf('#') + 1));
+        return ok;
+      });
+      if (!switchTab(origin.id)) return Promise.resolve(false);
+      return openNativePath(path, true).then(function (ok) {
+        if (ok && activeTab === origin && href.indexOf('#') >= 0) jumpToFragment(href.slice(href.indexOf('#') + 1));
+        return ok;
+      });
+    }
+    if (origin.folder) {
+      var pathInFolder = comparisonFolderPath(origin.folder, href);
+      if (pathInFolder === null) return Promise.resolve(false);
+      if (action === 'same') {
+        if (!switchTab(origin.id)) return Promise.resolve(false);
+        return Promise.resolve(openFolderLink(href));
+      }
+      var root = origin.folder.root;
+      var target = new Promise(function (resolve, reject) {
+        var isFile = /\.(md|markdown|mdown|mkd|mdwn|txt)$/i.test(pathInFolder);
+        (isFile ? root.getFile : root.getDirectory).call(root, pathInFolder, {}, resolve, reject);
+      }).then(function (entry) { return entry.isDirectory ? findReadme(entry, 3) : entry; });
+      return target.then(function (entry) { return entry ? openFolderEntry(root, entry, true) : false; }).then(function (ok) {
+        if (ok && href.indexOf('#') >= 0) jumpToFragment(href.slice(href.indexOf('#') + 1));
+        return ok;
+      });
+    }
+    var external = browserLink(href, origin);
+    if (!external) return Promise.resolve(false);
+    var opened = window.open(external, '_blank', 'noopener,noreferrer');
+    if (opened) opened.opener = null;
+    return Promise.resolve(true);
+  }
+  function showLinkMenu(link, x, y, secondary) {
+    captureTab();
+    var origin = secondary ? comparisonTab() : activeTab;
+    if (!origin) return false;
+    var href = link.getAttribute('data-native-href') || link.getAttribute('data-comparison-href') || link.getAttribute('href') || '';
+    if (secondary && href.indexOf('#comparison-' + origin.id + '-') === 0) href = '#' + href.slice(('#comparison-' + origin.id + '-').length);
+    if (!href || /^(javascript:|data:|vbscript:)/i.test(href)) return false;
+    if (!linkMenu.node) {
+      var menu = document.createElement('div'); menu.id = 'linkContextMenu'; menu.className = 'link-context-menu';
+      menu.setAttribute('role', 'menu'); menu.style.position = 'fixed'; menu.hidden = true;
+      document.body.appendChild(menu); linkMenu.node = menu;
+      menu.addEventListener('keydown', function (event) {
+        var buttons = Array.prototype.slice.call(menu.querySelectorAll('button:not(:disabled)'));
+        var index = buttons.indexOf(document.activeElement), target;
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); hideLinkMenu(true); return; }
+        if (event.key === 'Tab') { hideLinkMenu(false); return; }
+        if (event.key === 'ArrowDown') target = buttons[(index + 1) % buttons.length];
+        else if (event.key === 'ArrowUp') target = buttons[(index - 1 + buttons.length) % buttons.length];
+        else if (event.key === 'Home') target = buttons[0];
+        else if (event.key === 'End') target = buttons[buttons.length - 1];
+        if (target) { event.preventDefault(); target.focus(); }
+      });
+    }
+    var menu = linkMenu.node;
+    linkMenu.link = link; linkMenu.origin = origin; linkMenu.href = href;
+    menu.setAttribute('aria-label', tabText('linkMenu.label', 'Open link'));
+    menu.textContent = '';
+    [['same', 'Open in this tab'], ['new', 'Open in new tab'], ['browser', 'Open in browser']].forEach(function (item) {
+      var button = document.createElement('button'); button.type = 'button'; button.setAttribute('role', 'menuitem');
+      button.setAttribute('data-link-action', item[0]); button.textContent = tabText('linkMenu.' + item[0], item[1]);
+      button.disabled = item[0] === 'browser' && !browserLink(href, origin) &&
+        !(nativeAvailable() && typeof RV.Native.previewInBrowser === 'function' &&
+          (!RV.Native.canPreviewInBrowser || RV.Native.canPreviewInBrowser()));
+      if (button.disabled) button.title = tabText('linkMenu.browserUnavailable', 'This local link has no browser URL');
+      button.addEventListener('click', function () {
+        hideLinkMenu(false);
+        Promise.resolve(openLinkAction(item[0], origin, href)).catch(reportOpen);
+      });
+      menu.appendChild(button);
+    });
+    menu.hidden = false;
+    var rect = menu.getBoundingClientRect();
+    menu.style.left = clamp(x, 8, Math.max(8, window.innerWidth - rect.width - 8)) + 'px';
+    menu.style.top = clamp(y, 8, Math.max(8, window.innerHeight - rect.height - 8)) + 'px';
+    menu.querySelector('button:not(:disabled)').focus(); return true;
+  }
+  function wireLinkMenus() {
+    function cancelPress() {
+      if (linkMenu.press) clearTimeout(linkMenu.press.timer);
+      linkMenu.press = null;
+    }
+    [el.preview, $('comparisonPreview')].filter(Boolean).forEach(function (preview) {
+      var secondary = preview !== el.preview;
+      preview.addEventListener('contextmenu', function (event) {
+        var link = event.target.closest && event.target.closest('a[href]');
+        if (!link) return;
+        var rect = link.getBoundingClientRect();
+        if (showLinkMenu(link, event.clientX || rect.left, event.clientY || rect.bottom, secondary)) event.preventDefault();
+      });
+      preview.addEventListener('keydown', function (event) {
+        if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return;
+        var link = event.target.closest && event.target.closest('a[href]');
+        if (!link) return;
+        var rect = link.getBoundingClientRect();
+        if (showLinkMenu(link, rect.left, rect.bottom, secondary)) event.preventDefault();
+      });
+      preview.addEventListener('pointerdown', function (event) {
+        cancelPress(); if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+        var link = event.target.closest && event.target.closest('a[href]');
+        if (!link) return;
+        var press = { x: event.clientX, y: event.clientY };
+        press.timer = setTimeout(function () {
+          linkMenu.press = null;
+          if (link.isConnected && showLinkMenu(link, press.x, press.y, secondary)) linkMenu.suppress = Date.now() + 1000;
+        }, 550);
+        linkMenu.press = press;
+      });
+      preview.addEventListener('pointermove', function (event) {
+        var press = linkMenu.press;
+        if (press && (Math.abs(event.clientX - press.x) > 10 || Math.abs(event.clientY - press.y) > 10)) cancelPress();
+      });
+      ['pointerup', 'pointercancel'].forEach(function (type) { preview.addEventListener(type, cancelPress); });
+      preview.addEventListener('click', function (event) {
+        if (Date.now() < linkMenu.suppress) { event.preventDefault(); event.stopImmediatePropagation(); linkMenu.suppress = 0; }
+      }, true);
+    });
+    document.addEventListener('pointerdown', function (event) {
+      if (linkMenu.node && !linkMenu.node.hidden && !linkMenu.node.contains(event.target)) hideLinkMenu(false);
+    });
+    window.addEventListener('scroll', cancelPress, true);
+    window.addEventListener('resize', function () { cancelPress(); hideLinkMenu(false); });
+  }
 
   /* ---------------------------------------------------------------- helpers */
 
@@ -148,6 +715,7 @@
     state.mode = ['split', 'write', 'preview'].indexOf(s.mode) >= 0 ? s.mode : 'split';
     state.theme = ['auto', 'light', 'dark'].indexOf(s.theme) >= 0 ? s.theme : 'auto';
     state.baseUrl = typeof s.baseUrl === 'string' ? s.baseUrl : '';
+    manualBaseUrl = state.baseUrl;
     state.editPreview = !!s.editPreview;
     state.sidebar = s.sidebar !== false;
     state.split = clamp(parseFloat(s.split) || 50, 15, 85);
@@ -158,7 +726,7 @@
     try {
       localStorage.setItem(STORE, JSON.stringify({
         font: state.font, wrap: state.wrap, sync: state.sync, dirMode: state.dirMode,
-        mode: state.mode, theme: state.theme, baseUrl: state.autoBase ? '' : state.baseUrl,
+        mode: state.mode, theme: state.theme, baseUrl: manualBaseUrl,
         editPreview: state.editPreview, sidebar: state.sidebar, split: state.split,
         locale: I18n.getLocale()
       }));
@@ -219,6 +787,8 @@
   /* ------------------------------------------------------------------ chrome */
 
   function updateChrome() {
+    renderTabs();
+    refreshComparison();
     var name = state.hasDocument ? state.name : t('app.name');
     el.fileName.textContent = name;
     el.fileName.title = state.hasDocument ? state.name : '';
@@ -245,7 +815,7 @@
 
     el.btnWrap.setAttribute('aria-pressed', state.wrap ? 'true' : 'false');
     el.btnSync.setAttribute('aria-pressed', state.sync ? 'true' : 'false');
-    el.btnToc.setAttribute('aria-pressed', state.sidebar ? 'true' : 'false');
+    el.btnToc.setAttribute('aria-pressed', (window.innerWidth <= 900 ? mobileSidebar : state.sidebar) ? 'true' : 'false');
 
     eachNode('[data-mode-btn]', function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-mode-btn') === state.mode ? 'true' : 'false');
@@ -258,6 +828,7 @@
       ? (state.encoding ? state.encoding + ' · ' : '') + (state.eol === '\r\n' ? 'CRLF' : 'LF') +
         (state.bom ? ' · BOM' : '')
       : '';
+    if (RV.Reading) RV.Reading.workspaceChanged();
   }
 
   function setDirty(on) {
@@ -267,11 +838,34 @@
 
   /* ------------------------------------------------------------- document I/O */
 
+  // Retain each editing host across switches for selection and composition identity.
+  function mountEditor(editor, value) {
+    var previous = el.editor;
+    if (!editor) {
+      editor = previous.cloneNode(false);
+      editor.value = value || '';
+    }
+    if (previous !== editor) {
+      previous.removeAttribute('id'); previous.hidden = true; previous.style.display = 'none';
+      if (!editor.parentNode) previous.parentNode.appendChild(editor);
+    }
+    editor.id = 'editor'; editor.hidden = false; editor.style.removeProperty('display');
+    editor.setAttribute('data-wrap', state.wrap ? '1' : '0');
+    el.editor = editor;
+    if (!editor._rvWired) wireEditor();
+    if (activeTab) activeTab.editor = editor;
+    if (previous !== editor && !tabs.some(function (tab) { return tab.editor === previous; }) && previous.parentNode) previous.parentNode.removeChild(previous);
+  }
+
   function setDoc(text, name, handle, meta) {
     state.documentId++;
-    el.editor.value = text;
+    var oldEditor = el.editor;
+    mountEditor(null, text);
+    resetUndo();
+    if (!tabs.some(function (tab) { return tab.editor === oldEditor; }) && oldEditor.parentNode) oldEditor.parentNode.removeChild(oldEditor);
     state.name = name || '';
     state.saved = text;
+    state.needsSave = false;
     state.handle = handle || null;
     state.folder = null;
     if (state.autoBase) { state.baseUrl = ''; el.baseUrl.value = ''; state.autoBase = false; }
@@ -292,9 +886,13 @@
 
   function setEmpty() {
     state.documentId++;
-    el.editor.value = '';
+    var oldEditor = el.editor;
+    mountEditor(null, '');
+    resetUndo();
+    if (!tabs.some(function (tab) { return tab.editor === oldEditor; }) && oldEditor.parentNode) oldEditor.parentNode.removeChild(oldEditor);
     state.name = '';
     state.saved = '';
+    state.needsSave = false;
     state.handle = null;
     state.hasDocument = false;
     state.bom = false;
@@ -310,7 +908,59 @@
     render({ immediate: true });
   }
 
-  function markDirtyFromValue() {
+  var restoringEdit = false;
+  function editorSnapshot() {
+    return { source: el.editor.value, start: el.editor.selectionStart, end: el.editor.selectionEnd,
+      direction: el.editor.selectionDirection, top: el.editor.scrollTop };
+  }
+  function resetUndo() {
+    if (!activeTab) return;
+    activeTab.undo = []; activeTab.redo = []; activeTab.lastEdit = editorSnapshot();
+    activeTab.editType = null;
+  }
+  function trimUndo(pile) {
+    var other = pile === activeTab.undo ? activeTab.redo : activeTab.undo;
+    var all = pile.concat(other);
+    var size = all.reduce(function (sum, item) { return sum + item.source.length * 2; }, 0);
+    while (pile.length + other.length > 100 || size > 4 * 1024 * 1024) {
+      var oldest = other.length ? other.shift() : pile.shift();
+      size -= oldest.source.length * 2;
+    }
+  }
+  function recordEdit(inputType) {
+    if (!activeTab || restoringEdit) return;
+    var previous = activeTab.lastEdit;
+    if (previous && previous.source !== el.editor.value) {
+      var timestamp = Date.now();
+      var coalesce = inputType === 'insertText' && activeTab.editType === inputType &&
+        timestamp - activeTab.editTime < 500 && previous.start === previous.end && previous.start === activeTab.editCaret;
+      if (!coalesce) activeTab.undo.push(previous);
+      activeTab.redo = [];
+      trimUndo(activeTab.undo);
+      activeTab.editType = inputType; activeTab.editTime = timestamp; activeTab.editCaret = el.editor.selectionEnd;
+    }
+    activeTab.lastEdit = editorSnapshot();
+  }
+  function undoEdit(redo) {
+    if (!activeTab) return false;
+    var from = redo ? activeTab.redo : activeTab.undo;
+    if (!from || !from.length) return false;
+    var to = redo ? activeTab.undo : activeTab.redo;
+    var snapshot = from.pop();
+    to.push(editorSnapshot());
+    trimUndo(to);
+    activeTab.editType = null;
+    el.editor.value = snapshot.source;
+    el.editor.setSelectionRange(snapshot.start, snapshot.end, snapshot.direction);
+    el.editor.scrollTop = snapshot.top;
+    activeTab.lastEdit = snapshot;
+    restoringEdit = true;
+    try { markDirtyFromValue(); } finally { restoringEdit = false; }
+    render({ immediate: true }); return true;
+  }
+
+  function markDirtyFromValue(inputType) {
+    recordEdit(inputType);
     if (!state.hasDocument) {
       state.hasDocument = el.editor.value.length > 0;
       if (state.hasDocument) {
@@ -320,7 +970,7 @@
         el.previewScroll.removeAttribute('data-empty');
       }
     }
-    setDirty(state.hasDocument ? el.editor.value !== state.saved : el.editor.value.length > 0);
+    setDirty(state.needsSave || (state.hasDocument ? el.editor.value !== state.saved : el.editor.value.length > 0));
   }
 
   function readHandle(handle, quiet) {
@@ -360,41 +1010,17 @@
   }
 
   function pickOpen() {
-    confirmDiscard().then(function (proceed) {
-      if (!proceed) return;
-      var opts = {
-        multiple: false,
-        types: [{
-          description: 'Markdown',
-          accept: {
-            'text/markdown': ['.md', '.markdown', '.mdown', '.mkd', '.mdwn'],
-            'text/plain': ['.txt']
-          }
-        }]
-      };
-      if (nativeAvailable()) {
-        var documentId = state.documentId;
-        var source = el.editor.value;
-        RV.Native.pickOpen().then(function (h) {
-          if (!h || state.documentId !== documentId || el.editor.value !== source) return false;
-          return readHandle(h);
-        }).catch(function (err) { reportOpen(err); });
-      } else if (typeof window.showOpenFilePicker === 'function') {
-        window.showOpenFilePicker(opts).then(function (handles) {
-          var h = handles && handles[0];
-          if (!h) return null;
-          return readHandle(h);
-        }).catch(function (err) {
-          if (err && err.name === 'AbortError') return;
-          el.fileInput.click();
-        });
-      } else {
-        el.fileInput.click();
-      }
-    });
+    if (nativeAvailable()) return RV.Native.pickOpen().then(openHandleTab).catch(reportOpen);
+    if (typeof window.showOpenFilePicker === 'function') {
+      return window.showOpenFilePicker({ multiple: false, types: [{ description: 'Markdown',
+        accept: { 'text/markdown': ['.md', '.markdown', '.txt'] } }] })
+        .then(function (handles) { return openHandleTab(handles && handles[0]); }).catch(reportOpen);
+    }
+    el.fileInput.click();
   }
 
-  function openNativePath(path, fromLink) {
+  function openNativePath(path, fromLink, inNewTab) {
+    if (inNewTab) return RV.Native.openPath(path).then(openHandleTab).catch(function (err) { reportOpen(err, path); return false; });
     return confirmDiscard().then(function (proceed) {
       if (!proceed) return false;
       var documentId = state.documentId;
@@ -430,6 +1056,7 @@
     var a = document.createElement('a');
     a.href = url;
     a.download = name;
+    a.target = '_blank';
     a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
@@ -460,6 +1087,7 @@
     var finish = function (handle) {
       if (state.documentId !== documentId) return true;
       state.saved = text;
+      state.needsSave = false;
       state.handle = handle || null;
       state.name = handle ? handle.name : name;
       applyHandleBase(handle);
@@ -533,6 +1161,8 @@
     render({ immediate: true });
     var src = el.editor.value;
     var snapshot = el.preview.cloneNode(true);
+    eachNode('.section-tools', function (node) { node.parentNode.removeChild(node); }, snapshot);
+    eachNode('.section-folded', function (node) { node.classList.remove('section-folded'); }, snapshot);
     eachNode('input[type=checkbox]', function (box) {
       if (box.checked) box.setAttribute('checked', '');
       else box.removeAttribute('checked');
@@ -767,6 +1397,7 @@
       updateStats('', 0);
       applyTaskMode();
       updateTaskStats();
+      if (RV.Reading) RV.Reading.refresh();
       return;
     }
 
@@ -862,6 +1493,7 @@
       }
     }
     markGutterCursor();
+    if (RV.Reading) RV.Reading.refresh();
   }
 
   var renderTimer = 0;
@@ -1144,6 +1776,7 @@
 
     if (id) {
       var node = byId(id);
+      if (RV.Reading) RV.Reading.reveal(node);
       if (node && typeof node.scrollIntoView === 'function') {
         node.scrollIntoView({ block: 'start' });
         return;
@@ -1169,6 +1802,7 @@
     try { id = decodeURIComponent(fragment); } catch (e) { void 0; }
     var node = byId(id) || byId('user-content-' + id) || byId('user-content-' + id.toLowerCase());
     if (!node) return false;
+    if (RV.Reading) RV.Reading.reveal(node);
     for (var i = 0; i < state.toc.length; i++) {
       if (state.toc[i].id === node.id) { jumpToLine(state.toc[i].line, node.id); return true; }
     }
@@ -1288,8 +1922,10 @@
   }
 
   function applySidebar() {
-    el.sidebar.hidden = !state.sidebar;
-    el.layout.setAttribute('data-sidebar', state.sidebar ? 'on' : 'off');
+    var visible = window.innerWidth <= 900 ? mobileSidebar : state.sidebar;
+    el.sidebar.hidden = !visible;
+    el.layout.setAttribute('data-sidebar', visible ? 'on' : 'off');
+    el.btnToc.setAttribute('aria-pressed', visible ? 'true' : 'false');
     markActiveToc();
   }
 
@@ -1344,7 +1980,8 @@
     });
 
     el.btnToc.addEventListener('click', function () {
-      state.sidebar = !state.sidebar;
+      if (window.innerWidth <= 900) mobileSidebar = !mobileSidebar;
+      else state.sidebar = !state.sidebar;
       applySidebar();
       updateChrome();
       saveSettings();
@@ -1371,6 +2008,7 @@
 
     el.baseUrl.addEventListener('input', function () {
       state.baseUrl = el.baseUrl.value.trim();
+      manualBaseUrl = state.baseUrl;
       state.autoBase = false;
       saveSettings();
       scheduleRender();
@@ -1378,11 +2016,7 @@
 
     el.fileInput.addEventListener('change', function () {
       var f = el.fileInput.files && el.fileInput.files[0];
-      if (f) {
-        confirmDiscard().then(function (proceed) {
-          if (proceed) loadFile(f, null);
-        });
-      }
+      if (f) openFileTab(f, null);
       el.fileInput.value = '';
     });
   }
@@ -1424,6 +2058,10 @@
     });
 
     document.addEventListener('keydown', function (e) {
+      var key = (e.key || '').toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
+        e.preventDefault(); e.stopPropagation(); undoEdit(key === 'y' || e.shiftKey); return;
+      }
       if (e.key === 'Tab') {
         var modal = !el.confirmModal.hidden ? el.confirmModal : (!el.helpModal.hidden ? el.helpModal : null);
         if (!modal) return;
@@ -1445,7 +2083,15 @@
   }
 
   function wireEditor() {
+    if (el.editor._rvWired) return;
+    el.editor._rvWired = true;
     var composing = false;
+    el.editor.addEventListener('beforeinput', function (event) {
+      if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
+        event.preventDefault(); undoEdit(event.inputType === 'historyRedo'); return;
+      }
+      if (activeTab && activeTab.lastEdit && activeTab.lastEdit.source === el.editor.value) activeTab.lastEdit = editorSnapshot();
+    });
     el.editor.addEventListener('compositionstart', function () { composing = true; });
     el.editor.addEventListener('compositionend', function () { composing = false; });
 
@@ -1453,7 +2099,7 @@
       if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') {
         autoIndentAfterNewline();
       }
-      markDirtyFromValue();
+      markDirtyFromValue(e.inputType);
       scheduleRender();
     });
 
@@ -1461,6 +2107,10 @@
 
     el.editor.addEventListener('keydown', function (e) {
       if (composing || e.isComposing || e.keyCode === 229) return;
+      var key = (e.key || '').toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
+        e.preventDefault(); e.stopPropagation(); undoEdit(key === 'y' || e.shiftKey); return;
+      }
       if (e.key === 'Tab') {
         e.preventDefault();
         indentSelection(e.shiftKey);
@@ -1682,9 +2332,7 @@
       var root = directories[0];
       findReadme(root, 0).then(function (entry) {
         if (!entry) { toast(t('error.notFound'), 'error'); return; }
-        return confirmDiscard().then(function (proceed) {
-          return proceed ? openFolderEntry(root, entry) : false;
-        });
+        return openFolderEntry(root, entry, true);
       }).catch(function (err) {
         toast(t('error.open', { name: entryName(directories[0]), reason: (err && err.message) || err }), 'error');
       });
@@ -1692,17 +2340,16 @@
     }
 
     if (!mdFile) return;
-    confirmDiscard().then(function (proceed) {
-      if (!proceed) return;
+    Promise.resolve().then(function () {
       var first = items.filter(function (item) {
         return item.kind === 'file' && item.getAsFile && item.getAsFile() === mdFile;
       })[0];
       if (first && first.getAsFileSystemHandle) {
         first.getAsFileSystemHandle().then(function (h) {
-          loadFile(mdFile, h && h.kind === 'file' ? h : null);
-        }).catch(function () { loadFile(mdFile, null); });
+          openFileTab(mdFile, h && h.kind === 'file' ? h : null);
+        }).catch(function () { openFileTab(mdFile, null); });
       } else {
-        loadFile(mdFile, null);
+        openFileTab(mdFile, null);
       }
     });
   }
@@ -1783,9 +2430,12 @@
     });
   }
 
-  function openFolderEntry(root, entry) {
+  function openFolderEntry(root, entry, inNewTab) {
+    var documentId = state.documentId;
+    var source = el.editor.value;
     return openEntry(entry).then(function (file) {
-      return loadFile(file, null).then(function (ok) {
+      if (!inNewTab && (state.documentId !== documentId || el.editor.value !== source)) return false;
+      return (inNewTab ? openFileTab(file, null) : loadFile(file, null)).then(function (ok) {
         if (ok) {
           state.folder = { root: root, path: relPath(root, entry) };
           state.autoBase = true;
@@ -1878,6 +2528,7 @@
   var find = { hits: [], index: -1 };
 
   function clearFindMarks() {
+    if (RV.Reading) RV.Reading.clearFindVisibility();
     eachNode('mark.rv-find', function (m) {
       var parent = m.parentNode;
       parent.replaceChild(document.createTextNode(m.textContent), m);
@@ -1919,6 +2570,7 @@
     for (var i = 0; i < find.hits.length; i++) find.hits[i].classList.toggle('current', i === find.index);
     el.findCount.textContent = (find.index + 1) + ' / ' + find.hits.length;
     var cur = find.hits[find.index];
+    if (RV.Reading) { RV.Reading.clearFindVisibility(); RV.Reading.reveal(cur); }
     if (scroll && cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ block: 'center' });
   }
 
@@ -1984,28 +2636,32 @@
   }
 
   function goHistory(step) {
-    var target = nav.index + step;
-    var loc = nav.list[target];
+    var history = nav;
+    var documentId = state.documentId;
+    var target = history.index + step;
+    var loc = history.list[target];
     if (!loc) return;
-    nav.moving = true;
+    history.moving = true;
     var opening = loc.native
       ? openNativePath(loc.native)
       : (function () {
         var root = loc.folder;
         return new Promise(function (resolve, reject) { root.getFile(loc.path, {}, resolve, reject); })
           .then(function (entry) {
+            if (state.documentId !== documentId) return false;
             return confirmDiscard().then(function (ok) { return ok ? openFolderEntry(root, entry) : false; });
           });
       })();
     Promise.resolve(opening).then(function (ok) {
-      if (ok) nav.index = target;
+      if (ok) history.index = target;
     }).catch(function (err) { reportOpen(err); }).then(function () {
-      nav.moving = false;
+      history.moving = false;
       updateNavButtons();
     });
   }
 
   function openFolderLink(href) {
+    var documentId = state.documentId;
     var path = folderPath(href);
     if (path === null) return false;
     var hash = href.indexOf('#') >= 0 ? href.slice(href.indexOf('#') + 1) : '';
@@ -2019,6 +2675,7 @@
         });
       });
     target.then(function (entry) {
+      if (state.documentId !== documentId) return false;
       return confirmDiscard().then(function (proceed) {
         return proceed ? openFolderEntry(root, entry) : false;
       });
@@ -2094,6 +2751,9 @@
 
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && mobileSidebar) {
+        mobileSidebar = false; applySidebar(); el.btnToc.focus(); return;
+      }
       if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         var tag = (e.target && e.target.tagName) || '';
         if (tag === 'TEXTAREA' || tag === 'INPUT') return;
@@ -2129,6 +2789,8 @@
 
     var resizeQueued = false;
     window.addEventListener('resize', function () {
+      refreshComparison();
+      applySidebar();
       el.gutterInner.style.transform = 'translateY(' + (-el.editor.scrollTop) + 'px)';
       if (resizeQueued) return;
       resizeQueued = true;
@@ -2140,7 +2802,8 @@
     });
 
     window.addEventListener('beforeunload', function (e) {
-      if (nativeAvailable() || !state.dirty) return undefined;
+      captureTab();
+      if (nativeAvailable() || !tabs.some(function (tab) { return tab.dirty; })) return undefined;
       e.preventDefault();
       e.returnValue = '';
       return '';
@@ -2261,23 +2924,34 @@
     wireMisc();
     wireFind();
     wireRecent();
+    wireComparison();
+    wireLinkMenus();
     renderRecent();
     setInterval(checkModified, 2000);
     window.addEventListener('focus', checkModified);
 
     applyLocale();
-    setEmpty();
+    var tabbar = $('documentTabs');
+    if (!tabbar) {
+      tabbar = document.createElement('div'); tabbar.id = 'documentTabs';
+      el.panes.parentNode.insertBefore(tabbar, el.panes);
+    }
+    tabbar.setAttribute('role', 'tablist');
+    var newButton = $('btnNewTab');
+    if (newButton) newButton.addEventListener('click', function () { newTab(); });
+    newTab();
     markGutterCursor();
     state.ready = true;
+    if (RV.Reading) RV.Reading.init(window.RVApp);
     if (nativeAvailable()) {
       Promise.resolve(RV.Native.initialize({
         openPath: function (path) {
-          return openNativePath(path).then(function (ok) {
+          return openNativePath(path, false, true).then(function (ok) {
             if (ok) setMode('preview');
             return ok;
           });
         },
-        confirmClose: confirmDiscard, onError: reportOpen,
+        confirmClose: confirmAllDirty, onError: reportOpen,
         onDrag: function (active) { document.body.classList.toggle('dragover', !!active); }
       })).catch(function (err) { reportOpen(err); });
     }
@@ -2295,6 +2969,9 @@
     toggleTaskFromPreview: toggleTaskFromPreview,
     loadSample: loadSample,
     setDoc: setDoc,
+    restoreTab: restoreTab, newTab: newTab, switchTab: switchTab, closeTab: closeTab, listTabs: listTabs,
+    confirmAllDirty: confirmAllDirty, openFileTab: openFileTab, openHandleTab: openHandleTab,
+    showComparison: showComparison, hideComparison: hideComparison,
     setEmpty: setEmpty,
     setEditPreview: setEditPreview,
     setMode: setMode,

@@ -1,5 +1,8 @@
 # README Viewer
 
+> Development branch: document tabs, a second reading pane, link context menus and local reading tools.
+> This work is not a published release. See [workspace tasks and validation](docs/workspace-tasks.md).
+
 A local, offline Markdown and README viewer with a live preview, a table of contents, synchronized
 scrolling, and **interactive task lists**: with *Edit in preview* turned on, you can tick a checkbox
 in the rendered document and the Markdown source is updated — one `[ ]` → `[x]` at a time, with

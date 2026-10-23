@@ -22,6 +22,27 @@ function adapter(overrides = {}) {
   return { native: mocks.window.RV.Native, calls };
 }
 
+test('desktop browser preview only forwards HTML to the dedicated native command', async () => {
+  const invoked = [];
+  const { native } = adapter({ invoke: async (command, args) => invoked.push([command, args]) });
+  const html = '<!DOCTYPE html><head></head><body>Note</body>';
+  assert.equal(native.canPreviewInBrowser(), true);
+  assert.equal(await native.previewInBrowser(html), true);
+  assert.equal(invoked[0][0], 'preview_in_browser');
+  assert.equal(invoked[0][1].html, html);
+});
+
+test('Android cannot use desktop local browser-preview file access', async () => {
+  let invoked = false;
+  const { native } = adapter({
+    window: { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: 'Android' } },
+    invoke: async () => { invoked = true; }
+  });
+  assert.equal(native.canPreviewInBrowser(), false);
+  await assert.rejects(native.previewInBrowser('<!DOCTYPE html>'), /desktop app/);
+  assert.equal(invoked, false);
+});
+
 test('native handles preserve BOM and line-ending bytes on read/write', async () => {
   const { native, calls } = adapter();
   const handle = await native.pickOpen();

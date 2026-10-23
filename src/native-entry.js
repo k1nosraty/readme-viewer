@@ -98,6 +98,14 @@ const Native = {
   async openLink(path) {
     return handle(await invoke('open_linked_document', { path }));
   },
+  canPreviewInBrowser() {
+    return !/Android|iPhone|iPad/i.test((root.navigator && root.navigator.userAgent) || '');
+  },
+  async previewInBrowser(html) {
+    if (!Native.canPreviewInBrowser()) throw new Error('Local browser previews require the desktop app.');
+    await invoke('preview_in_browser', { html });
+    return true;
+  },
   assetUrl(href, file) {
     const path = Native.resolveLocalUrl(href, file);
     if (!path) return null;

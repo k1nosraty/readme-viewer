@@ -15,6 +15,8 @@
   'use strict';
 
   var ICONS = {
+    bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/>',
+    chevronDown: '<path d="m6 9 6 6 6-6"/>',
     logo: '<path d="M3 5h18v14H3z"/><path d="M7 15.5V9l3 3 3-3v6.5"/><path d="M17 9v4.5"/><path d="m15.2 12.2 1.8 2 1.8-2"/>',
     open: '<path d="M3 7a2 2 0 0 1 2-2h3.6a2 2 0 0 1 1.6.8l.9 1.2a2 2 0 0 0 1.6.8H19a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',

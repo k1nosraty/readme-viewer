@@ -298,7 +298,7 @@ test('the unsaved changes dialog guards against losing work', async function (t)
   await harness.settle(160);
   assert.equal(RVApp.state.dirty, true);
 
-  doc.getElementById('btnOpen').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+  const discarding = RVApp.confirmDiscard();
   await harness.settle(40);
   assert.equal(doc.getElementById('confirmModal').hidden, false, 'the dialog is shown');
   assert.match(doc.getElementById('confirmBody').textContent, /draft\.md/);
@@ -306,6 +306,7 @@ test('the unsaved changes dialog guards against losing work', async function (t)
   doc.getElementById('btnConfirmCancel').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
   await harness.settle(40);
   assert.equal(doc.getElementById('confirmModal').hidden, true);
+  assert.equal(await discarding, false);
   assert.equal(editorValue(), '- [x] a\n', 'cancelling keeps the document');
 });
 
@@ -755,7 +756,7 @@ test('saving from the discard dialog does not discard text typed during the writ
   let opened = 0;
   win.showOpenFilePicker = async () => { opened++; return []; };
   try {
-    harness.click(win, doc.getElementById('btnOpen'));
+    const discarding = RVApp.confirmDiscard();
     await harness.settle(20);
     harness.click(win, doc.getElementById('btnConfirmSave'));
     await harness.settle(20);
@@ -763,6 +764,7 @@ test('saving from the discard dialog does not discard text typed during the writ
     editor.dispatchEvent(new win.Event('input', { bubbles: true }));
     disk.complete();
     await harness.settle(60);
+    assert.equal(await discarding, false);
     assert.equal(opened, 0);
     assert.equal(RVApp.state.dirty, true);
   } finally { delete win.showOpenFilePicker; }

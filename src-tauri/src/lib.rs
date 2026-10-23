@@ -197,6 +197,64 @@ fn authorize_document_directory(app: tauri::AppHandle, path: String) -> Result<(
     Ok(())
 }
 
+#[cfg(desktop)]
+fn write_browser_preview(directory: &Path, html: &str) -> Result<PathBuf, String> {
+    use std::io::Write;
+    if html.len() > 8 * 1024 * 1024 || !html.starts_with("<!DOCTYPE html>") || !html.contains("<head>") {
+        return Err("Expected a standalone HTML preview smaller than 8 MiB".into());
+    }
+    std::fs::create_dir_all(directory).map_err(|e| e.to_string())?;
+    let mut old: Vec<_> = std::fs::read_dir(directory).map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with("preview-")
+            && entry.path().extension().and_then(|s| s.to_str()) == Some("html"))
+        .collect();
+    old.sort_by_key(|entry| entry.file_name());
+    let remove = old.len().saturating_sub(7);
+    for entry in old.into_iter().take(remove) { let _ = std::fs::remove_file(entry.path()); }
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?.as_nanos();
+    let path = directory.join(format!("preview-{stamp}.html"));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    { use std::os::unix::fs::OpenOptionsExt; options.mode(0o600); }
+    let policy = "<head><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src https: http: file: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'\">";
+    options.open(&path).map_err(|e| e.to_string())?
+        .write_all(html.replacen("<head>", policy, 1).as_bytes()).map_err(|e| e.to_string())?;
+    Ok(path)
+}
+
+#[tauri::command]
+fn preview_in_browser(app: tauri::AppHandle, html: String) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_opener::OpenerExt;
+        let directory = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("browser-previews");
+        let path = write_browser_preview(&directory, &html)?;
+        app.opener().open_path(path.to_string_lossy().into_owned(), None::<&str>).map_err(|e| e.to_string())
+    }
+    #[cfg(mobile)]
+    { let _ = (app, html); Err("Local browser previews require the desktop app".into()) }
+}
+
+#[cfg(all(test, desktop))]
+mod browser_preview_tests {
+    use super::*;
+    #[test]
+    fn browser_preview_is_bounded_and_disables_scripts() {
+        let directory = std::env::temp_dir().join(format!("readme-preview-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        assert!(write_browser_preview(&directory, "not html").is_err());
+        for _ in 0..10 {
+            let path = write_browser_preview(&directory, "<!DOCTYPE html><head></head><body>note</body>").unwrap();
+            assert!(std::fs::read_to_string(path).unwrap().contains("default-src 'none'"));
+        }
+        assert!(std::fs::read_dir(&directory).unwrap().count() <= 8);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -219,7 +277,8 @@ pub fn run() {
             startup_paths,
             authorize_document_directory,
             resolve_document_path,
-            open_linked_document
+            open_linked_document,
+            preview_in_browser
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {
