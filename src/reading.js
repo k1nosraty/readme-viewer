@@ -45,10 +45,10 @@
     persistRecords();
   }
   function applyPreferences() {
-    document.documentElement.setAttribute('data-reading-width', prefs.width === 'comfortable' ? 'comfortable' : 'full');
+    document.documentElement.setAttribute('data-reading-width', ['full', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'auto');
     document.documentElement.setAttribute('data-reading-spacing', prefs.spacing === 'relaxed' ? 'relaxed' : 'normal');
     app.el.preview.classList.toggle('hide-completed', !!prefs.hideDone);
-    byId('readingWidth').value = prefs.width === 'comfortable' ? 'comfortable' : 'full';
+    byId('readingWidth').value = ['full', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'auto';
     byId('readingSpacing').value = prefs.spacing === 'relaxed' ? 'relaxed' : 'normal';
     byId('hideCompleted').checked = !!prefs.hideDone;
     byId('restoreSession').checked = !!prefs.session;
@@ -181,11 +181,15 @@
     }, { passive: true });
     window.addEventListener('pagehide', function () { savePosition(); saveSession(); });
     document.addEventListener('pointerdown', function (event) {
-      var panel = byId('readingOptions'); if (panel.open && !panel.contains(event.target)) panel.open = false;
+      ['readingOptions', 'toolOptions'].forEach(function (id) {
+        var panel = byId(id); if (panel.open && !panel.contains(event.target)) panel.open = false;
+      });
     });
     document.addEventListener('keydown', function (event) {
-      var panel = byId('readingOptions');
-      if (event.key === 'Escape' && panel.open) { panel.open = false; panel.querySelector('summary').focus(); }
+      ['readingOptions', 'toolOptions'].forEach(function (id) {
+        var panel = byId(id);
+        if (event.key === 'Escape' && panel.open) { event.preventDefault(); panel.open = false; panel.querySelector('summary').focus(); }
+      });
     });
     if (prefs.session) {
       var session = read('rv.workspace.session', {}), restored = [];

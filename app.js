@@ -107,12 +107,23 @@
     activeTab.find = { query: el.findInput.value, hidden: el.findBar.hidden, index: find.index };
   }
   var tabSignature = '';
+  function tabLocation(tab) {
+    var handle = tab === activeTab ? state.handle : tab.handle;
+    var folder = tab === activeTab ? state.folder : tab.folder;
+    return handle && handle.path || (folder ? folder.root.fullPath + '/' + folder.path : '');
+  }
+  function tabLabel(tab) {
+    var name = (tab === activeTab ? state.name : tab.name) || tabText('tabs.untitled', 'Untitled');
+    if (tabs.filter(function (other) { return (other === activeTab ? state.name : other.name) === name; }).length < 2) return name;
+    var path = tabLocation(tab).replace(/\\/g, '/').split('/').filter(Boolean);
+    return name + ' — ' + (path.length > 1 ? path[path.length - 2] : '#' + (tabs.indexOf(tab) + 1));
+  }
   function renderTabs() {
     var bar = $('documentTabs');
     if (!bar) return;
     var signature = JSON.stringify(tabs.map(function (tab) {
       return [tab.id, tab === activeTab, tab === activeTab ? state.name : tab.name,
-        tab === activeTab ? state.dirty : tab.dirty];
+        tab === activeTab ? state.dirty : tab.dirty, tabLocation(tab)];
     })) + I18n.getLocale();
     if (signature === tabSignature) return;
     tabSignature = signature;
@@ -146,7 +157,9 @@
           if (target) target.focus();
         }
       });
-      button.textContent = (dirty ? '• ' : '') + (name || tabText('tabs.untitled', 'Untitled'));
+      button.textContent = (dirty ? '• ' : '') + tabLabel(tab);
+      button.title = tabLocation(tab) || tabLabel(tab);
+      button.setAttribute('aria-label', button.textContent + (tabLocation(tab) ? ': ' + tabLocation(tab) : ''));
       button.addEventListener('click', function () { switchTab(tab.id); });
       var close = document.createElement('button');
       close.type = 'button'; close.className = 'document-tab-close'; close.innerHTML = Icons.svg('close', 12);
@@ -155,6 +168,8 @@
       close.addEventListener('click', function () { closeTab(tab.id); });
       item.appendChild(button); item.appendChild(close); bar.appendChild(item);
     });
+    var selectedTab = bar.querySelector('[aria-selected="true"]');
+    if (selectedTab && selectedTab.scrollIntoView) selectedTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     if (focusId) {
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
       if (replacement) replacement.focus();
@@ -322,13 +337,14 @@
     views.style.setProperty('--compare-split', comparison.split + '%');
     var select = $('comparisonSelect');
     if (select) {
-      var options = other.map(function (tab) { return [tab.id, tab.name, tab.dirty]; });
+      var options = other.map(function (tab) { return [tab.id, tabLabel(tab), tab.dirty, tabLocation(tab)]; });
       var optionSignature = JSON.stringify(options);
       if (select.getAttribute('data-options') !== optionSignature) {
         select.textContent = '';
         other.forEach(function (tab) {
           var option = document.createElement('option'); option.value = String(tab.id);
-          option.textContent = (tab.dirty ? '• ' : '') + (tab.name || tabText('tabs.untitled', 'Untitled'));
+          option.textContent = (tab.dirty ? '• ' : '') + tabLabel(tab);
+          option.title = tabLocation(tab);
           select.appendChild(option);
         });
         select.setAttribute('data-options', optionSignature);
@@ -791,7 +807,7 @@
     refreshComparison();
     var name = state.hasDocument ? state.name : t('app.name');
     el.fileName.textContent = name;
-    el.fileName.title = state.hasDocument ? state.name : '';
+    el.fileName.title = state.hasDocument ? (activeTab && tabLocation(activeTab) || state.name) : '';
 
     var sub = !state.hasDocument ? ''
       : (state.dirty ? t('status.unsaved') : t('status.saved'));
@@ -1893,6 +1909,7 @@
     var themeKey = state.theme === 'auto' ? 'system' : state.theme;
     var label = t('theme.label') + ': ' + t('theme.' + themeKey);
     el.btnTheme.innerHTML = Icons.svg(state.theme === 'auto' ? 'monitor' : (isDark() ? 'moon' : 'sun'), 16);
+    var text = document.createElement('span'); text.className = 'btn-label'; text.textContent = label; el.btnTheme.appendChild(text);
     el.btnTheme.setAttribute('title', label);
     el.btnTheme.setAttribute('aria-label', label);
   }
@@ -1918,6 +1935,7 @@
   }
 
   function applyMode() {
+    document.body.setAttribute('data-mode', state.mode);
     el.panes.setAttribute('data-mode', state.mode);
     // Anchors measured while a pane was hidden are meaningless: re-measure.
     scheduleRender(null, 0);
@@ -2926,6 +2944,7 @@
     applyWrap();
     applySidebar();
     applySplit();
+    document.body.setAttribute('data-mode', state.mode);
     el.panes.setAttribute('data-mode', state.mode);
     el.baseUrl.value = state.baseUrl;
 

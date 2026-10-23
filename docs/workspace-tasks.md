@@ -71,3 +71,20 @@ explicitly out of scope. No production dependencies were added.
 builds and checks Linux, Windows and Android review artifacts. Its live result is authoritative
 for native validation. Publication remains gated on the owner's approval; this branch's CI does
 not create a GitHub release.
+
+### UI/UX audit follow-up
+
+- [x] Compact primary toolbar; document, appearance and session tools in an accessible More panel.
+- [x] Separate reading preferences from session storage; collapse advanced base-URL settings.
+- [x] Fix stacked comparison overflow; keep second-document controls visible and independently scrollable.
+- [x] Distinct two-document icon and explicit main-pane action; visible resize handle.
+- [x] Disambiguate identical tab names, expose full paths and keep the active tab in view.
+- [x] Touch-sized mobile primary controls and tab close buttons; compact reading status bar.
+- [x] Adaptive reading measure, full-width table documents, full/comfortable overrides and Persian system-font fallbacks.
+- [x] Keyboard dismissal/focus restoration for settings, theme-aware controls and print cleanup.
+
+Validation: 157 unit/DOM tests; Chromium smoke with comparison hit-testing; 20 combinations of
+English/Persian, light/dark and 360/390/760/1024/1440px viewports. Narrow settings panels have
+no horizontal overflow. Native asset preparation succeeds. No production dependencies or font
+assets were added. Physical-device/native-shell visual QA remains outstanding. No release or
+main/develop merge is authorized by this review work.

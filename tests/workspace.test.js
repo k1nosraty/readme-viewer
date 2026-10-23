@@ -368,3 +368,21 @@ test('comparison rejects escaping folder images and clears rendered DOM on hide'
   assert.equal(preview.querySelector('img').hasAttribute('src'), false);
   api.hideComparison(); assert.equal(preview.childElementCount, 0);
 });
+
+test('same-name tabs expose locations and settings menus close with Escape', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, document, window } = app;
+  api.setDoc('# First', 'README.md', { path: '/repo/docs/README.md' });
+  api.newTab('# Second', 'README.md', { path: '/repo/examples/README.md' });
+  const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+  assert.notEqual(tabs[0].textContent, tabs[1].textContent);
+  assert.equal(tabs[0].title, '/repo/docs/README.md');
+  assert.match(tabs[1].getAttribute('aria-label'), /examples/);
+  assert.ok(document.querySelector('#toolOptions #restoreSession'));
+  assert.ok(document.querySelector('#toolOptions #baseUrl'));
+  assert.equal(document.querySelector('#readingOptions #restoreSession'), null);
+  const menu = document.getElementById('toolOptions'); menu.open = true;
+  document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(menu.open, false);
+  assert.equal(document.activeElement, menu.querySelector('summary'));
+});

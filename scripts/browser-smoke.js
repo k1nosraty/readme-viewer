@@ -19,7 +19,9 @@ const { chromium } = require('playwright');
     });
     await page.waitForFunction(() => window.RVApp.state.name === 'persian.md');
     assert.equal(await page.evaluate(() => window.RVApp.state.dirty), false);
+    await page.locator('#toolOptions summary').first().click();
     await page.locator('#btnEdit').click();
+    await page.locator('#toolOptions summary').first().click();
     await page.locator('#preview input').click();
     await page.waitForFunction(() => document.getElementById('editor').value.includes('[x]'));
     await page.waitForFunction(() => document.querySelector('#preview input').checked);
@@ -58,8 +60,18 @@ const { chromium } = require('playwright');
       });
       assert.ok(dimensions.main.every(value => value > 80), 'main comparison view remains usable');
       assert.ok(dimensions.comparison.every(value => value > 80), 'secondary comparison view remains usable');
+      assert.ok(await page.evaluate(() => {
+        const select = document.getElementById('comparisonSelect');
+        const rect = select.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        return select.contains(hit) && rect.right <= innerWidth;
+      }), 'secondary controls stay visible and clickable at ' + width);
+      if (width === 390) {
+        assert.ok(await page.locator('.topbar').evaluate(el => el.getBoundingClientRect().height < 110), 'mobile command bar stays compact');
+      }
     }
     await page.evaluate(() => window.RVApp.hideComparison());
+    await page.evaluate(() => { const select = document.getElementById('readingWidth'); select.value = 'full'; select.dispatchEvent(new Event('change')); });
     // Layout regressions need real browser geometry; DOM-only tests cannot detect collapsed grids.
     for (const width of [1440, 1024, 760, 390]) {
       await page.setViewportSize({ width, height: 900 });
@@ -105,6 +117,7 @@ const { chromium } = require('playwright');
     // Shared Markdown rules must keep their theme colors after CSS consolidation.
     await page.evaluate(() => window.RVApp.setDoc('[Link](guide.md) and note[^یادداشت] twice[^یادداشت].\n\n[^یادداشت]: Note', 'theme.md', null, {}));
     const colors = new Map();
+    await page.locator('#toolOptions > summary').click();
     for (let i = 0; i < 3; i++) {
       await page.locator('#btnTheme').click();
       const result = await page.evaluate(() => ({
@@ -127,6 +140,7 @@ const { chromium } = require('playwright');
     await page.evaluate(() => window.RVApp.setDoc('- [x] یادگیری PostgreSQL', 'persian.md', null, {}));
     await page.setViewportSize({ width: 390, height: 900 });
     await page.locator('#btnToc').click();
+    await page.locator('#toolOptions > summary').click();
     assert.ok(await page.evaluate(() => { const button = document.getElementById('btnExport'); const rect = button.getBoundingClientRect(); return button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); }), 'mobile sidebar must never cover the toolbar');
     const downloading = page.waitForEvent('download');
     await page.locator('#btnExport').click();
