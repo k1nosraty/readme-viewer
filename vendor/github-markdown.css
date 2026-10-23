@@ -1,6 +1,99 @@
-/*light */
 .markdown-body {
-  color-scheme: light;
+  --rv-md-theme-1: light;
+  --rv-md-theme-2: #1f2328;
+  --rv-md-theme-3: #ffffff;
+  --rv-md-theme-4: #0969da;
+  --rv-md-theme-5: 1px solid #d1d9e0b3;
+  --rv-md-theme-6: #fff8c5;
+  --rv-md-theme-7: #d1d9e0;
+  --rv-md-theme-8: #59636e;
+  --rv-md-theme-9: #f6f8fa;
+  --rv-md-theme-10: .25em solid #d1d9e0;
+  --rv-md-theme-11: #d1242f;
+  --rv-md-theme-12: 1px solid #d1d9e0;
+  --rv-md-theme-13: #818b981f;
+  --rv-md-theme-14: 2px solid #0969da;
+  --rv-md-theme-15: #0550ae;
+  --rv-md-theme-16: #6639ba;
+  --rv-md-theme-17: #0550ae;
+  --rv-md-theme-18: #cf222e;
+  --rv-md-theme-19: #0a3069;
+  --rv-md-theme-20: #953800;
+  --rv-md-theme-21: #82071e;
+  --rv-md-theme-22: #f6f8fa;
+  --rv-md-theme-23: #cf222e;
+  --rv-md-theme-24: #116329;
+  --rv-md-theme-25: #3b2300;
+  --rv-md-theme-26: #0550ae;
+  --rv-md-theme-27: #82071e;
+  --rv-md-theme-28: #ffebe9;
+  --rv-md-theme-29: #116329;
+  --rv-md-theme-30: #dafbe1;
+  --rv-md-theme-31: #953800;
+  --rv-md-theme-32: #ffd8b5;
+  --rv-md-theme-33: #d1d9e0;
+  --rv-md-theme-34: #0550ae;
+  --rv-md-theme-35: #8250df;
+  --rv-md-theme-36: #818b98;
+  --rv-md-theme-37: #0969da;
+  --rv-md-theme-38: #8250df;
+  --rv-md-theme-39: #8250df;
+  --rv-md-theme-40: #9a6700;
+  --rv-md-theme-41: #9a6700;
+  --rv-md-theme-42: #1a7f37;
+  --rv-md-theme-43: #1a7f37;
+  --rv-md-theme-44: #cf222e;
+}
+:root[data-theme="dark"] .markdown-body {
+  --rv-md-theme-1: dark;
+  --rv-md-theme-2: #f0f6fc;
+  --rv-md-theme-3: #0d1117;
+  --rv-md-theme-4: #4493f8;
+  --rv-md-theme-5: 1px solid #3d444db3;
+  --rv-md-theme-6: #bb800926;
+  --rv-md-theme-7: #3d444d;
+  --rv-md-theme-8: #9198a1;
+  --rv-md-theme-9: #151b23;
+  --rv-md-theme-10: .25em solid #3d444d;
+  --rv-md-theme-11: #f85149;
+  --rv-md-theme-12: 1px solid #3d444d;
+  --rv-md-theme-13: #656c7633;
+  --rv-md-theme-14: 2px solid #1f6feb;
+  --rv-md-theme-15: #79c0ff;
+  --rv-md-theme-16: #d2a8ff;
+  --rv-md-theme-17: #7ee787;
+  --rv-md-theme-18: #ff7b72;
+  --rv-md-theme-19: #a5d6ff;
+  --rv-md-theme-20: #ffa657;
+  --rv-md-theme-21: #f85149;
+  --rv-md-theme-22: #f0f6fc;
+  --rv-md-theme-23: #b62324;
+  --rv-md-theme-24: #7ee787;
+  --rv-md-theme-25: #f2cc60;
+  --rv-md-theme-26: #1f6feb;
+  --rv-md-theme-27: #ffdcd7;
+  --rv-md-theme-28: #67060c;
+  --rv-md-theme-29: #aff5b4;
+  --rv-md-theme-30: #033a16;
+  --rv-md-theme-31: #ffdfb6;
+  --rv-md-theme-32: #5a1e02;
+  --rv-md-theme-33: #f0f6fc;
+  --rv-md-theme-34: #1158c7;
+  --rv-md-theme-35: #d2a8ff;
+  --rv-md-theme-36: #3d444d;
+  --rv-md-theme-37: #1f6feb;
+  --rv-md-theme-38: #8957e5;
+  --rv-md-theme-39: #ab7df8;
+  --rv-md-theme-40: #9e6a03;
+  --rv-md-theme-41: #d29922;
+  --rv-md-theme-42: #238636;
+  --rv-md-theme-43: #3fb950;
+  --rv-md-theme-44: #da3633;
+}
+
+/* GitHub Markdown styles: shared rules with light/dark theme variables. */
+.markdown-body {
+  color-scheme: var(--rv-md-theme-1);
   /** CSS default easing. Use for hover state changes and micro-interactions. */
   /** Accelerating motion. Use for elements exiting the viewport (moving off-screen). */
   /** Smooth acceleration and deceleration. Use for elements moving or morphing within the viewport. */
@@ -10,8 +103,8 @@
   -webkit-text-size-adjust: 100%;
   margin: 0;
   font-weight: 400;
-  color: #1f2328;
-  background-color: #ffffff;
+  color: var(--rv-md-theme-2);
+  background-color: var(--rv-md-theme-3);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   font-size: 16px;
   line-height: 1.5;
@@ -60,7 +153,7 @@
 
 .markdown-body a {
   background-color: rgba(0,0,0,0);
-  color: #0969da;
+  color: var(--rv-md-theme-4);
   text-decoration: none;
 }
 
@@ -84,12 +177,12 @@
   font-weight: 600;
   padding-bottom: .3em;
   font-size: 2em;
-  border-bottom: 1px solid #d1d9e0b3;
+  border-bottom: var(--rv-md-theme-5);
 }
 
 .markdown-body mark {
-  background-color: #fff8c5;
-  color: #1f2328;
+  background-color: var(--rv-md-theme-6);
+  color: var(--rv-md-theme-2);
 }
 
 .markdown-body small {
@@ -134,11 +227,11 @@
   box-sizing: content-box;
   overflow: hidden;
   background: rgba(0,0,0,0);
-  border-bottom: 1px solid #d1d9e0b3;
+  border-bottom: var(--rv-md-theme-5);
   height: .25em;
   padding: 0;
   margin: 1.5rem 0;
-  background-color: #d1d9e0;
+  background-color: var(--rv-md-theme-7);
   border: 0;
 }
 
@@ -191,7 +284,7 @@
 }
 
 .markdown-body ::placeholder {
-  color: #59636e;
+  color: var(--rv-md-theme-8);
   opacity: 1;
 }
 
@@ -264,9 +357,9 @@
   padding: 0.25rem;
   font: 11px ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
   line-height: 10px;
-  color: #1f2328;
+  color: var(--rv-md-theme-2);
   vertical-align: middle;
-  background-color: #f6f8fa;
+  background-color: var(--rv-md-theme-9);
   border: solid 1px var(--borderColor-muted);
   border-bottom-color: var(--borderColor-muted);
   border-radius: 6px;
@@ -289,7 +382,7 @@
   font-weight: 600;
   padding-bottom: .3em;
   font-size: 1.5em;
-  border-bottom: 1px solid #d1d9e0b3;
+  border-bottom: var(--rv-md-theme-5);
 }
 
 .markdown-body h3 {
@@ -310,7 +403,7 @@
 .markdown-body h6 {
   font-weight: 600;
   font-size: .85em;
-  color: #59636e;
+  color: var(--rv-md-theme-8);
 }
 
 .markdown-body p {
@@ -321,8 +414,8 @@
 .markdown-body blockquote {
   margin: 0;
   padding: 0 1em;
-  color: #59636e;
-  border-left: .25em solid #d1d9e0;
+  color: var(--rv-md-theme-8);
+  border-left: var(--rv-md-theme-10);
 }
 
 .markdown-body ul,
@@ -405,7 +498,7 @@
 }
 
 .markdown-body .absent {
-  color: #d1242f;
+  color: var(--rv-md-theme-11);
 }
 
 .markdown-body .anchor {
@@ -445,7 +538,7 @@
 .markdown-body h4 .octicon-link,
 .markdown-body h5 .octicon-link,
 .markdown-body h6 .octicon-link {
-  color: #1f2328;
+  color: var(--rv-md-theme-2);
   vertical-align: middle;
   visibility: hidden;
 }
@@ -578,7 +671,7 @@
 .markdown-body table th,
 .markdown-body table td {
   padding: 6px 13px;
-  border: 1px solid #d1d9e0;
+  border: var(--rv-md-theme-12);
 }
 
 .markdown-body table td>:last-child {
@@ -586,12 +679,12 @@
 }
 
 .markdown-body table tr {
-  background-color: #ffffff;
-  border-top: 1px solid #d1d9e0b3;
+  background-color: var(--rv-md-theme-3);
+  border-top: var(--rv-md-theme-5);
 }
 
 .markdown-body table tr:nth-child(2n) {
-  background-color: #f6f8fa;
+  background-color: var(--rv-md-theme-9);
 }
 
 .markdown-body table img {
@@ -624,7 +717,7 @@
   padding: 7px;
   margin: 13px 0 0;
   overflow: hidden;
-  border: 1px solid #d1d9e0;
+  border: var(--rv-md-theme-12);
 }
 
 .markdown-body span.frame span img {
@@ -636,7 +729,7 @@
   display: block;
   padding: 5px 0 0;
   clear: both;
-  color: #1f2328;
+  color: var(--rv-md-theme-2);
 }
 
 .markdown-body span.align-center {
@@ -706,7 +799,7 @@
   margin: 0;
   font-size: 85%;
   white-space: break-spaces;
-  background-color: #818b981f;
+  background-color: var(--rv-md-theme-13);
   border-radius: 6px;
 }
 
@@ -751,8 +844,8 @@
   overflow: auto;
   font-size: 85%;
   line-height: 1.45;
-  color: #1f2328;
-  background-color: #f6f8fa;
+  color: var(--rv-md-theme-2);
+  background-color: var(--rv-md-theme-9);
   border-radius: 6px;
 }
 
@@ -781,7 +874,7 @@
 .markdown-body .csv-data .blob-num {
   padding: 10px 0.5rem 9px;
   text-align: right;
-  background: #ffffff;
+  background: var(--rv-md-theme-3);
   border: 0;
 }
 
@@ -791,7 +884,7 @@
 
 .markdown-body .csv-data th {
   font-weight: 600;
-  background: #f6f8fa;
+  background: var(--rv-md-theme-9);
   border-top: 0;
 }
 
@@ -805,8 +898,8 @@
 
 .markdown-body .footnotes {
   font-size: 12px;
-  color: #59636e;
-  border-top: 1px solid #d1d9e0;
+  color: var(--rv-md-theme-8);
+  border-top: var(--rv-md-theme-12);
 }
 
 .markdown-body .footnotes ol {
@@ -831,12 +924,12 @@
   left: calc(1.5rem*-1);
   pointer-events: none;
   content: "";
-  border: 2px solid #0969da;
+  border: var(--rv-md-theme-14);
   border-radius: 6px;
 }
 
 .markdown-body .footnotes li:target {
-  color: #1f2328;
+  color: var(--rv-md-theme-2);
 }
 
 .markdown-body .footnotes .data-footnote-backref g-emoji {
@@ -844,30 +937,30 @@
 }
 
 .markdown-body .pl-c {
-  color: #59636e;
+  color: var(--rv-md-theme-8);
 }
 
 .markdown-body .pl-c1,
 .markdown-body .pl-s .pl-v {
-  color: #0550ae;
+  color: var(--rv-md-theme-15);
 }
 
 .markdown-body .pl-e,
 .markdown-body .pl-en {
-  color: #6639ba;
+  color: var(--rv-md-theme-16);
 }
 
 .markdown-body .pl-smi,
 .markdown-body .pl-s .pl-s1 {
-  color: #1f2328;
+  color: var(--rv-md-theme-2);
 }
 
 .markdown-body .pl-ent {
-  color: #0550ae;
+  color: var(--rv-md-theme-17);
 }
 
 .markdown-body .pl-k {
-  color: #cf222e;
+  color: var(--rv-md-theme-18);
 }
 
 .markdown-body .pl-s,
@@ -877,16 +970,16 @@
 .markdown-body .pl-sr .pl-cce,
 .markdown-body .pl-sr .pl-sre,
 .markdown-body .pl-sr .pl-sra {
-  color: #0a3069;
+  color: var(--rv-md-theme-19);
 }
 
 .markdown-body .pl-v,
 .markdown-body .pl-smw {
-  color: #953800;
+  color: var(--rv-md-theme-20);
 }
 
 .markdown-body .pl-bu {
-  color: #82071e;
+  color: var(--rv-md-theme-21);
 }
 
 .markdown-body .pl-ii {
@@ -895,72 +988,72 @@
 }
 
 .markdown-body .pl-c2 {
-  color: #f6f8fa;
-  background-color: #cf222e;
+  color: var(--rv-md-theme-22);
+  background-color: var(--rv-md-theme-23);
 }
 
 .markdown-body .pl-sr .pl-cce {
   font-weight: bold;
-  color: #116329;
+  color: var(--rv-md-theme-24);
 }
 
 .markdown-body .pl-ml {
-  color: #3b2300;
+  color: var(--rv-md-theme-25);
 }
 
 .markdown-body .pl-mh,
 .markdown-body .pl-mh .pl-en,
 .markdown-body .pl-ms {
   font-weight: bold;
-  color: #0550ae;
+  color: var(--rv-md-theme-26);
 }
 
 .markdown-body .pl-mi {
   font-style: italic;
-  color: #1f2328;
+  color: var(--rv-md-theme-2);
 }
 
 .markdown-body .pl-mb {
   font-weight: bold;
-  color: #1f2328;
+  color: var(--rv-md-theme-2);
 }
 
 .markdown-body .pl-md {
-  color: #82071e;
-  background-color: #ffebe9;
+  color: var(--rv-md-theme-27);
+  background-color: var(--rv-md-theme-28);
 }
 
 .markdown-body .pl-mi1 {
-  color: #116329;
-  background-color: #dafbe1;
+  color: var(--rv-md-theme-29);
+  background-color: var(--rv-md-theme-30);
 }
 
 .markdown-body .pl-mc {
-  color: #953800;
-  background-color: #ffd8b5;
+  color: var(--rv-md-theme-31);
+  background-color: var(--rv-md-theme-32);
 }
 
 .markdown-body .pl-mi2 {
-  color: #d1d9e0;
-  background-color: #0550ae;
+  color: var(--rv-md-theme-33);
+  background-color: var(--rv-md-theme-34);
 }
 
 .markdown-body .pl-mdr {
   font-weight: bold;
-  color: #8250df;
+  color: var(--rv-md-theme-35);
 }
 
 .markdown-body .pl-ba {
-  color: #59636e;
+  color: var(--rv-md-theme-8);
 }
 
 .markdown-body .pl-sg {
-  color: #818b98;
+  color: var(--rv-md-theme-36);
 }
 
 .markdown-body .pl-corl {
   text-decoration: underline;
-  color: #0a3069;
+  color: var(--rv-md-theme-19);
 }
 
 .markdown-body [role=button]:focus:not(:focus-visible),
@@ -1056,7 +1149,7 @@
   padding: 0.5rem 1rem;
   margin-bottom: 1rem;
   color: inherit;
-  border-left: .25em solid #d1d9e0;
+  border-left: var(--rv-md-theme-10);
 }
 
 .markdown-body .markdown-alert>:first-child {
@@ -1075,43 +1168,43 @@
 }
 
 .markdown-body .markdown-alert.markdown-alert-note {
-  border-left-color: #0969da;
+  border-left-color: var(--rv-md-theme-37);
 }
 
 .markdown-body .markdown-alert.markdown-alert-note .markdown-alert-title {
-  color: #0969da;
+  color: var(--rv-md-theme-4);
 }
 
 .markdown-body .markdown-alert.markdown-alert-important {
-  border-left-color: #8250df;
+  border-left-color: var(--rv-md-theme-38);
 }
 
 .markdown-body .markdown-alert.markdown-alert-important .markdown-alert-title {
-  color: #8250df;
+  color: var(--rv-md-theme-39);
 }
 
 .markdown-body .markdown-alert.markdown-alert-warning {
-  border-left-color: #9a6700;
+  border-left-color: var(--rv-md-theme-40);
 }
 
 .markdown-body .markdown-alert.markdown-alert-warning .markdown-alert-title {
-  color: #9a6700;
+  color: var(--rv-md-theme-41);
 }
 
 .markdown-body .markdown-alert.markdown-alert-tip {
-  border-left-color: #1a7f37;
+  border-left-color: var(--rv-md-theme-42);
 }
 
 .markdown-body .markdown-alert.markdown-alert-tip .markdown-alert-title {
-  color: #1a7f37;
+  color: var(--rv-md-theme-43);
 }
 
 .markdown-body .markdown-alert.markdown-alert-caution {
-  border-left-color: #cf222e;
+  border-left-color: var(--rv-md-theme-44);
 }
 
 .markdown-body .markdown-alert.markdown-alert-caution .markdown-alert-title {
-  color: #d1242f;
+  color: var(--rv-md-theme-11);
 }
 
 .markdown-body>*:first-child>.heading-element:first-child {

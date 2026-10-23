@@ -142,3 +142,22 @@ test('footnotes link both ways and keep task numbering intact', function () {
   assert.match(out.html, /id="user-content-fn-1"[\s\S]*<strong>note<\/strong>[\s\S]*href="#user-content-fnref-1"/);
   assert.equal(out.tasks, 2);
 });
+test('repeated footnotes have distinct references and a backlink to every occurrence', function () {
+  const out = render('[^same]: **Note**\n\nFirst[^same], second[^SAME].\n\n[^same]: duplicate\n').html;
+  const ids = Array.from(out.matchAll(/ id="([^"]+)"/g), match => match[1]);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.match(out, /id="user-content-fnref-same:2"/);
+  assert.match(out, /href="#user-content-fnref-same:2"/);
+  assert.equal((out.match(/class="footnote-back"/g) || []).length, 2);
+  assert.equal((out.match(/id="user-content-fn-same"/g) || []).length, 1);
+  assert.doesNotMatch(out, /duplicate/);
+  assert.doesNotMatch(render('Unresolved[^same]').html, /footnote-ref/);
+});
+
+test('footnote punctuation, Unicode and repeat suffixes cannot collide', function () {
+  const out = render('A[^a.b] B[^a-b] C[^a-b] D[^a-b:2] E[^یادداشت]\n\n[^a.b]: one\n[^a-b]: two\n[^a-b:2]: three\n[^یادداشت]: چهار\n').html;
+  const ids = Array.from(out.matchAll(/ id="([^"]+)"/g), match => match[1]);
+  assert.equal(ids.length, 9);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const link of out.matchAll(/href="#([^"]+)"/g)) assert.ok(ids.includes(link[1]), link[1]);
+});

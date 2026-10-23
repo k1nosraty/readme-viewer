@@ -654,6 +654,11 @@
       var a = links[i];
       var href = a.getAttribute('href') || '';
       if (href.charAt(0) === '#') continue;
+      // In-app folder navigation cancels this fallback when the file is accessible.
+      if (!nativeAvailable()) {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer nofollow');
+      }
       if (nativeAvailable() || (state.folder && !/^[a-z][a-z\d+.-]*:|^\/\//i.test(href))) {
         a.setAttribute('data-native-href', href);
         if (/^https?:|^mailto:/i.test(href)) {
@@ -1242,8 +1247,6 @@
   function applyTheme() {
     var dark = isDark();
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-    el.ghLight.disabled = dark;
-    el.ghDark.disabled = !dark;
     el.hljsLight.disabled = dark;
     el.hljsDark.disabled = !dark;
     updateThemeButton();
@@ -2216,8 +2219,8 @@
       'baseUrl', 'editor', 'editorWrap', 'gutter', 'gutterInner', 'previewScroll', 'preview',
       'emptyState', 'resizer', 'fileName', 'fileState', 'fileInput', 'statusFile', 'statusPos',
       'statusCount', 'statusTasks', 'statusPerf', 'statusLang', 'statusEncoding', 'toasts',
-      'editorMeta', 'previewMeta', 'editBadge', 'helpModal', 'confirmModal', 'ghLight',
-      'ghDark', 'hljsLight', 'hljsDark', 'btnOpen', 'btnSave', 'btnSaveAs', 'btnReload',
+      'editorMeta', 'previewMeta', 'editBadge', 'helpModal', 'confirmModal',
+      'hljsLight', 'hljsDark', 'btnOpen', 'btnSave', 'btnSaveAs', 'btnReload',
       'btnExport', 'btnTheme', 'btnWrap', 'btnSync', 'btnToc', 'btnEdit', 'btnFontUp',
       'btnFontDown', 'btnHelp', 'btnHelpClose', 'btnHelpDone', 'btnConfirmSave', 'btnBack', 'btnForward',
       'btnConfirmDiscard', 'btnConfirmCancel', 'btnEmptyOpen', 'btnEmptySample', 'fontValue',
@@ -2270,7 +2273,7 @@
       Promise.resolve(RV.Native.initialize({
         openPath: function (path) {
           return openNativePath(path).then(function (ok) {
-            if (ok && state.mode === 'split') setMode('preview');
+            if (ok) setMode('preview');
             return ok;
           });
         },

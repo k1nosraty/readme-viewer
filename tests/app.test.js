@@ -509,7 +509,7 @@ test('the theme control cycles light, dark and system', async function (t) {
   if (skipIfNoDom(t)) return;
   const html = doc.documentElement;
   const btn = doc.getElementById('btnTheme');
-  const sheets = ['ghLight', 'ghDark', 'hljsLight', 'hljsDark'].map(function (id) {
+  const sheets = ['hljsLight', 'hljsDark'].map(function (id) {
     return doc.getElementById(id);
   });
 
@@ -519,10 +519,8 @@ test('the theme control cycles light, dark and system', async function (t) {
     await harness.settle(20);
     seen.push(html.getAttribute('data-theme'));
     const dark = html.getAttribute('data-theme') === 'dark';
-    assert.equal(sheets[0].disabled, dark, 'light markdown sheet');
-    assert.equal(sheets[1].disabled, !dark, 'dark markdown sheet');
-    assert.equal(sheets[2].disabled, dark, 'light highlight sheet');
-    assert.equal(sheets[3].disabled, !dark, 'dark highlight sheet');
+    assert.equal(sheets[0].disabled, dark, 'light highlight sheet');
+    assert.equal(sheets[1].disabled, !dark, 'dark highlight sheet');
     assert.ok(btn.querySelector('svg.ic'), 'the button keeps an icon');
     assert.match(btn.getAttribute('title'), /^Theme: /);
   }

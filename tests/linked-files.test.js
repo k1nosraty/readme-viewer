@@ -112,3 +112,45 @@ test('cancelling a recent-file open preserves the recent list and unsaved docume
   assert.equal(window.RVApp.state.dirty, true);
   assert.equal(opened, 0);
 });
+
+test('browser document links always have a secure new-tab fallback', async t => {
+  const { window, document } = await app(t);
+  for (const folder of [null, { root: {}, path: 'README.md' }]) {
+    window.RVApp.setDoc('[Guide](../guide.md#install)', 'README.md', null, {});
+    window.RVApp.state.folder = folder;
+    window.RVApp.render();
+    const link = document.querySelector('#preview a');
+    assert.equal(link.getAttribute('target'), '_blank');
+    assert.match(link.getAttribute('rel'), /noopener/);
+    assert.match(link.getAttribute('rel'), /noreferrer/);
+    assert.equal(link.getAttribute('href'), '../guide.md#install');
+  }
+});
+
+test('OS Open with selects Preview even when the saved layout is Write', async t => {
+  let hooks;
+  const { window } = await app(t, {
+    initialize: async options => { hooks = options; },
+    openPath: async () => ({ path: '/docs/open.md', getFile: async () => ({
+      name: 'open.md', arrayBuffer: async () => new TextEncoder().encode('# Open').buffer
+    }) })
+  });
+  window.RVApp.setMode('write');
+  assert.equal(await hooks.openPath('/docs/open.md'), true);
+  assert.equal(window.RVApp.state.mode, 'preview');
+  assert.equal(window.RVApp.state.name, 'open.md');
+});
+
+test('Unicode footnotes and every return link scroll to their actual targets', async t => {
+  const { window, document, errors } = await app(t);
+  window.RVApp.setDoc('One[^یادداشت] two[^یادداشت].\n\n[^یادداشت]: Note', 'notes.md', null, {});
+  for (const link of document.querySelectorAll('#preview .footnote-ref a, #preview .footnote-back')) {
+    const target = document.getElementById(decodeURIComponent(link.getAttribute('href').slice(1)));
+    assert.ok(target);
+    let scrolled = false;
+    target.scrollIntoView = () => { scrolled = true; };
+    harness.click(window, link);
+    assert.equal(scrolled, true);
+  }
+  assert.deepEqual(errors, []);
+});
