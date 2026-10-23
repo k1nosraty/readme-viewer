@@ -17,6 +17,8 @@
   var ICONS = {
     more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
     documents: '<rect x="2" y="6" width="9" height="15" rx="1.5"/><rect x="13" y="3" width="9" height="15" rx="1.5"/>',
+    expandAll: '<path d="M5 3h14M5 21h14M12 6v12m-3-9 3-3 3 3m-6 6 3 3 3-3"/>',
+    collapseAll: '<path d="M5 3h14M5 21h14M12 4v5m-3-3 3 3 3-3M12 20v-5m-3 3 3-3 3 3"/>',
     bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/>',
     chevronDown: '<path d="m6 9 6 6 6-6"/>',
     logo: '<path d="M3 5h18v14H3z"/><path d="M7 15.5V9l3 3 3-3v6.5"/><path d="M17 9v4.5"/><path d="m15.2 12.2 1.8 2 1.8-2"/>',

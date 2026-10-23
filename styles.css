@@ -1079,7 +1079,7 @@ body.dragover .drop-hint { display: grid; }
   .topbar { padding-inline: var(--s2); gap: var(--s2); }
   .brand-text { display: none; }
   .statusbar { gap: var(--s2); }
-  .statusbar #statusCount, .statusbar #statusPerf { display: none; }
+
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1273,7 +1273,7 @@ body { grid-template-columns: minmax(0, 1fr); }
 .menu-directions .seg { flex: 1; font-size: 12px; }
 .toolbar { display: flex; flex-wrap: wrap; flex: none; justify-content: flex-start; gap: 8px; padding: 5px 12px; min-width: 0; border-block: 1px solid var(--border-muted); }
 .toolbar > .tgroup { flex-shrink: 0; padding-block: 0; }
-.toolbar .mode-tools { margin-inline: auto; }
+.toolbar .mode-tools { margin-inline: 0; }
 .toolbar .btn, .toolbar .seg { min-height: 30px; }
 .toolbar .btn-icon { width: 30px; padding: 0; }
 .toolbar .tgroup-value { min-width: 24px; text-align: center; }
@@ -1297,7 +1297,7 @@ body { grid-template-columns: minmax(0, 1fr); }
 .comparison-note { font-size: 12px; }
 .compare-divider { position: relative; }
 .compare-divider::after { content: ''; position: absolute; top: 50%; left: 1px; width: 4px; height: 32px; transform: translateY(-50%); border-radius: 2px; background: var(--border-strong); }
-body[data-mode="preview"] #statusPos, body[data-mode="preview"] #statusEncoding, body[data-mode="preview"] #statusPerf, body[data-mode="preview"] .statusbar > .sb-sep { display: none; }
+
 .markdown-body :is(pre, table) { max-inline-size: 100%; overflow: auto; }
 [data-reading-width="auto"] .markdown-body { max-inline-size: 76ch; margin-inline: auto; }
 [data-reading-width="auto"] .markdown-body:has(> table) { max-inline-size: none; }
@@ -1348,7 +1348,7 @@ body[data-mode="preview"] #statusPos, body[data-mode="preview"] #statusEncoding,
   .comparison-head select { flex-basis: calc(100% - 60px); order: 0; }
   #btnCloseComparison { order: 1; width: 44px; min-width: 44px; }
   #btnActivateComparison { order: 2; width: 100%; justify-content: center; }
-  .statusbar #statusTasks, .statusbar #statusPos, .statusbar #statusEncoding { display: none; }
+
 }
 @media print {
   .workspace-views { display: block; overflow: visible; }
@@ -1356,3 +1356,56 @@ body[data-mode="preview"] #statusPos, body[data-mode="preview"] #statusEncoding,
   .panes, .pane-preview { overflow: visible; }
   .preview { overflow: visible; padding: 0; }
 }
+
+/* Flyouts keep explicit choices separate from quick toolbar actions. */
+.submenu-arrow { transform: rotate(-90deg); color: var(--fg-muted); }
+[dir="rtl"] .submenu-arrow { transform: rotate(90deg); }
+.submenu-panel { position: fixed; z-index: 44; width: min(248px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow: auto; padding: 5px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); box-shadow: var(--shadow-lg); }
+.menu-command[aria-checked] { justify-content: flex-start; gap: 10px; }
+.menu-command[aria-checked]::before { content: ''; width: 12px; height: 12px; border: 1px solid var(--border-strong); border-radius: 50%; }
+.menu-command[aria-checked="true"]::before { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--bg); }
+.menu-command[aria-checked="true"] { color: var(--accent); }
+.menu-command[data-submenu][aria-expanded="true"] { background: var(--bg-hover); }
+.toolbar-settings label { display: flex; align-items: center; gap: 9px; min-height: 30px; padding: 5px 10px; border-radius: 3px; font-size: 12px; cursor: pointer; }
+.toolbar-settings label:hover { background: var(--bg-hover); }
+.toolbar-settings input { accent-color: var(--accent); }
+.toolbar-settings #toolbarChoices { display: grid; }
+.statusbar { overflow-x: auto; scrollbar-width: none; }
+.statusbar::-webkit-scrollbar { display: none; }
+.statusbar .sb-item { flex-shrink: 0; }
+#statusFile { max-width: 180px; overflow: hidden; text-overflow: ellipsis; display: block; }
+
+/* Outline disclosure is independent of document section folding. */
+.toc-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.toc-actions { display: flex; gap: 2px; }
+.toc-actions .btn { width: 28px; height: 28px; color: var(--fg-muted); }
+.toc ul { list-style: none; padding: 0; margin: 0; }
+.toc li > ul { margin-inline-start: 12px; padding-inline-start: 12px; border-inline-start: 1px solid var(--border-muted); }
+.toc-row { display: flex; align-items: flex-start; border-radius: 4px; }
+.toc-row:hover { background: var(--bg-hover); }
+.toc-row.has-active { background: var(--accent-subtle); }
+.toc-row.has-active > .toc-toggle { color: var(--accent); }
+.toc .toc-row a { flex: 1; min-width: 0; padding: 6px 6px 6px 2px; border: 0; border-radius: 3px; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; font-size: 12px; }
+.toc .toc-row a:hover, .toc .toc-row a.active { background: transparent; }
+.toc-toggle { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px; width: 24px; height: 30px; padding: 0; border: 0; border-radius: 3px; color: var(--fg-muted); background: transparent; cursor: pointer; }
+span.toc-toggle { cursor: default; }
+button.toc-toggle:hover { color: var(--fg); background: var(--bg-hover); }
+button.toc-toggle[aria-expanded="false"] .ic { transform: rotate(-90deg); }
+[dir="rtl"] button.toc-toggle[aria-expanded="false"] .ic { transform: rotate(90deg); }
+button.toc-toggle:disabled { opacity: .45; cursor: default; }
+@media (max-width: 640px) {
+  .toolbar-settings label { min-height: 40px; }
+  .submenu-panel .menu-command { min-height: 44px; }
+  #statusFile { max-width: 110px; }
+}
+@media (pointer: coarse) {
+  .toc-toggle { flex-basis: 36px; width: 36px; height: 44px; }
+  .toc .toc-row a { min-height: 44px; padding-block: 12px; }
+  .toc-actions .btn { width: 44px; height: 44px; }
+}
+.menu-command[aria-pressed] { justify-content: flex-start; gap: 10px; }
+.menu-command[aria-pressed] > span { flex: 1; }
+.menu-command[aria-pressed]::before { content: ''; flex-shrink: 0; width: 12px; height: 12px; }
+.menu-command[aria-pressed="true"] { background: transparent; color: var(--fg); }
+.menu-command[aria-pressed="true"]::before { background: currentColor; clip-path: polygon(0 45%, 14% 31%, 39% 57%, 86% 8%, 100% 22%, 39% 85%); }
+.menu-command[aria-pressed="true"]:hover, .menu-command[aria-pressed="true"]:focus-visible { background: var(--bg-hover); }

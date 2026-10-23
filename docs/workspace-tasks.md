@@ -111,3 +111,25 @@ passed for 28 combinations: English/Persian, light/dark, and 320/360/390/760/102
 All four menus were checked for horizontal overflow in those combinations. Native asset
 preparation succeeded. No dependencies or bundled font assets were added. Physical-device
 visual QA remains outstanding. No release or main/develop merge was performed.
+
+### Menu choices, customizable toolbar and outline tree
+
+- [x] View > Theme opens a flyout with explicit System / Light / Dark choices and selected-state radios.
+- [x] View > Customize toolbar controls twelve command groups/items, can hide the entire toolbar,
+      saves preferences locally, and offers Restore defaults. Full menus remain available.
+- [x] Remove automatic space distribution between toolbar groups; retain consistent separators and spacing.
+- [x] Hide the duplicate in-app filename; keep tabs and the operating-system/browser window title.
+- [x] Restore all status metadata in Preview, including encoding, EOL, cursor and render duration.
+      Narrow status bars scroll horizontally so metadata remains accessible.
+- [x] Replace the flat Contents list with nested heading branches, expand/collapse-all actions,
+      wrapping labels, ancestor-aware search, current-location highlighting and independent per-tab folds.
+      Outline folding does not change document section folds or Markdown text.
+- [x] Close the mobile Contents drawer after selecting a heading and move focus to the preview.
+
+Validation: 163 unit/DOM tests passed; explicit theme selection, submenu Escape/focus,
+customization persistence/reset and per-tab outline/search behavior have regression coverage.
+Chromium smoke includes flyout bounds and hit-testing at 1440/390/320px, encoding visibility,
+hidden duplicate title and mobile export. Additional English/Persian visual checks covered
+1440/1024/760/390/320px, including real browser persistence across reload. Native asset
+preparation passed. No runtime dependencies were added. Physical-device QA and final native
+build results remain separate from these browser checks; publication still requires approval.

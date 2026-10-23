@@ -876,6 +876,7 @@
 
   function setDoc(text, name, handle, meta) {
     state.documentId++;
+    if (activeTab) activeTab.tocCollapsed = [];
     var oldEditor = el.editor;
     mountEditor(null, text);
     resetUndo();
@@ -903,6 +904,7 @@
 
   function setEmpty() {
     state.documentId++;
+    if (activeTab) activeTab.tocCollapsed = [];
     var oldEditor = el.editor;
     mountEditor(null, '');
     resetUndo();
@@ -1637,46 +1639,83 @@
 
   /* --------------------------------------------------------------- table of contents */
 
+  var tocNodes = [];
   function renderToc() {
-    var html = '';
-    for (var i = 0; i < state.toc.length; i++) {
-      var item = state.toc[i];
-      html += '<a class="h' + item.depth + '" href="#' + esc(item.id) + '" data-i="' + i +
-        '" title="' + esc(t('toc.jump', { line: item.line })) + '">' + esc(item.text) + '</a>';
-    }
-    el.toc.innerHTML = html;
-    applyTocFilter();
+    var root = document.createElement('ul'), stack = [];
+    tocNodes = [];
+    if (activeTab && !activeTab.tocCollapsed) activeTab.tocCollapsed = [];
+    state.toc.forEach(function (item, index) {
+      while (stack.length && stack[stack.length - 1].item.depth >= item.depth) stack.pop();
+      var parent = stack.length ? stack[stack.length - 1] : null;
+      var li = document.createElement('li'), row = document.createElement('div');
+      var link = document.createElement('a'), children = document.createElement('ul');
+      row.className = 'toc-row';
+      link.href = '#' + item.id; link.setAttribute('data-i', index);
+      link.textContent = item.text; link.title = item.text + ' · ' + t('toc.jump', { line: item.line });
+      link.className = 'h' + item.depth;
+      children.id = 'toc-children-' + index;
+      row.appendChild(link); li.appendChild(row); li.appendChild(children);
+      (parent ? parent.children : root).appendChild(li);
+      var node = { item: item, index: index, li: li, row: row, link: link, children: children, parent: parent, branches: [] };
+      if (parent) parent.branches.push(node);
+      tocNodes.push(node); stack.push(node);
+    });
+    tocNodes.forEach(function (node) {
+      var control = document.createElement(node.branches.length ? 'button' : 'span');
+      control.className = 'toc-toggle';
+      if (node.branches.length) {
+        control.type = 'button'; control.innerHTML = Icons.svg('chevronDown', 14);
+        control.setAttribute('data-toc-toggle', node.index);
+        control.setAttribute('aria-controls', node.children.id);
+      } else control.setAttribute('aria-hidden', 'true');
+      node.control = control; node.row.insertBefore(control, node.link);
+    });
+    el.toc.textContent = ''; el.toc.appendChild(root);
+    applyTocFilter(); markActiveToc();
   }
 
   function applyTocFilter() {
     var q = (state.tocFilter || '').trim().toLowerCase();
-    var links = el.toc.querySelectorAll('a[data-i]');
-    var shown = 0;
-    for (var i = 0; i < links.length; i++) {
-      var hit = !q || links[i].textContent.toLowerCase().indexOf(q) !== -1;
-      links[i].hidden = !hit;
-      if (hit) shown++;
-    }
+    var collapsed = activeTab && activeTab.tocCollapsed || [], shown = 0;
+    tocNodes.slice().reverse().forEach(function (node) {
+      node.match = !q || node.item.text.toLowerCase().indexOf(q) >= 0 || node.branches.some(function (child) { return child.match; });
+    });
+    tocNodes.forEach(function (node) {
+      var folded = !q && collapsed.indexOf(node.item.id) >= 0;
+      var parentHidden = node.parent && (node.parent.link.hidden || node.parent.children.hidden);
+      node.li.hidden = !node.match; node.link.hidden = !node.match || !!parentHidden;
+      node.children.hidden = folded || !node.branches.some(function (child) { return child.match; });
+      if (!node.link.hidden) shown++;
+      if (node.branches.length) {
+        node.control.disabled = !!q;
+        node.control.setAttribute('aria-expanded', node.children.hidden ? 'false' : 'true');
+        node.control.setAttribute('aria-label', t(node.children.hidden ? 'reading.expand' : 'reading.collapse') + ': ' + node.item.text);
+      }
+    });
     el.tocClear.hidden = !q;
-    if (!links.length) {
-      el.tocEmpty.textContent = t('toc.none');
-      el.tocEmpty.hidden = false;
-    } else {
-      el.tocEmpty.textContent = t('toc.empty');
-      el.tocEmpty.hidden = shown !== 0;
-    }
+    el.tocEmpty.textContent = t(tocNodes.length ? 'toc.empty' : 'toc.none');
+    el.tocEmpty.hidden = shown !== 0;
+    ['tocExpandAll', 'tocCollapseAll'].forEach(function (id) {
+      var button = $(id); if (button) button.disabled = !!q || !tocNodes.some(function (node) { return node.branches.length; });
+    });
   }
 
   function markActiveToc() {
     if (el.sidebar.hidden || !state.toc.length) return;
-    var top = el.previewScroll.scrollTop + 24;
-    var active = -1;
+    var top = el.previewScroll.scrollTop + 24, active = -1;
     for (var i = 0; i < state.toc.length; i++) {
       if (state.toc[i].part.top <= top) active = i;
       else break;
     }
-    var links = el.toc.children;
-    for (var j = 0; j < links.length; j++) links[j].classList.toggle('active', j === active);
+    tocNodes.forEach(function (node) {
+      node.link.classList.toggle('active', node.index === active);
+      node.row.classList.remove('has-active');
+      if (node.index === active) node.link.setAttribute('aria-current', 'location');
+      else node.link.removeAttribute('aria-current');
+    });
+    var current = tocNodes[active];
+    while (current && current.link.hidden) current = current.parent;
+    if (current) current.row.classList.add('has-active');
   }
 
   /* -------------------------------------------------------------- scroll sync */
@@ -1915,7 +1954,12 @@
   }
 
   function cycleTheme() {
-    state.theme = state.theme === 'auto' ? 'light' : (state.theme === 'light' ? 'dark' : 'auto');
+    setTheme(state.theme === 'auto' ? 'light' : (state.theme === 'light' ? 'dark' : 'auto'));
+  }
+
+  function setTheme(theme) {
+    if (['auto', 'light', 'dark'].indexOf(theme) < 0) return;
+    state.theme = theme;
     applyTheme();
     updateChrome();
     saveSettings();
@@ -2286,13 +2330,33 @@
     });
 
     el.toc.addEventListener('click', function (e) {
+      var toggle = e.target.closest && e.target.closest('[data-toc-toggle]');
+      if (toggle && activeTab) {
+        var node = tocNodes[+toggle.getAttribute('data-toc-toggle')];
+        var collapsed = activeTab.tocCollapsed, index = collapsed.indexOf(node.item.id);
+        if (index < 0) collapsed.push(node.item.id); else collapsed.splice(index, 1);
+        applyTocFilter(); markActiveToc(); return;
+      }
       var a = e.target && e.target.closest ? e.target.closest('a[data-i]') : null;
       if (!a) return;
       e.preventDefault();
       var item = state.toc[+a.getAttribute('data-i')];
-      if (item) jumpToLine(item.line, item.id);
+      if (item) {
+        jumpToLine(item.line, item.id);
+        if (window.innerWidth <= 900) {
+          mobileSidebar = false; applySidebar();
+          (state.mode === 'write' ? el.editor : el.previewScroll).focus({ preventScroll: true });
+        }
+      }
     });
 
+    ['tocExpandAll', 'tocCollapseAll'].forEach(function (id) {
+      $(id).addEventListener('click', function () {
+        if (!activeTab) return;
+        activeTab.tocCollapsed = id === 'tocExpandAll' ? [] : tocNodes.filter(function (node) { return node.branches.length; }).map(function (node) { return node.item.id; });
+        applyTocFilter(); markActiveToc();
+      });
+    });
     el.tocFilter.addEventListener('input', function () {
       state.tocFilter = el.tocFilter.value;
       applyTocFilter();
@@ -2302,7 +2366,7 @@
     el.tocClear.addEventListener('click', function () {
       el.tocFilter.value = '';
       state.tocFilter = '';
-      applyTocFilter();
+      applyTocFilter(); markActiveToc();
       el.tocFilter.focus();
     });
   }
@@ -2980,6 +3044,7 @@
     if (RV.Shell) RV.Shell.init({
       undo: function () { undoEdit(false); el.editor.focus(); },
       redo: function () { undoEdit(true); el.editor.focus(); },
+      getTheme: function () { return state.theme; }, setTheme: setTheme,
       find: openFind, close: function () { closeTab(activeTab.id); },
       canUndo: function () { return !!(activeTab && activeTab.undo.length); },
       canRedo: function () { return !!(activeTab && activeTab.redo.length); }

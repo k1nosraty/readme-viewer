@@ -62,3 +62,49 @@ test('menu keyboard navigation switches menus and returns focus on Escape', asyn
   assert.equal(document.getElementById('menuEdit').open, false);
   assert.equal(document.activeElement, document.querySelector('#menuEdit > summary'));
 });
+
+test('Theme flyout selects an explicit theme and Escape returns to its trigger', async t => {
+  const app = await load(t); if (!app) return;
+  const { api, document, window } = app;
+  document.getElementById('menuView').open = true;
+  const trigger = document.querySelector('[data-submenu="themeMenu"]');
+  trigger.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  assert.equal(document.getElementById('themeMenu').hidden, false);
+  assert.equal(document.activeElement.getAttribute('data-theme-choice'), 'auto');
+  document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(document.getElementById('themeMenu').hidden, true);
+  assert.equal(document.getElementById('menuView').open, true);
+  assert.equal(document.activeElement, trigger);
+  trigger.click();
+  document.querySelector('[data-theme-choice="dark"]').click();
+  assert.equal(api.state.theme, 'dark');
+  assert.equal(document.querySelector('[data-theme-choice="dark"]').getAttribute('aria-checked'), 'true');
+  assert.equal(document.documentElement.dataset.theme, 'dark');
+});
+
+test('toolbar choices survive reload and hidden commands remain available in menus', async t => {
+  const storage = new Map();
+  async function open() {
+    const app = await harness.loadApp({ beforeParse(window) {
+      window.TextDecoder = TextDecoder;
+      Object.defineProperty(window, 'localStorage', { value: {
+        getItem: key => storage.get(key) || null,
+        setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key)
+      } });
+    } });
+    t.after(() => app.window.close()); return app;
+  }
+  const first = await open();
+  first.document.querySelector('[data-toolbar-option="sync"]').click();
+  assert.equal(first.document.getElementById('btnSync').hidden, true);
+  const second = await open();
+  assert.equal(second.document.getElementById('btnSync').hidden, true);
+  const before = second.window.RVApp.state.sync;
+  second.document.querySelector('#menuView [data-command="btnSync"]').click();
+  assert.equal(second.window.RVApp.state.sync, !before);
+  second.document.querySelector('[data-toolbar-show]').click();
+  assert.equal(second.document.getElementById('toolbar').hidden, true);
+  second.document.querySelector('[data-toolbar-reset]').click();
+  assert.equal(second.document.getElementById('toolbar').hidden, false);
+  assert.equal(second.document.getElementById('btnSync').hidden, false);
+});

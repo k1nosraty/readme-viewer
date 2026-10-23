@@ -115,6 +115,28 @@ const { chromium } = require('playwright');
     await page.locator('#readingSpacing').selectOption('normal');
     await page.locator('#hideCompleted').uncheck();
     await page.locator('#readingOptions summary').click();
+    // Flyouts must escape the parent menu scroll area and remain usable on narrow screens.
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      for (const panelId of ['themeMenu', 'toolbarMenu']) {
+        await page.locator('#menuView > summary').click();
+        await page.locator('[data-submenu="' + panelId + '"]').click();
+        assert.ok(await page.locator('#' + panelId).evaluate(panel => {
+          const rect = panel.getBoundingClientRect();
+          const control = panel.querySelector('button, input');
+          const hit = control.getBoundingClientRect();
+          return rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight &&
+            control.contains(document.elementFromPoint(hit.x + hit.width / 2, hit.y + hit.height / 2));
+        }), panelId + ' remains visible and clickable at ' + width);
+        await page.keyboard.press('Escape');
+        await page.keyboard.press('Escape');
+      }
+      assert.equal(await page.locator('#fileName').isVisible(), false);
+      assert.equal(await page.locator('#statusEncoding').isVisible(), true);
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     // Shared Markdown rules must keep their theme colors after CSS consolidation.
     await page.evaluate(() => window.RVApp.setDoc('[Link](guide.md) and note[^یادداشت] twice[^یادداشت].\n\n[^یادداشت]: Note', 'theme.md', null, {}));
     const colors = new Map();

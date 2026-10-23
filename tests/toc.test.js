@@ -1,0 +1,45 @@
+'use strict';
+const test = require('node:test'), assert = require('node:assert/strict'), harness = require('./helpers/dom');
+
+test('outline branches fold independently per tab and search reveals ancestor paths', async t => {
+  if (!harness.hasDom) { t.skip('jsdom unavailable'); return; }
+  const { window, document, errors } = await harness.loadApp({ beforeParse(window) { window.TextDecoder = TextDecoder; } });
+  t.after(() => window.close());
+  const api = window.RVApp;
+  const source = '# Guide\n\n## Install\n\n### Linux\n\nDetails\n\n## Run\n\nText';
+  api.setDoc(source, 'guide.md');
+  const first = api.listTabs()[0].id;
+  const links = () => Array.from(document.querySelectorAll('#toc a'));
+  const toggle = () => document.querySelector('[data-toc-toggle="1"]');
+  toggle().click();
+  assert.equal(toggle().getAttribute('aria-expanded'), 'false');
+  assert.equal(links()[2].hidden, true);
+  assert.equal(links()[3].hidden, false);
+  const filter = document.getElementById('tocFilter');
+  filter.value = 'Linux'; filter.dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.deepEqual(links().filter(a => !a.hidden).map(a => a.textContent), ['Guide', 'Install', 'Linux']);
+  document.getElementById('tocClear').click();
+  assert.equal(links()[2].hidden, true, 'clearing search restores folding');
+  api.newTab('# Other\n\n## Child', 'other.md');
+  assert.equal(links()[1].hidden, false);
+  api.switchTab(first);
+  assert.equal(links()[2].hidden, true);
+  document.getElementById('tocExpandAll').click();
+  assert.equal(links().filter(a => a.hidden).length, 0);
+  document.getElementById('tocCollapseAll').click();
+  assert.equal(links().filter(a => !a.hidden).length, 1);
+  assert.equal(api.el.editor.value, source);
+  assert.equal(api.state.dirty, false);
+  api.setDoc('### Skipped levels\n\n###### Nested\n\n## New root', 'skipped.md');
+  assert.equal(links().filter(a => !a.hidden).length, 3);
+  assert.equal(document.querySelectorAll('#toc > ul > li').length, 2);
+  Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+  document.getElementById('btnToc').click();
+  assert.equal(api.el.sidebar.hidden, false);
+  links()[0].click();
+  assert.equal(api.el.sidebar.hidden, true);
+  assert.equal(document.activeElement, api.el.previewScroll);
+  api.setMode('write'); document.getElementById('btnToc').click(); links()[0].click();
+  assert.equal(document.activeElement, api.el.editor);
+  assert.deepEqual(errors, []);
+});
