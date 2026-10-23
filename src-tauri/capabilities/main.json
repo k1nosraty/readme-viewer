@@ -12,6 +12,7 @@
     "dialog:allow-save",
     "fs:allow-read-file",
     "fs:allow-write-file",
+    "fs:allow-stat",
     {
       "identifier": "opener:allow-open-url",
       "allow": [

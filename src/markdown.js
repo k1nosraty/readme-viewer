@@ -98,6 +98,18 @@
     }
 
     var renderer = {
+      /* GitHub alerts: "> [!NOTE]" … rendered as a titled callout, body untouched. */
+      blockquote: function (token) {
+        var body = this.parser.parse(token.tokens);
+        var m = /^<p>\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:<br>)?\s*/i.exec(body);
+        if (!m) return '<blockquote>\n' + body + '</blockquote>\n';
+        var kind = m[1].toLowerCase();
+        var rest = body.slice(m[0].length).replace(/^<\/p>\s*/, '');
+        if (rest.indexOf('<') !== 0 && rest) rest = '<p>' + rest;
+        return '<div class="markdown-alert markdown-alert-' + kind + '">' +
+          '<p class="markdown-alert-title">' + esc(t('alert.' + kind)) + '</p>' + rest + '</div>\n';
+      },
+
       heading: function (token) {
         var text = plainText(token.tokens);
         var id = 'user-content-' + slugify(text);
@@ -181,6 +193,48 @@
 
     var md = new markedLib.Marked({ gfm: true, breaks: false, pedantic: false });
     md.use({ renderer: renderer });
+
+    /*
+     * Footnotes ("text[^1]" … "[^1]: note"). Each definition is its own block token whose raw is
+     * the exact source, so source mapping stays byte accurate. Definitions render where written.
+     */
+    function fnId(label) {
+      return 'user-content-fn-' + String(label).toLowerCase().replace(/[^\w\u0600-\u06ff-]/g, '-');
+    }
+    md.use({
+      extensions: [{
+        name: 'footnote',
+        level: 'block',
+        start: function (src) { var m = /(^|\n)\[\^[^\]\s]+\]:/.exec(src); return m ? m.index + m[1].length : undefined; },
+        tokenizer: function (src) {
+          var m = /^\[\^([^\]\s]+)\]:[ \t]?([^\n]*(?:\n(?: {2,}|\t)[^\n]*)*)(?:\n|$)/.exec(src);
+          if (!m) return undefined;
+          var token = { type: 'footnote', raw: m[0], label: m[1], text: m[2].replace(/\n(?: {2,}|\t)/g, '\n'), tokens: [] };
+          this.lexer.inline(token.text, token.tokens);
+          return token;
+        },
+        renderer: function (token) {
+          var id = fnId(token.label);
+          return '<div class="footnote" id="' + esc(id) + '"><span class="footnote-label">' + esc(token.label) +
+            '</span> ' + this.parser.parseInline(token.tokens) +
+            ' <a href="#' + esc(id.replace('-fn-', '-fnref-')) + '" class="footnote-back" aria-label="' +
+            esc(t('footnote.back')) + '">↩</a></div>\n';
+        }
+      }, {
+        name: 'footnoteRef',
+        level: 'inline',
+        start: function (src) { var i = src.indexOf('[^'); return i < 0 ? undefined : i; },
+        tokenizer: function (src) {
+          var m = /^\[\^([^\]\s]+)\](?!:)/.exec(src);
+          return m ? { type: 'footnoteRef', raw: m[0], label: m[1] } : undefined;
+        },
+        renderer: function (token) {
+          var id = fnId(token.label);
+          return '<sup class="footnote-ref"><a href="#' + esc(id) + '" id="' + esc(id.replace('-fn-', '-fnref-')) +
+            '">' + esc(token.label) + '</a></sup>';
+        }
+      }]
+    });
 
     function sanitize(html) {
       if (!purify) return html;

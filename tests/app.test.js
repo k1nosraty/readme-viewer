@@ -1045,3 +1045,56 @@ test('native read-only provider documents choose a save destination and then reu
     assert.equal(RVApp.state.saved, 'second edit');
   } finally { win.RV.Native = previous; }
 });
+
+test('in-document links follow GitHub heading ids', async function (t) {
+  if (skipIfNoDom(t)) return;
+  await open('[Go](#install)\n\n# Intro\n\n' + 'text\n\n'.repeat(40) + '## Install\n\nhere');
+  const link = doc.querySelector('#preview a[href="#install"]');
+  let scrolled = null;
+  const target = doc.getElementById('user-content-install');
+  target.scrollIntoView = function () { scrolled = this.id; };
+  harness.click(win, link);
+  await harness.settle(10);
+  assert.equal(scrolled, 'user-content-install');
+});
+
+test('opening a new document clears an automatic link base but keeps a typed one', async function (t) {
+  if (skipIfNoDom(t)) return;
+  RVApp.state.baseUrl = 'file:///old/';
+  RVApp.state.autoBase = true;
+  await open('# A');
+  assert.equal(RVApp.state.baseUrl, '');
+  RVApp.state.baseUrl = 'https://example.com/';
+  RVApp.state.autoBase = false;
+  await open('# B');
+  assert.equal(RVApp.state.baseUrl, 'https://example.com/');
+  RVApp.state.baseUrl = '';
+});
+
+test('find in document highlights and steps through matches', async function (t) {
+  if (skipIfNoDom(t)) return;
+  await open('# Alpha\n\nalpha beta ALPHA\n\n- alpha item');
+  const key = (k, extra) => doc.dispatchEvent(new win.KeyboardEvent('keydown', Object.assign({ key: k, bubbles: true }, extra)));
+  key('F', { ctrlKey: true, shiftKey: true });
+  const input = doc.getElementById('findInput');
+  assert.equal(doc.getElementById('findBar').hidden, false);
+  input.value = 'alpha';
+  input.dispatchEvent(new win.Event('input', { bubbles: true }));
+  assert.equal(doc.querySelectorAll('#preview mark.rv-find').length, 4);
+  assert.equal(doc.getElementById('findCount').textContent, '1 / 4');
+  harness.click(win, doc.getElementById('findNext'));
+  assert.equal(doc.getElementById('findCount').textContent, '2 / 4');
+  harness.click(win, doc.getElementById('findClose'));
+  assert.equal(doc.querySelectorAll('#preview mark.rv-find').length, 0);
+  assert.match(doc.getElementById('preview').textContent, /alpha beta ALPHA/);
+});
+
+test('Tab stays inside an open dialog', async function (t) {
+  if (skipIfNoDom(t)) return;
+  harness.click(win, doc.getElementById('btnHelp'));
+  const done = doc.getElementById('btnHelpDone');
+  done.focus();
+  doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+  assert.ok(doc.getElementById('helpModal').contains(doc.activeElement));
+  harness.click(win, done);
+});

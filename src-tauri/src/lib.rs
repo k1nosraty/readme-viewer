@@ -124,6 +124,44 @@ fn resolve_document_path(app: tauri::AppHandle, path: String) -> Result<String, 
 
 #[tauri::command]
 fn startup_paths(app: tauri::AppHandle) -> Vec<String> {
+    startup_paths_inner(app)
+}
+
+fn is_document(path: &Path) -> bool {
+    let extension = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    path.is_file()
+        && matches!(
+            extension.as_str(),
+            "md" | "markdown" | "mdown" | "mdwn" | "mkd" | "txt"
+        )
+}
+
+// A link clicked inside an open document may lead to another Markdown file or a
+// folder's README. Only Markdown/text documents are ever granted, never other files.
+#[tauri::command]
+fn open_linked_document(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    let path = PathBuf::from(path)
+        .canonicalize()
+        .map_err(|_| "The linked document does not exist".to_string())?;
+    let path = if path.is_dir() {
+        find_readme(&path, 0).ok_or("No README found in the linked folder")?
+    } else {
+        path
+    };
+    if !is_document(&path) {
+        return Err("Expected a Markdown or text document".into());
+    }
+    app.fs_scope()
+        .allow_file(&path)
+        .map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+fn startup_paths_inner(app: tauri::AppHandle) -> Vec<String> {
     #[cfg(desktop)]
     {
         let cwd = std::env::current_dir().unwrap_or_default();
@@ -180,7 +218,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             startup_paths,
             authorize_document_directory,
-            resolve_document_path
+            resolve_document_path,
+            open_linked_document
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {

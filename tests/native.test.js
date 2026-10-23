@@ -155,3 +155,12 @@ test('Android opened provider documents are read-only while Save As destinations
   assert.equal(saved.name, 'notes.md');
   assert.equal((await adapter().native.pickOpen()).writable, true);
 });
+test('clicked links may climb with ".." but images may not', async () => {
+  const { native } = adapter({ open: async () => '/repo/docs/README.md' });
+  const handle = await native.pickOpen();
+  assert.equal(native.resolveLocalUrl('../CONTRIBUTING.md', handle, true), '/repo/CONTRIBUTING.md');
+  assert.equal(native.resolveLocalUrl('../../x.md', handle, true), '/x.md');
+  assert.equal(native.resolveLocalUrl('../../../x.md', handle, true), null);
+  assert.equal(native.resolveLocalUrl('../logo.png', handle), null);
+  assert.equal(native.resolveLocalUrl('/etc/passwd', handle, true), null);
+});

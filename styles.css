@@ -1101,3 +1101,51 @@ body.dragover .drop-hint { display: grid; }
   .markdown-body { max-inline-size: none; }
   .heading-anchor, .code-copy { display: none !important; }
 }
+
+/* GitHub alerts */
+.markdown-body .markdown-alert { padding: .5rem 1rem; margin-bottom: 16px; border-inline-start: .25em solid var(--alert, #0969da); }
+.markdown-body .markdown-alert > :last-child { margin-bottom: 0; }
+.markdown-body .markdown-alert-title { font-weight: 600; color: var(--alert); margin-bottom: 4px; }
+.markdown-alert-note { --alert: #0969da; }
+.markdown-alert-tip { --alert: #1a7f37; }
+.markdown-alert-important { --alert: #8250df; }
+.markdown-alert-warning { --alert: #9a6700; }
+.markdown-alert-caution { --alert: #cf222e; }
+[data-theme="dark"] .markdown-alert-note { --alert: #4493f8; }
+[data-theme="dark"] .markdown-alert-tip { --alert: #3fb950; }
+[data-theme="dark"] .markdown-alert-important { --alert: #ab7df8; }
+[data-theme="dark"] .markdown-alert-warning { --alert: #d29922; }
+[data-theme="dark"] .markdown-alert-caution { --alert: #f85149; }
+
+/* Find in document */
+.find-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-subtle); color: var(--fg-muted); }
+.find-bar[hidden] { display: none; }
+.find-bar input { flex: 1; min-width: 0; height: 26px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); color: var(--fg); font: inherit; font-size: 13px; }
+.find-bar input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.find-count { font-size: 12px; white-space: nowrap; }
+.find-bar .btn-icon { width: 26px; height: 26px; }
+mark.rv-find { background: rgba(255, 212, 59, .45); color: inherit; border-radius: 2px; }
+mark.rv-find.current { background: #ff9632; }
+
+/* Hovered link target */
+.statusbar .sb-link { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; display: inline-block; color: var(--fg-muted); }
+.statusbar .sb-link:empty { display: none; }
+
+/* Recent files */
+.recent { margin-top: 18px; width: min(420px, 100%); text-align: start; }
+.recent[hidden] { display: none; }
+.recent-title { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--fg-muted); }
+.recent-item { display: flex; flex-direction: column; width: 100%; padding: 6px 10px; border: 0; border-radius: var(--r-sm); background: none; color: var(--fg); font: inherit; text-align: start; cursor: pointer; }
+.recent-item:hover, .recent-item:focus-visible { background: var(--bg-hover); }
+.recent-item b { font-size: 13px; font-weight: 600; }
+.recent-item span { font-size: 11px; color: var(--fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media print { .find-bar { display: none !important; } mark.rv-find { background: none; } }
+
+/* Footnotes */
+.markdown-body .footnote { font-size: 85%; color: var(--fg-muted); margin: 0 0 6px; padding-inline-start: 1.6em; text-indent: -1.6em; }
+.markdown-body .footnote:first-of-type, .markdown-body :not(.footnote) + .footnote { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 16px; }
+.markdown-body .footnote-label { display: inline-block; min-width: 1.6em; text-indent: 0; font-weight: 600; }
+.markdown-body .footnote-label::after { content: "."; }
+.markdown-body .footnote-back { text-decoration: none; }
+.markdown-body .footnote:target, .markdown-body .footnote-ref a:target { background: var(--accent-subtle); }

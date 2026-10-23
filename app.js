@@ -33,6 +33,7 @@
   function applyHandleBase(handle) {
     if (!handle || !Object.prototype.hasOwnProperty.call(handle, 'baseUrl')) return;
     state.baseUrl = typeof handle.baseUrl === 'string' ? handle.baseUrl : '';
+    state.autoBase = true;
     el.baseUrl.value = state.baseUrl;
   }
 
@@ -61,6 +62,8 @@
     eol: '\n',
     encoding: '',
     baseUrl: '',
+    autoBase: false,
+    folder: null,
     anchors: [],
     toc: [],
     lines: 1,
@@ -155,7 +158,7 @@
     try {
       localStorage.setItem(STORE, JSON.stringify({
         font: state.font, wrap: state.wrap, sync: state.sync, dirMode: state.dirMode,
-        mode: state.mode, theme: state.theme, baseUrl: state.baseUrl,
+        mode: state.mode, theme: state.theme, baseUrl: state.autoBase ? '' : state.baseUrl,
         editPreview: state.editPreview, sidebar: state.sidebar, split: state.split,
         locale: I18n.getLocale()
       }));
@@ -270,6 +273,8 @@
     state.name = name || '';
     state.saved = text;
     state.handle = handle || null;
+    state.folder = null;
+    if (state.autoBase) { state.baseUrl = ''; el.baseUrl.value = ''; state.autoBase = false; }
     applyHandleBase(handle);
     state.hasDocument = true;
     state.bom = !!(meta && meta.bom);
@@ -318,16 +323,16 @@
     setDirty(state.hasDocument ? el.editor.value !== state.saved : el.editor.value.length > 0);
   }
 
-  function readHandle(handle) {
+  function readHandle(handle, quiet) {
     var documentId = state.documentId;
     var source = el.editor.value;
     return handle.getFile().then(function (file) {
       if (state.documentId !== documentId || el.editor.value !== source) return false;
-      return loadFile(file, handle);
+      return loadFile(file, handle, quiet);
     });
   }
 
-  function loadFile(file, handle) {
+  function loadFile(file, handle, quiet) {
     if (!file) return Promise.resolve(false);
     var documentId = state.documentId;
     var source = el.editor.value;
@@ -339,6 +344,10 @@
         return false;
       }
       setDoc(decoded.text, file.name || 'README.md', handle || null, decoded);
+      trackModified();
+      if (quiet) return true;
+      pushHistory();
+      rememberRecent();
       toast(t('info.opened', { name: state.name }), 'success');
       return true;
     }).catch(function (err) {
@@ -385,12 +394,13 @@
     });
   }
 
-  function openNativePath(path) {
+  function openNativePath(path, fromLink) {
     return confirmDiscard().then(function (proceed) {
       if (!proceed) return false;
       var documentId = state.documentId;
       var source = el.editor.value;
-      return RV.Native.openPath(path).then(function (h) {
+      var opener = fromLink && RV.Native.openLink ? RV.Native.openLink : RV.Native.openPath;
+      return opener(path).then(function (h) {
         if (!h || state.documentId !== documentId || el.editor.value !== source) return false;
         return readHandle(h);
       });
@@ -455,6 +465,7 @@
       applyHandleBase(handle);
       if (handle && handle.baseUrl) render({ immediate: true });
       state.encoding = 'utf-8';
+      trackModified();
       setDirty(el.editor.value !== text);
       saveSettings();
       toast(t('info.saved', { name: state.name }), 'success');
@@ -643,7 +654,7 @@
       var a = links[i];
       var href = a.getAttribute('href') || '';
       if (href.charAt(0) === '#') continue;
-      if (nativeAvailable()) {
+      if (nativeAvailable() || (state.folder && !/^[a-z][a-z\d+.-]*:|^\/\//i.test(href))) {
         a.setAttribute('data-native-href', href);
         if (/^https?:|^mailto:/i.test(href)) {
           a.setAttribute('rel', 'noopener noreferrer nofollow');
@@ -659,6 +670,7 @@
         a.setAttribute('data-external', '1');
       }
     }
+    if (state.folder && !nativeAvailable()) { loadFolderImages(); return; }
     if (!base && !nativeAvailable()) return;
     var imgs = el.preview.querySelectorAll('img[src]');
     for (var j = 0; j < imgs.length; j++) {
@@ -824,6 +836,7 @@
     applyDirection(parts, src);
     enhanceLinks();
     hl.all(el.preview);
+    if (!el.findBar.hidden && el.findInput.value) runFind(true);
 
     state.anchors = parts;
     state.toc = toc;
@@ -1136,12 +1149,26 @@
   }
 
   function byId(id) {
+    if (!id) return null;
     if (window.CSS && typeof CSS.escape === 'function') {
       return el.preview.querySelector('#' + CSS.escape(id));
     }
     var all = el.preview.querySelectorAll('[id]');
     for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
     return null;
+  }
+
+  /** Follow an in-document link; GitHub prefixes heading ids with "user-content-". */
+  function jumpToFragment(fragment) {
+    var id = fragment;
+    try { id = decodeURIComponent(fragment); } catch (e) { void 0; }
+    var node = byId(id) || byId('user-content-' + id) || byId('user-content-' + id.toLowerCase());
+    if (!node) return false;
+    for (var i = 0; i < state.toc.length; i++) {
+      if (state.toc[i].id === node.id) { jumpToLine(state.toc[i].line, node.id); return true; }
+    }
+    if (typeof node.scrollIntoView === 'function') node.scrollIntoView({ block: 'start' });
+    return true;
   }
 
   /* ------------------------------------------------------------------ gutter */
@@ -1290,6 +1317,8 @@
     el.btnSave.addEventListener('click', function () { save(false); });
     el.btnSaveAs.addEventListener('click', function () { save(true); });
     el.btnReload.addEventListener('click', reloadFromDisk);
+    el.btnBack.addEventListener('click', function () { goHistory(-1); });
+    el.btnForward.addEventListener('click', function () { goHistory(1); });
     el.btnExport.addEventListener('click', exportHtml);
     el.btnTheme.addEventListener('click', cycleTheme);
     el.btnEmptyOpen.addEventListener('click', pickOpen);
@@ -1339,6 +1368,7 @@
 
     el.baseUrl.addEventListener('input', function () {
       state.baseUrl = el.baseUrl.value.trim();
+      state.autoBase = false;
       saveSettings();
       scheduleRender();
     });
@@ -1391,6 +1421,20 @@
     });
 
     document.addEventListener('keydown', function (e) {
+      if (e.key === 'Tab') {
+        var modal = !el.confirmModal.hidden ? el.confirmModal : (!el.helpModal.hidden ? el.helpModal : null);
+        if (!modal) return;
+        var items = Array.prototype.filter.call(
+          modal.querySelectorAll('button, select, input, [tabindex]:not([tabindex="-1"])'),
+          function (n) { return !n.disabled && !n.hidden; });
+        if (!items.length) return;
+        var first = items[0];
+        var last = items[items.length - 1];
+        var inside = modal.contains(document.activeElement);
+        if (e.shiftKey && (document.activeElement === first || !inside)) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || !inside)) { e.preventDefault(); first.focus(); }
+        return;
+      }
       if (e.key !== 'Escape') return;
       if (!el.confirmModal.hidden) { closeConfirm(null); e.stopPropagation(); return; }
       if (!el.helpModal.hidden) { showHelp(false); e.stopPropagation(); }
@@ -1485,6 +1529,17 @@
   function wirePreview() {
     el.previewScroll.addEventListener('scroll', onPreviewScroll, { passive: true });
 
+    var showLink = function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+      var href = a ? (a.getAttribute('data-native-href') || a.getAttribute('href') || '') : '';
+      if (a && a.classList.contains('heading-anchor')) href = '';
+      el.statusLink.textContent = href;
+      el.statusLink.title = href;
+    };
+    el.preview.addEventListener('mouseover', showLink);
+    el.preview.addEventListener('focusin', showLink);
+    el.preview.addEventListener('mouseleave', function () { el.statusLink.textContent = ''; });
+
     el.preview.addEventListener('click', function (e) {
       var target = e.target;
       if (!target || typeof target.closest !== 'function') return;
@@ -1496,15 +1551,31 @@
       if (copy) { e.preventDefault(); copyCode(copy); return; }
 
       var link = target.closest('a[href]');
-      if (nativeAvailable() && link && (link.getAttribute('href') || '').charAt(0) !== '#') {
+      var rawHref = link ? (link.getAttribute('data-native-href') || link.getAttribute('href') || '') : '';
+      if (link && rawHref.charAt(0) === '#' && !link.classList.contains('heading-anchor')) {
         e.preventDefault();
-        var href = link.getAttribute('data-native-href') || link.getAttribute('href') || '';
+        jumpToFragment(rawHref.slice(1));
+        return;
+      }
+      if (nativeAvailable() && link) {
+        e.preventDefault();
+        var href = rawHref;
         if (/^(https?:|mailto:)/i.test(href)) {
           Promise.resolve(RV.Native.openExternal(href)).catch(function (err) { reportOpen(err, href); });
         } else {
-          var path = RV.Native.resolveLocalUrl(href, state.handle);
-          if (path && /\.(md|markdown|mdown|mkd|mdwn|txt)$/i.test(path)) openNativePath(path);
+          var path = RV.Native.resolveLocalUrl(href, state.handle, true);
+          var hash = href.indexOf('#') >= 0 ? href.slice(href.indexOf('#') + 1) : '';
+          var isDoc = path && /\.(md|markdown|mdown|mkd|mdwn|txt)$/i.test(path);
+          var isDir = path && !/\.[a-z0-9]+$/i.test(path.replace(/\/$/, ''));
+          if (isDoc || isDir) {
+            openNativePath(path, true).then(function (ok) { if (ok && hash) jumpToFragment(hash); });
+          }
         }
+        return;
+      }
+
+      if (link && state.folder && !/^[a-z][a-z\d+.-]*:|^\/\//i.test(rawHref) && openFolderLink(rawHref)) {
+        e.preventDefault();
         return;
       }
 
@@ -1605,24 +1676,13 @@
     var mdFile = files.filter(isMarkdown)[0] || files[0];
     var directories = entries.filter(function (x) { return x.isDirectory; });
 
-    // A folder was dropped: look for a README inside and use the folder as the link base.
+    // A folder was dropped: open its README and resolve links and images inside that folder.
     if (!mdFile && directories.length) {
-      findReadme(directories[0], 0).then(function (entry) {
+      var root = directories[0];
+      findReadme(root, 0).then(function (entry) {
         if (!entry) { toast(t('error.notFound'), 'error'); return; }
-        return openEntry(entry).then(function (file) {
-          var base = 'file://' + entry.fullPath.replace(/[^/]+$/, '');
-          return confirmDiscard().then(function (proceed) {
-            if (!proceed) return false;
-            return loadFile(file, null).then(function (ok) {
-              if (ok) {
-                state.baseUrl = base;
-                el.baseUrl.value = base;
-                saveSettings();
-                render({ immediate: true });
-              }
-              return ok;
-            });
-          });
+        return confirmDiscard().then(function (proceed) {
+          return proceed ? openFolderEntry(root, entry) : false;
         });
       }).catch(function (err) {
         toast(t('error.open', { name: entryName(directories[0]), reason: (err && err.message) || err }), 'error');
@@ -1652,33 +1712,345 @@
     return /\.(md|markdown|mdown|mkd|mdwn|txt)$/i.test(f.name || '');
   }
 
+  /** readEntries returns results in batches (about 100 in Chromium): read until empty. */
+  function readAll(entry) {
+    var reader = entry.createReader();
+    var all = [];
+    return new Promise(function (resolve) {
+      (function more() {
+        reader.readEntries(function (list) {
+          if (!list || !list.length) { resolve(all); return; }
+          all = all.concat(Array.prototype.slice.call(list));
+          more();
+        }, function () { resolve(all); });
+      })();
+    });
+  }
+
+  var README_RE = /^readme\.(md|markdown|mdown|mdwn|mkd|txt)$/i;
+
   function findReadme(entry, depth) {
     if (depth > 3) return Promise.resolve(null);
-    var reader = entry.createReader();
-    return new Promise(function (resolve) {
-      reader.readEntries(function (list) {
-        if (!list || !list.length) { resolve(null); return; }
-        var dirs = [];
-        var files = [];
-        Array.prototype.forEach.call(list, function (x) {
-          (x.isDirectory ? dirs : files).push(x);
-        });
-        for (var i = 0; i < files.length; i++) {
-          if (/^readme(\.|$)/i.test(files[i].name)) { resolve(files[i]); return; }
-        }
-        var idx = 0;
-        (function next() {
-          if (idx >= dirs.length) { resolve(null); return; }
-          findReadme(dirs[idx++], depth + 1).then(function (found) {
-            if (found) resolve(found); else next();
-          });
-        })();
-      }, function () { resolve(null); });
+    return readAll(entry).then(function (list) {
+      list.sort(function (a, b) { return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0); });
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].isFile && README_RE.test(list[i].name)) return list[i];
+      }
+      var dirs = list.filter(function (x) {
+        return x.isDirectory && x.name.charAt(0) !== '.' && x.name !== 'node_modules';
+      });
+      var idx = 0;
+      return (function next() {
+        if (idx >= dirs.length) return null;
+        return findReadme(dirs[idx++], depth + 1).then(function (found) { return found || next(); });
+      })();
     });
   }
 
   function openEntry(entry) {
     return new Promise(function (resolve, reject) { entry.file(resolve, reject); });
+  }
+
+  /* ----------------------------------------------- dropped folder (browser) */
+
+  var folderUrls = [];
+
+  function relPath(root, entry) {
+    return entry.fullPath.slice(root.fullPath.length).replace(/^\//, '');
+  }
+
+  /** Resolve href against the open document inside the dropped folder; null if it escapes. */
+  function folderPath(href) {
+    var f = state.folder;
+    if (!f || /^[a-z][a-z\d+.-]*:|^\/\/|^#/i.test(href)) return null;
+    var value;
+    try { value = decodeURIComponent(href.split(/[?#]/)[0]); } catch (e) { return null; }
+    var out = value.charAt(0) === '/' ? [] : f.path.split('/').slice(0, -1);
+    var parts = value.split('/');
+    for (var i = 0; i < parts.length; i++) {
+      if (!parts[i] || parts[i] === '.') continue;
+      if (parts[i] === '..') { if (!out.length) return null; out.pop(); } else out.push(parts[i]);
+    }
+    return out.join('/');
+  }
+
+  function folderGet(path, dir) {
+    var root = state.folder.root;
+    return new Promise(function (resolve, reject) {
+      if (!path) { resolve(root); return; }
+      (dir ? root.getDirectory : root.getFile).call(root, path, {}, resolve, reject);
+    });
+  }
+
+  function openFolderEntry(root, entry) {
+    return openEntry(entry).then(function (file) {
+      return loadFile(file, null).then(function (ok) {
+        if (ok) {
+          state.folder = { root: root, path: relPath(root, entry) };
+          state.autoBase = true;
+          state.baseUrl = '';
+          el.baseUrl.value = '';
+          render({ immediate: true });
+        }
+        return ok;
+      });
+    });
+  }
+
+  /* ---------------------------------------------------- link navigation history */
+
+  /* ------------------------------------------------------- find in document */
+
+  /* ------------------------------------------------- recent files (native) */
+
+  var RECENT = 'rv.recent';
+
+  function readRecent() {
+    try {
+      var list = JSON.parse(localStorage.getItem(RECENT) || '[]');
+      return Array.isArray(list) ? list.filter(function (p) { return typeof p === 'string'; }) : [];
+    } catch (e) { return []; }
+  }
+
+  function rememberRecent() {
+    if (!nativeAvailable() || !state.handle || !state.handle.path || /^content:/i.test(state.handle.path)) return;
+    var path = state.handle.path;
+    var list = readRecent().filter(function (p) { return p !== path; });
+    list.unshift(path);
+    try { localStorage.setItem(RECENT, JSON.stringify(list.slice(0, 8))); } catch (e) { void 0; }
+    renderRecent();
+  }
+
+  function renderRecent() {
+    var list = nativeAvailable() ? readRecent() : [];
+    el.recentList.hidden = !list.length;
+    if (!list.length) { el.recentList.textContent = ''; return; }
+    var html = '<p class="recent-title">' + esc(t('recent.title')) + '</p>';
+    for (var i = 0; i < list.length; i++) {
+      var name = list[i].replace(/\\/g, '/').split('/').pop();
+      html += '<button type="button" class="recent-item" data-path="' + esc(list[i]) + '" title="' +
+        esc(list[i]) + '"><b>' + esc(name) + '</b><span dir="ltr">' + esc(list[i]) + '</span></button>';
+    }
+    el.recentList.innerHTML = html;
+  }
+
+  function wireRecent() {
+    el.recentList.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-path]') : null;
+      if (!b) return;
+      var path = b.getAttribute('data-path');
+      openNativePath(path, true).then(function (ok) {
+        if (ok) return;
+        try {
+          localStorage.setItem(RECENT, JSON.stringify(readRecent().filter(function (p) { return p !== path; })));
+        } catch (err) { void 0; }
+        renderRecent();
+      });
+    });
+  }
+
+  /* --------------------------------------- reload when the file changes on disk */
+
+  var watch = { handle: null, mtime: 0, busy: false };
+
+  function trackModified() {
+    var h = state.handle;
+    watch.handle = h;
+    watch.mtime = 0;
+    if (!h || typeof h.modified !== 'function') return;
+    h.modified().then(function (m) { if (watch.handle === h) watch.mtime = m; }, function () { void 0; });
+  }
+
+  function checkModified() {
+    var h = state.handle;
+    if (!h || h !== watch.handle || typeof h.modified !== 'function' || watch.busy || !watch.mtime) return;
+    if (document.hidden) return;
+    watch.busy = true;
+    h.modified().then(function (m) {
+      if (h !== state.handle || !m || m === watch.mtime) return;
+      watch.mtime = m;
+      if (state.dirty) { toast(t('info.changedOnDisk', { name: state.name }), 'warning'); return; }
+      var top = el.previewScroll.scrollTop;
+      return readHandle(h, true).then(function (ok) {
+        if (!ok) return;
+        el.previewScroll.scrollTop = top;
+        toast(t('info.reloaded', { name: state.name }), 'info');
+      });
+    }).catch(function () { void 0; }).then(function () { watch.busy = false; });
+  }
+
+  var find = { hits: [], index: -1 };
+
+  function clearFindMarks() {
+    eachNode('mark.rv-find', function (m) {
+      var parent = m.parentNode;
+      parent.replaceChild(document.createTextNode(m.textContent), m);
+      parent.normalize();
+    }, el.preview);
+    find.hits = [];
+    find.index = -1;
+  }
+
+  function runFind(keepIndex) {
+    var previous = find.index;
+    clearFindMarks();
+    var q = el.findBar.hidden ? '' : el.findInput.value;
+    if (!q) { el.findCount.textContent = ''; return; }
+    var needle = q.toLowerCase();
+    var walker = document.createTreeWalker(el.preview, NodeFilter.SHOW_TEXT, null);
+    var nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (var i = 0; i < nodes.length && find.hits.length < 1000; i++) {
+      var node = nodes[i];
+      var text = node.nodeValue.toLowerCase();
+      var at = text.indexOf(needle);
+      while (at >= 0 && find.hits.length < 1000) {
+        var hit = node.splitText(at);
+        node = hit.splitText(q.length);
+        var mark = document.createElement('mark');
+        mark.className = 'rv-find';
+        hit.parentNode.replaceChild(mark, hit);
+        mark.appendChild(hit);
+        find.hits.push(mark);
+        text = node.nodeValue.toLowerCase();
+        at = text.indexOf(needle);
+      }
+    }
+    if (!find.hits.length) { el.findCount.textContent = t('find.none'); return; }
+    find.index = keepIndex && previous >= 0 ? Math.min(previous, find.hits.length - 1) : 0;
+    showFindHit(!keepIndex);
+  }
+
+  function showFindHit(scroll) {
+    for (var i = 0; i < find.hits.length; i++) find.hits[i].classList.toggle('current', i === find.index);
+    el.findCount.textContent = (find.index + 1) + ' / ' + find.hits.length;
+    var cur = find.hits[find.index];
+    if (scroll && cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ block: 'center' });
+  }
+
+  function stepFind(step) {
+    if (!find.hits.length) { runFind(false); return; }
+    find.index = (find.index + step + find.hits.length) % find.hits.length;
+    showFindHit(true);
+  }
+
+  function openFind() {
+    if (state.mode === 'write') setMode('split');
+    el.findBar.hidden = false;
+    var sel = window.getSelection ? String(window.getSelection()) : '';
+    if (sel && sel.length < 100 && sel.indexOf('\n') < 0) el.findInput.value = sel;
+    el.findInput.focus();
+    el.findInput.select();
+    runFind(false);
+  }
+
+  function closeFind() {
+    el.findBar.hidden = true;
+    clearFindMarks();
+    el.findCount.textContent = '';
+  }
+
+  function wireFind() {
+    el.findInput.addEventListener('input', function () { runFind(false); });
+    el.findInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); stepFind(e.shiftKey ? -1 : 1); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeFind(); }
+    });
+    el.findNext.addEventListener('click', function () { stepFind(1); });
+    el.findPrev.addEventListener('click', function () { stepFind(-1); });
+    el.findClose.addEventListener('click', closeFind);
+  }
+
+  var nav = { list: [], index: -1, moving: false };
+
+  function currentLocation() {
+    if (state.folder) return { folder: state.folder.root, path: state.folder.path };
+    if (nativeAvailable() && state.handle && state.handle.path) return { native: state.handle.path };
+    return null;
+  }
+
+  function sameLocation(a, b) {
+    return !!a && !!b && a.native === b.native && a.folder === b.folder && a.path === b.path;
+  }
+
+  function pushHistory() {
+    if (nav.moving) return;
+    var loc = currentLocation();
+    if (!loc || sameLocation(loc, nav.list[nav.index])) { updateNavButtons(); return; }
+    nav.list = nav.list.slice(0, nav.index + 1);
+    nav.list.push(loc);
+    nav.index = nav.list.length - 1;
+    updateNavButtons();
+  }
+
+  function updateNavButtons() {
+    if (!el.btnBack) return;
+    el.btnBack.disabled = nav.index <= 0;
+    el.btnForward.disabled = nav.index >= nav.list.length - 1;
+  }
+
+  function goHistory(step) {
+    var target = nav.index + step;
+    var loc = nav.list[target];
+    if (!loc) return;
+    nav.moving = true;
+    var opening = loc.native
+      ? openNativePath(loc.native)
+      : (function () {
+        var root = loc.folder;
+        return new Promise(function (resolve, reject) { root.getFile(loc.path, {}, resolve, reject); })
+          .then(function (entry) {
+            return confirmDiscard().then(function (ok) { return ok ? openFolderEntry(root, entry) : false; });
+          });
+      })();
+    Promise.resolve(opening).then(function (ok) {
+      if (ok) nav.index = target;
+    }).catch(function (err) { reportOpen(err); }).then(function () {
+      nav.moving = false;
+      updateNavButtons();
+    });
+  }
+
+  function openFolderLink(href) {
+    var path = folderPath(href);
+    if (path === null) return false;
+    var hash = href.indexOf('#') >= 0 ? href.slice(href.indexOf('#') + 1) : '';
+    var root = state.folder.root;
+    var target = /\.(md|markdown|mdown|mkd|mdwn|txt)$/i.test(path)
+      ? folderGet(path, false)
+      : folderGet(path, true).then(function (dir) {
+        return findReadme(dir, 3).then(function (found) {
+          if (!found) throw new Error(t('error.notFound'));
+          return found;
+        });
+      });
+    target.then(function (entry) {
+      return confirmDiscard().then(function (proceed) {
+        return proceed ? openFolderEntry(root, entry) : false;
+      });
+    }).then(function (ok) {
+      if (ok) { pushHistory(); if (hash) jumpToFragment(hash); }
+    }).catch(function (err) {
+      toast(t('error.open', { name: path, reason: (err && err.message) || err }), 'error');
+    });
+    return true;
+  }
+
+  function loadFolderImages() {
+    folderUrls.forEach(function (u) { URL.revokeObjectURL(u); });
+    folderUrls = [];
+    var folder = state.folder;
+    eachNode('img[src]', function (img) {
+      var path = folderPath(img.getAttribute('src') || '');
+      if (path === null) return;
+      img.removeAttribute('src');
+      folderGet(path, false).then(openEntry).then(function (file) {
+        if (state.folder !== folder) return;
+        var url = URL.createObjectURL(file);
+        folderUrls.push(url);
+        img.setAttribute('src', url);
+      }).catch(function () { void 0; });
+    }, el.preview);
   }
 
   function wireResizer() {
@@ -1728,11 +2100,19 @@
 
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
+      if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        var tag = (e.target && e.target.tagName) || '';
+        if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+        e.preventDefault();
+        goHistory(e.key === 'ArrowLeft' ? -1 : 1);
+        return;
+      }
       var mod = e.ctrlKey || e.metaKey;
       if (!mod || e.altKey) return;
       var key = (e.key || '').toLowerCase();
       if (key === 's') { e.preventDefault(); save(e.shiftKey); return; }
       if (key === 'o') { e.preventDefault(); pickOpen(); return; }
+      if (key === 'f' && e.shiftKey) { e.preventDefault(); openFind(); return; }
       if (key === 'e') { e.preventDefault(); setEditPreview(!state.editPreview); return; }
       if (key === '1') { e.preventDefault(); setMode('write'); return; }
       if (key === '2') { e.preventDefault(); setMode('split'); return; }
@@ -1848,9 +2228,10 @@
       'editorMeta', 'previewMeta', 'editBadge', 'helpModal', 'confirmModal', 'ghLight',
       'ghDark', 'hljsLight', 'hljsDark', 'btnOpen', 'btnSave', 'btnSaveAs', 'btnReload',
       'btnExport', 'btnTheme', 'btnWrap', 'btnSync', 'btnToc', 'btnEdit', 'btnFontUp',
-      'btnFontDown', 'btnHelp', 'btnHelpClose', 'btnHelpDone', 'btnConfirmSave',
+      'btnFontDown', 'btnHelp', 'btnHelpClose', 'btnHelpDone', 'btnConfirmSave', 'btnBack', 'btnForward',
       'btnConfirmDiscard', 'btnConfirmCancel', 'btnEmptyOpen', 'btnEmptySample', 'fontValue',
-      'brandMark'];
+      'brandMark', 'findBar', 'findInput', 'findCount', 'findPrev', 'findNext', 'findClose',
+      'statusLink', 'recentList'];
     for (var i = 0; i < ids.length; i++) el[ids[i]] = $(ids[i]);
   }
 
@@ -1884,6 +2265,11 @@
     wireResizer();
     wireGlobalKeys();
     wireMisc();
+    wireFind();
+    wireRecent();
+    renderRecent();
+    setInterval(checkModified, 2000);
+    window.addEventListener('focus', checkModified);
 
     applyLocale();
     setEmpty();
@@ -1891,7 +2277,13 @@
     state.ready = true;
     if (nativeAvailable()) {
       Promise.resolve(RV.Native.initialize({
-        openPath: openNativePath, confirmClose: confirmDiscard, onError: reportOpen,
+        openPath: function (path) {
+          return openNativePath(path).then(function (ok) {
+            if (ok && state.mode === 'split') setMode('preview');
+            return ok;
+          });
+        },
+        confirmClose: confirmDiscard, onError: reportOpen,
         onDrag: function (active) { document.body.classList.toggle('dragover', !!active); }
       })).catch(function (err) { reportOpen(err); });
     }

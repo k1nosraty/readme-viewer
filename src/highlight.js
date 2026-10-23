@@ -27,7 +27,10 @@
     // No grammar for these: render as plain text instead of 404-ing on a missing file.
     plain: 'plaintext', nohighlight: 'plaintext', rest: 'plaintext', rst: 'plaintext',
     adoc: 'plaintext', asciidoc: 'plaintext', org: 'plaintext', vim: 'plaintext',
-    sol: 'plaintext'
+    sol: 'plaintext',
+    // Very large, rarely used grammars are not shipped to keep the app small.
+    '1c': 'plaintext', mathematica: 'plaintext', mma: 'plaintext', wl: 'plaintext',
+    isbl: 'plaintext', gml: 'plaintext', sqf: 'plaintext', maxima: 'plaintext', gauss: 'plaintext'
   };
 
   var CACHE_LIMIT = 400;

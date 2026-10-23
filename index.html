@@ -38,6 +38,12 @@
       <button type="button" class="btn btn-icon" id="btnReload" data-i18n-title="action.reload" disabled>
         <i data-icon="reload" data-size="16"></i>
       </button>
+      <button type="button" class="btn btn-icon" id="btnBack" data-i18n-title="action.back" data-i18n-aria="action.back" disabled>
+        <i data-icon="back" data-size="16"></i>
+      </button>
+      <button type="button" class="btn btn-icon" id="btnForward" data-i18n-title="action.forward" data-i18n-aria="action.forward" disabled>
+        <i data-icon="forward" data-size="16"></i>
+      </button>
     </div>
 
     <div class="tgroup tgroup-seg" role="group" data-i18n-aria="mode.label">
@@ -148,6 +154,15 @@
           <i data-icon="taskOn" data-size="13"></i><span data-i18n="edit.badge">Editing</span>
         </span>
       </div>
+      <div class="find-bar" id="findBar" hidden>
+        <i data-icon="search" data-size="14"></i>
+        <input type="search" id="findInput" spellcheck="false" autocomplete="off"
+               data-i18n-placeholder="find.placeholder" data-i18n-aria="find.placeholder" placeholder="Find in document">
+        <span class="find-count sb-mono" id="findCount"></span>
+        <button type="button" class="btn btn-icon" id="findPrev" data-i18n-title="find.prev"><i data-icon="back" data-size="14"></i></button>
+        <button type="button" class="btn btn-icon" id="findNext" data-i18n-title="find.next"><i data-icon="forward" data-size="14"></i></button>
+        <button type="button" class="btn btn-icon" id="findClose" data-i18n-title="action.close"><i data-icon="close" data-size="14"></i></button>
+      </div>
       <div class="preview" id="previewScroll" tabindex="0">
         <article class="markdown-body" id="preview" dir="auto"></article>
 
@@ -164,6 +179,7 @@
             </button>
           </div>
           <p class="empty-hint"><i data-icon="info" data-size="13"></i><span data-i18n="empty.hint">Everything is processed locally in your browser. Nothing is uploaded.</span></p>
+          <div class="recent" id="recentList" hidden></div>
         </div>
       </div>
     </section>
@@ -180,6 +196,7 @@
   <span class="sb-sep" aria-hidden="true"></span>
   <span class="sb-item sb-mono" id="statusTasks"></span>
   <span class="spacer"></span>
+  <span class="sb-item sb-mono sb-link" id="statusLink" dir="ltr"></span>
   <span class="sb-item sb-mono" id="statusEncoding"></span>
   <span class="sb-sep" aria-hidden="true"></span>
   <span class="sb-item sb-lang"><i data-icon="globe" data-size="12"></i><span id="statusLang">en</span></span>

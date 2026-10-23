@@ -128,3 +128,17 @@ test('the sanitiser is configured to drop anything that runs or spoofs the UI', 
     assert.ok(cfg.ADD_ATTR.indexOf(attr) >= 0, attr + ' must be allowed');
   });
 });
+
+test('GitHub alerts render as titled callouts', function () {
+  const out = md.renderAll('> [!WARNING]\n> Be careful.');
+  assert.match(out, /markdown-alert-warning/);
+  assert.match(out, /Be careful\./);
+  assert.match(md.renderAll('> plain quote'), /<blockquote>/);
+});
+
+test('footnotes link both ways and keep task numbering intact', function () {
+  const out = render('Text[^1].\n\n[^1]: The **note**.\n\n- [ ] a\n- [x] b');
+  assert.match(out.html, /<sup class="footnote-ref"><a href="#user-content-fn-1" id="user-content-fnref-1">1<\/a><\/sup>/);
+  assert.match(out.html, /id="user-content-fn-1"[\s\S]*<strong>note<\/strong>[\s\S]*href="#user-content-fnref-1"/);
+  assert.equal(out.tasks, 2);
+});

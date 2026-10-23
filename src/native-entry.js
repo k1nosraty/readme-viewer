@@ -3,7 +3,7 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { onBackButtonPress, exit } from '@tauri-apps/api/app';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
-import { readFile, writeFile } from '@tauri-apps/plugin-fs';
+import { readFile, writeFile, stat } from '@tauri-apps/plugin-fs';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
@@ -27,6 +27,11 @@ async function handle(path, name, authorize = true, writable = true) {
   file.getFile = async () => {
     const bytes = await readFile(path);
     return { name: file.name, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+  };
+  file.modified = async () => {
+    if (/^content:/i.test(path)) return 0;
+    const info = await stat(path);
+    return info.mtime ? new Date(info.mtime).getTime() : 0;
   };
   file.createWritable = async () => {
     let closed = false;
@@ -72,15 +77,26 @@ const Native = {
     await writer.close();
     return true;
   },
-  resolveLocalUrl(href, file) {
+  resolveLocalUrl(href, file, allowParent) {
     if (!file || !file.baseUrl || typeof href !== 'string') return null;
     let value;
     try { value = decodeURIComponent(href.split(/[?#]/)[0]); } catch (_) { return null; }
     if (!value || /[\x00-\x1f]/.test(value) || /^(?:[a-z][a-z\d+.-]*:|[\/\\])/i.test(value)) return null;
     const parts = value.replace(/\\/g, '/').split('/');
-    // Keep rendered content within the selected document's directory.
-    if (parts.some(part => part === '..')) return null;
-    return file.baseUrl + parts.filter(part => part && part !== '.').join('/');
+    // Images stay within the document's directory; clicked links may climb with "..".
+    if (!allowParent) {
+      if (parts.some(part => part === '..')) return null;
+      return file.baseUrl + parts.filter(part => part && part !== '.').join('/');
+    }
+    const out = file.baseUrl.replace(/\/$/, '').split('/');
+    for (const part of parts) {
+      if (!part || part === '.') continue;
+      if (part === '..') { if (out.length <= 1) return null; out.pop(); } else out.push(part);
+    }
+    return out.join('/');
+  },
+  async openLink(path) {
+    return handle(await invoke('open_linked_document', { path }));
   },
   assetUrl(href, file) {
     const path = Native.resolveLocalUrl(href, file);
