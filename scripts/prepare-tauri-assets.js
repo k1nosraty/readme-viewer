@@ -17,9 +17,9 @@ async function prepare() {
   html = html.replace(/<script[^>]+src="(?:\.\/)?src\/native\.js"[^>]*><\/script>/, tag);
   await writeFile(path.join(output, 'index.html'), html);
   await build({ entryPoints: [path.join(root, 'src/native-entry.js')], outfile: path.join(output, 'src/native.js'), bundle: true, format: 'iife', platform: 'browser', target: 'es2020', minify: true });
-  // Minify the shipped scripts and stylesheet in place; vendor files are already minified.
+  // Minify the shipped scripts and stylesheet in place; the remaining vendor files are already minified.
   const { transform } = require('esbuild');
-  const minifyFiles = ['app.js', 'styles.css', ...(await readdir(path.join(output, 'src'))).filter(n => n.endsWith('.js') && n !== 'native.js').map(n => `src/${n}`)];
+  const minifyFiles = ['app.js', 'styles.css', 'vendor/github-markdown.css', ...(await readdir(path.join(output, 'src'))).filter(n => n.endsWith('.js') && n !== 'native.js').map(n => `src/${n}`)];
   for (const rel of minifyFiles) {
     const file = path.join(output, rel);
     const code = await readFile(file, 'utf8');

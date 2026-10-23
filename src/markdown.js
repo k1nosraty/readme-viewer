@@ -198,8 +198,13 @@
      * Footnotes ("text[^1]" … "[^1]: note"). Each definition is its own block token whose raw is
      * the exact source, so source mapping stays byte accurate. Definitions render where written.
      */
+    var footnotes = Object.create(null);
+    function fnKey(label) { return String(label).toLowerCase(); }
     function fnId(label) {
-      return 'user-content-fn-' + String(label).toLowerCase().replace(/[^\w\u0600-\u06ff-]/g, '-');
+      return 'user-content-fn-' + fnKey(label).replace(/[^a-z0-9_-]/g, function (ch) { return '~' + ch.charCodeAt(0).toString(16) + '~'; });
+    }
+    function refId(label, index) {
+      return fnId(label).replace('-fn-', '-fnref-') + (index > 1 ? ':' + index : '');
     }
     md.use({
       extensions: [{
@@ -214,11 +219,15 @@
           return token;
         },
         renderer: function (token) {
-          var id = fnId(token.label);
-          return '<div class="footnote" id="' + esc(id) + '"><span class="footnote-label">' + esc(token.label) +
-            '</span> ' + this.parser.parseInline(token.tokens) +
-            ' <a href="#' + esc(id.replace('-fn-', '-fnref-')) + '" class="footnote-back" aria-label="' +
-            esc(t('footnote.back')) + '">↩</a></div>\n';
+          var note = footnotes[fnKey(token.label)];
+          if (!note || note.definition !== token) return '';
+          var back = '';
+          for (var i = 1; i <= note.count; i++) {
+            back += ' <a href="#' + esc(refId(token.label, i)) + '" class="footnote-back" aria-label="' +
+              esc(t('footnote.back')) + (note.count > 1 ? ' ' + i : '') + '">↩' + (i > 1 ? i : '') + '</a>';
+          }
+          return '<div class="footnote" id="' + esc(fnId(token.label)) + '"><span class="footnote-label">' + esc(token.label) +
+            '</span> ' + this.parser.parseInline(token.tokens) + back + '</div>\n';
         }
       }, {
         name: 'footnoteRef',
@@ -229,8 +238,8 @@
           return m ? { type: 'footnoteRef', raw: m[0], label: m[1] } : undefined;
         },
         renderer: function (token) {
-          var id = fnId(token.label);
-          return '<sup class="footnote-ref"><a href="#' + esc(id) + '" id="' + esc(id.replace('-fn-', '-fnref-')) +
+          if (!footnotes[fnKey(token.label)] || !footnotes[fnKey(token.label)].definition) return esc(token.raw);
+          return '<sup class="footnote-ref"><a href="#' + esc(fnId(token.label)) + '" id="' + esc(refId(token.label, token.refIndex)) +
             '">' + esc(token.label) + '</a></sup>';
         }
       }]
@@ -246,10 +255,22 @@
       reset: function () {
         slugCount = Object.create(null);
         taskSeq = 0;
+        footnotes = Object.create(null);
       },
       /** How many task checkboxes the renderer has produced since the last reset(). */
       taskCount: function () { return taskSeq; },
-      lexer: function (source) { return md.lexer(String(source == null ? '' : source)); },
+      lexer: function (source) {
+        var tokens = md.lexer(String(source == null ? '' : source));
+        footnotes = Object.create(null);
+        md.walkTokens(tokens, function (token) {
+          if (token.type !== 'footnote' && token.type !== 'footnoteRef') return;
+          var key = fnKey(token.label);
+          var note = footnotes[key] || (footnotes[key] = { count: 0, definition: null });
+          if (token.type === 'footnote') { if (!note.definition) note.definition = token; }
+          else token.refIndex = ++note.count;
+        });
+        return tokens;
+      },
       /** Render and sanitise a single top-level token. */
       renderBlock: function (token, links) {
         var list = [token];

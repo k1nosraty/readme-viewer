@@ -53,6 +53,29 @@ const { chromium } = require('playwright');
         }
       }
     }
+    // Shared Markdown rules must keep their theme colors after CSS consolidation.
+    await page.evaluate(() => window.RVApp.setDoc('[Link](guide.md) and note[^یادداشت] twice[^یادداشت].\n\n[^یادداشت]: Note', 'theme.md', null, {}));
+    const colors = new Map();
+    for (let i = 0; i < 3; i++) {
+      await page.locator('#btnTheme').click();
+      const result = await page.evaluate(() => ({
+        theme: document.documentElement.dataset.theme,
+        color: getComputedStyle(document.querySelector('#preview p a')).color
+      }));
+      colors.set(result.theme, result.color);
+    }
+    assert.equal(colors.get('light'), 'rgb(9, 105, 218)');
+    assert.equal(colors.get('dark'), 'rgb(68, 147, 248)');
+    assert.equal(await page.locator('#preview p > a').getAttribute('target'), '_blank');
+    const footnotesValid = await page.evaluate(() => {
+      const nodes = Array.from(document.querySelectorAll('#preview [id]'));
+      const ids = nodes.map(node => node.id);
+      return new Set(ids).size === ids.length &&
+        Array.from(document.querySelectorAll('#preview .footnote-ref a, #preview .footnote-back')).every(link =>
+          document.getElementById(decodeURIComponent(link.getAttribute('href').slice(1))));
+    });
+    assert.equal(footnotesValid, true);
+    await page.evaluate(() => window.RVApp.setDoc('- [x] یادگیری PostgreSQL', 'persian.md', null, {}));
     const downloading = page.waitForEvent('download');
     await page.locator('#btnExport').click();
     const download = await downloading;
