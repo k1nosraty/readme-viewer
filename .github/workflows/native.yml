@@ -19,7 +19,24 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npx playwright install --with-deps chromium
+      - name: Configure bounded browser-test package downloads
+        run: |
+          sudo python3 - <<'PYTHON'
+          from pathlib import Path
+          sources = [Path('/etc/apt/sources.list')]
+          sources += list(Path('/etc/apt/sources.list.d').glob('*.sources'))
+          sources += list(Path('/etc/apt/sources.list.d').glob('*.list'))
+          for source in sources:
+              if source.is_file():
+                  text = source.read_text()
+                  updated = text.replace('azure.archive.ubuntu.com', 'archive.ubuntu.com')
+                  if updated != text:
+                      source.write_text(updated)
+          Path('/etc/apt/apt.conf.d/80readme-network').write_text('Acquire::Retries "2";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n')
+          PYTHON
+      - name: Install Chromium and browser libraries
+        timeout-minutes: 8
+        run: npx playwright install --with-deps chromium
       - run: npm run test:browser
   linux:
     needs: test
