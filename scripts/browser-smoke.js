@@ -19,9 +19,7 @@ const { chromium } = require('playwright');
     });
     await page.waitForFunction(() => window.RVApp.state.name === 'persian.md');
     assert.equal(await page.evaluate(() => window.RVApp.state.dirty), false);
-    await page.locator('#toolOptions summary').first().click();
     await page.locator('#btnEdit').click();
-    await page.locator('#toolOptions summary').first().click();
     await page.locator('#preview input').click();
     await page.waitForFunction(() => document.getElementById('editor').value.includes('[x]'));
     await page.waitForFunction(() => document.querySelector('#preview input').checked);
@@ -68,7 +66,7 @@ const { chromium } = require('playwright');
         return select.contains(hit) && rect.right <= innerWidth;
       }), 'secondary controls stay visible and clickable at ' + width);
       if (width === 390) {
-        assert.ok(await page.locator('.topbar').evaluate(el => el.getBoundingClientRect().height < 110), 'mobile command bar stays compact');
+        assert.ok(await page.locator('.topbar').evaluate(el => el.getBoundingClientRect().height < 150), 'mobile command bar stays compact');
       }
     }
     await page.evaluate(() => window.RVApp.hideComparison());
@@ -120,7 +118,6 @@ const { chromium } = require('playwright');
     // Shared Markdown rules must keep their theme colors after CSS consolidation.
     await page.evaluate(() => window.RVApp.setDoc('[Link](guide.md) and note[^یادداشت] twice[^یادداشت].\n\n[^یادداشت]: Note', 'theme.md', null, {}));
     const colors = new Map();
-    await page.locator('#toolOptions > summary').click();
     for (let i = 0; i < 3; i++) {
       await page.locator('#btnTheme').click();
       const result = await page.evaluate(() => ({
@@ -144,10 +141,10 @@ const { chromium } = require('playwright');
     await page.setViewportSize({ width: 390, height: 900 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.locator('#btnToc').click();
-    await page.locator('#toolOptions > summary').click();
-    assert.ok(await page.evaluate(() => { const button = document.getElementById('btnExport'); const rect = button.getBoundingClientRect(); return button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); }), 'mobile sidebar must never cover the toolbar');
+    await page.locator('#menuFile > summary').click();
+    assert.ok(await page.evaluate(() => { const button = document.querySelector('#menuFile [data-command="btnExport"]'); const rect = button.getBoundingClientRect(); return button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); }), 'mobile sidebar must never cover the toolbar');
     const downloading = page.waitForEvent('download');
-    await page.locator('#btnExport').click();
+    await page.locator('#menuFile [data-command="btnExport"]').click();
     const download = await downloading;
     assert.equal(download.suggestedFilename(), 'persian.html');
     const html = await fs.readFile(await download.path(), 'utf8');

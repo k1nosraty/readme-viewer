@@ -14,9 +14,13 @@
 
   var DICT = {
     en: {
-      'tools.title': 'More',
-      'tools.document': 'Document tools',
-      'tools.appearance': 'Appearance & editing',
+      'menu.label': 'Application menus',
+      'menu.file': 'File',
+      'menu.edit': 'Edit',
+      'menu.view': 'View',
+      'menu.help': 'Help',
+      'menu.undo': 'Undo',
+      'menu.redo': 'Redo',
       'tools.session': 'Session',
       'tools.links': 'Advanced link settings',
       'linkMenu.label': 'Open link',
@@ -53,7 +57,7 @@
       'compare.needTab': 'Open another document to view side by side.',
       'app.name': 'README Viewer',
       'tabs.label': 'Documents',
-      'tabs.new': 'New tab (Ctrl+T)',
+      'tabs.new': 'New tab',
       'tabs.close': 'Close tab',
       'tabs.untitled': 'Untitled',
       'heading.anchor': 'Link to this section: {title}',
@@ -87,7 +91,7 @@
 
       'mode.label': 'View',
       'mode.source': 'Source',
-      'mode.split': 'Source & preview',
+      'mode.split': 'Split',
       'mode.preview': 'Preview',
 
       'dir.label': 'Text direction',
@@ -198,9 +202,13 @@
     },
 
     fa: {
-      'tools.title': 'بیشتر',
-      'tools.document': 'ابزارهای سند',
-      'tools.appearance': 'ظاهر و ویرایش',
+      'menu.label': 'منوهای برنامه',
+      'menu.file': 'فایل',
+      'menu.edit': 'ویرایش',
+      'menu.view': 'نمایش',
+      'menu.help': 'راهنما',
+      'menu.undo': 'واگرد',
+      'menu.redo': 'انجام دوباره',
       'tools.session': 'نشست',
       'tools.links': 'تنظیمات پیشرفتهٔ لینک',
       'linkMenu.label': 'بازکردن لینک',
@@ -236,7 +244,7 @@
       'compare.readOnly': 'فقط خواندنی · برای ویرایش در پنل اصلی باز کنید',
       'compare.needTab': 'برای نمایش کنار هم، سند دیگری باز کنید.',
       'tabs.label': 'سندها',
-      'tabs.new': 'تب جدید (Ctrl+T)',
+      'tabs.new': 'تب جدید',
       'tabs.close': 'بستن تب',
       'tabs.untitled': 'بدون نام',
       'app.name': 'نمایشگر README',
@@ -271,7 +279,7 @@
 
       'mode.label': 'نمایش',
       'mode.source': 'نوشتن',
-      'mode.split': 'متن و پیش‌نمایش',
+      'mode.split': 'Split',
       'mode.preview': 'پیش‌نمایش',
 
       'dir.label': 'جهت متن',

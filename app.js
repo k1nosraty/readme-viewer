@@ -845,6 +845,7 @@
         (state.bom ? ' · BOM' : '')
       : '';
     if (RV.Reading) RV.Reading.workspaceChanged();
+    if (RV.Shell) RV.Shell.refresh();
   }
 
   function setDirty(on) {
@@ -1909,7 +1910,6 @@
     var themeKey = state.theme === 'auto' ? 'system' : state.theme;
     var label = t('theme.label') + ': ' + t('theme.' + themeKey);
     el.btnTheme.innerHTML = Icons.svg(state.theme === 'auto' ? 'monitor' : (isDark() ? 'moon' : 'sun'), 16);
-    var text = document.createElement('span'); text.className = 'btn-label'; text.textContent = label; el.btnTheme.appendChild(text);
     el.btnTheme.setAttribute('title', label);
     el.btnTheme.setAttribute('aria-label', label);
   }
@@ -2977,6 +2977,13 @@
     markGutterCursor();
     state.ready = true;
     if (RV.Reading) RV.Reading.init(window.RVApp);
+    if (RV.Shell) RV.Shell.init({
+      undo: function () { undoEdit(false); el.editor.focus(); },
+      redo: function () { undoEdit(true); el.editor.focus(); },
+      find: openFind, close: function () { closeTab(activeTab.id); },
+      canUndo: function () { return !!(activeTab && activeTab.undo.length); },
+      canRedo: function () { return !!(activeTab && activeTab.redo.length); }
+    });
     if (nativeAvailable()) {
       Promise.resolve(RV.Native.initialize({
         openPath: function (path) {

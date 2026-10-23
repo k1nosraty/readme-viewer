@@ -88,3 +88,26 @@ English/Persian, light/dark and 360/390/760/1024/1440px viewports. Narrow settin
 no horizontal overflow. Native asset preparation succeeds. No production dependencies or font
 assets were added. Physical-device/native-shell visual QA remains outstanding. No release or
 main/develop merge is authorized by this review work.
+
+### Conventional application menus (replaces the More-panel design)
+
+The owner rejected the previous More panel and the forced Persian font. The current shell uses
+File / Edit / View / Help menus, a separate direct-access toolbar, and a document tab strip.
+The desktop toolbar again exposes file actions, navigation, Source / Split / Preview, preview
+editing, direction, text size, theme, wrap, sync, contents and export. Narrow mobile layouts keep
+primary commands visible and provide the remaining actions in the corresponding menus.
+
+- [x] Restore the original Markdown font stack and normal line height; remove the forced Tahoma override.
+- [x] Restore the short Split label; keep full-width reading as the default.
+- [x] Share commands and disabled/selected states between menus and toolbar.
+- [x] Implement keyboard menu navigation, Escape dismissal, focus restoration and F10 menu focus.
+- [x] Preserve the earlier stacked-comparison fixes, path hints and active-tab visibility.
+- [x] Keep menus above the mobile contents drawer and within narrow viewports.
+- [x] Remove the More panel and its unused styles/translations.
+
+Validation: 160 unit/DOM tests passed, including three menu-specific tests. Chromium smoke
+passed, including mobile File-menu export with an open contents drawer. Visual/geometry checks
+passed for 28 combinations: English/Persian, light/dark, and 320/360/390/760/1024/1280/1440px.
+All four menus were checked for horizontal overflow in those combinations. Native asset
+preparation succeeded. No dependencies or bundled font assets were added. Physical-device
+visual QA remains outstanding. No release or main/develop merge was performed.

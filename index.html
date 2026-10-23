@@ -15,67 +15,52 @@
 <body>
 
 <header class="topbar">
-  <div class="brand">
+  <div class="menu-line">
     <span class="brand-mark" id="brandMark"></span>
-    <span class="brand-text"><span class="brand-name" id="fileName" title="">README Viewer</span><span class="brand-sub" id="fileState" data-state="empty"></span></span>
+    <nav class="app-menubar" data-i18n-aria="menu.label" aria-label="Application menus"><details class="app-menu" id="menuFile"><summary data-i18n="menu.file">File</summary><div class="menu-panel"><button class="menu-command" type="button" data-command="btnNewTab"><span data-i18n="tabs.new">New tab</span></button><button class="menu-command" type="button" data-command="btnOpen"><span data-i18n="action.openFile">Open file…</span><kbd>Ctrl+O</kbd></button><hr class=""><button class="menu-command" type="button" data-command="btnSave"><span data-i18n="action.save">Save</span><kbd>Ctrl+S</kbd></button><button class="menu-command" type="button" data-command="btnSaveAs"><span data-i18n="action.saveAs">Save as</span><kbd>Ctrl+Shift+S</kbd></button><button class="menu-command" type="button" data-command="btnReload"><span data-i18n="action.reload">Reload from disk</span></button><button class="menu-command" type="button" data-command="btnExport"><span data-i18n="action.export">Export as HTML</span></button><hr class=""><hr><button type="button" class="menu-command" data-command="btnBack"><span data-i18n="action.back">Back (Alt+←)</span></button><button type="button" class="menu-command" data-command="btnForward"><span data-i18n="action.forward">Forward (Alt+→)</span></button><button class="menu-command" type="button" data-shell-action="close"><span data-i18n="tabs.close">Close tab</span></button><details class="menu-settings"><summary data-i18n="tools.session">Session</summary><label class="reading-check"><input type="checkbox" id="restoreSession"><span data-i18n="reading.restore">Restore open documents</span></label><p data-i18n="reading.sessionHint">When enabled, document text is saved on this device. Restored copies ask where to save.</p><button type="button" class="btn" id="clearSession" data-i18n="reading.clear">Clear saved session</button></details><details class="advanced-settings"><summary data-i18n="tools.links">Advanced link settings</summary><label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label><input type="text" id="baseUrl" dir="ltr" spellcheck="false" data-i18n-placeholder="baseUrl.placeholder" placeholder="https://github.com/user/repo/blob/main/"></details></div></details><details class="app-menu" id="menuEdit"><summary data-i18n="menu.edit">Edit</summary><div class="menu-panel"><button class="menu-command" type="button" data-shell-action="undo"><span data-i18n="menu.undo">Undo</span><kbd>Ctrl+Z</kbd></button><button class="menu-command" type="button" data-shell-action="redo"><span data-i18n="menu.redo">Redo</span><kbd>Ctrl+Shift+Z</kbd></button><hr class=""><button class="menu-command" type="button" data-shell-action="find"><span data-i18n="find.placeholder">Find in document</span><kbd>Ctrl+Shift+F</kbd></button><button class="menu-command" type="button" data-command="btnEdit"><span data-i18n="toggle.edit">Edit in preview</span></button></div></details><details class="app-menu" id="menuView"><summary data-i18n="menu.view">View</summary><div class="menu-panel"><button class="menu-command" type="button" data-mode-btn="write"><span data-i18n="mode.source">Source</span><kbd>Ctrl+1</kbd></button><button class="menu-command" type="button" data-mode-btn="split"><span data-i18n="mode.split">Split</span><kbd>Ctrl+2</kbd></button><button class="menu-command" type="button" data-mode-btn="preview"><span data-i18n="mode.preview">Preview</span><kbd>Ctrl+3</kbd></button><hr class=""><button class="menu-command" type="button" data-command="btnToc"><span data-i18n="toggle.toc">Table of contents</span></button><button class="menu-command" type="button" data-command="btnCompare"><span data-i18n="compare.toggle">Two documents</span></button><button class="menu-command" type="button" data-command="btnWrap"><span data-i18n="toggle.wrap">Wrap long lines</span></button><button class="menu-command" type="button" data-command="btnSync"><span data-i18n="toggle.sync">Sync scrolling</span></button><hr class=""><button class="menu-command" type="button" data-command="btnFontUp"><span data-i18n="font.increase">Larger text</span></button><button class="menu-command" type="button" data-command="btnFontDown"><span data-i18n="font.decrease">Smaller text</span></button><button class="menu-command" type="button" data-command="btnTheme"><span data-i18n="theme.label">Theme</span></button><div class="menu-directions" role="group" data-i18n-aria="dir.label"><button class="seg" type="button" data-dir="auto" data-i18n="dir.auto">Auto</button><button class="seg" type="button" data-dir="ltr" data-i18n="dir.ltr">LTR</button><button class="seg" type="button" data-dir="rtl" data-i18n="dir.rtl">RTL</button></div></div></details><details class="app-menu" id="menuHelp"><summary data-i18n="menu.help">Help</summary><div class="menu-panel"><button class="menu-command" type="button" data-command="btnHelp"><span data-i18n="action.help">Help and shortcuts</span></button></div></details></nav>
+    <div class="brand">
+      <span class="brand-text"><span class="brand-name" id="fileName" title="">README Viewer</span><span class="brand-sub" id="fileState" data-state="empty"></span></span>
+    </div>
   </div>
   <div class="toolbar" role="toolbar" aria-label="Tools" id="toolbar">
-    <div class="tgroup">
+    <div class="tgroup file-tools">
       <button type="button" class="btn" id="btnOpen" data-i18n-title="action.open"><i data-icon="open" data-size="16"></i><span class="btn-label" data-i18n="action.open">Open</span></button>
       <button type="button" class="btn" id="btnSave" data-i18n-title="action.save" disabled=""><i data-icon="save" data-size="16"></i><span class="btn-label" data-i18n="action.save">Save</span></button>
+      <button type="button" class="btn btn-icon" id="btnSaveAs" data-i18n-title="action.saveAs" disabled=""><i data-icon="saveAs" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnReload" data-i18n-title="action.reload" disabled=""><i data-icon="reload" data-size="16"></i></button>
     </div>
-    <div class="tgroup tgroup-seg" role="group" data-i18n-aria="mode.label">
+    <div class="tgroup navigation-tools">
+      <button type="button" class="btn btn-icon" id="btnBack" data-i18n-title="action.back" data-i18n-aria="action.back" disabled=""><i data-icon="back" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnForward" data-i18n-title="action.forward" data-i18n-aria="action.forward" disabled=""><i data-icon="forward" data-size="16"></i></button>
+    </div>
+    <div class="tgroup tgroup-seg mode-tools" role="group" data-i18n-aria="mode.label">
       <button type="button" class="seg" data-mode-btn="write" data-i18n-title="mode.source"><i data-icon="code" data-size="16"></i><span class="seg-label" data-i18n="mode.source">Source</span></button>
-      <button type="button" class="seg" data-mode-btn="split" data-i18n-title="mode.split"><i data-icon="columns" data-size="16"></i><span class="seg-label" data-i18n="mode.split">Source &amp; preview</span></button>
+      <button type="button" class="seg" data-mode-btn="split" data-i18n-title="mode.split"><i data-icon="columns" data-size="16"></i><span class="seg-label" data-i18n="mode.split">Split</span></button>
       <button type="button" class="seg" data-mode-btn="preview" data-i18n-title="mode.preview"><i data-icon="eye" data-size="16"></i><span class="seg-label" data-i18n="mode.preview">Preview</span></button>
     </div>
-    <button type="button" class="btn btn-icon" id="btnToc" aria-pressed="true" data-i18n-title="toggle.toc"><i data-icon="toc" data-size="16"></i></button>
-    <details class="tool-options" id="toolOptions">
-      <summary data-i18n-title="tools.title" data-i18n-aria="tools.title"><i data-icon="more" data-size="18"></i><span data-i18n="tools.title">More</span></summary>
-      <div class="tools-panel">
-        <h2 data-i18n="tools.document">Document tools</h2>
-        <div class="document-actions">
-          <button type="button" class="btn" id="btnSaveAs" data-i18n-title="action.saveAs" disabled=""><i data-icon="saveAs" data-size="16"></i><span class="btn-label" data-i18n="action.saveAs">Save as</span></button>
-          <button type="button" class="btn" id="btnReload" data-i18n-title="action.reload" disabled=""><i data-icon="reload" data-size="16"></i><span class="btn-label" data-i18n="action.reload">Reload from disk</span></button>
-          <button type="button" class="btn" id="btnBack" data-i18n-title="action.back" data-i18n-aria="action.back" disabled=""><i data-icon="back" data-size="16"></i><span class="btn-label" data-i18n="action.back">Back (Alt+←)</span></button>
-          <button type="button" class="btn" id="btnForward" data-i18n-title="action.forward" data-i18n-aria="action.forward" disabled=""><i data-icon="forward" data-size="16"></i><span class="btn-label" data-i18n="action.forward">Forward (Alt+→)</span></button>
-          <button type="button" class="btn" id="btnExport" data-i18n-title="action.export"><i data-icon="download" data-size="16"></i><span class="btn-label" data-i18n="action.export">Export as HTML</span></button>
-          <button type="button" class="btn" id="btnHelp" data-i18n-title="action.help"><i data-icon="help" data-size="16"></i><span class="btn-label" data-i18n="action.help">Help and shortcuts</span></button>
-        </div>
-        <h2 data-i18n="tools.appearance">Appearance &amp; editing</h2>
-        <div class="appearance-actions">
-          <div class="tgroup">
-            <button type="button" class="btn btn-accent" id="btnEdit" aria-pressed="false" data-i18n-title="toggle.edit"><i data-icon="taskOn" data-size="16"></i><span class="btn-label" data-i18n="toggle.edit">Edit in preview</span></button>
-          </div>
-          <div class="tgroup tgroup-seg" role="group" data-i18n-aria="dir.label">
-            <button type="button" class="seg seg-icon" data-dir="auto" data-i18n-title="dir.auto.hint"><i data-icon="globe" data-size="16"></i><span class="seg-label" data-i18n="dir.auto">Auto</span></button>
-            <button type="button" class="seg seg-icon" data-dir="ltr" data-i18n-title="dir.ltr"><i data-icon="ltr" data-size="16"></i><span class="seg-label">LTR</span></button>
-            <button type="button" class="seg seg-icon" data-dir="rtl" data-i18n-title="dir.rtl"><i data-icon="rtl" data-size="16"></i><span class="seg-label">RTL</span></button>
-          </div>
-          <div class="tgroup">
-            <button type="button" class="btn" id="btnFontDown" data-i18n-title="font.decrease"><i data-icon="minus" data-size="16"></i><span class="btn-label" data-i18n="font.decrease">Smaller text</span></button>
-            <span class="tgroup-value" id="fontValue" title="Text size">16</span>
-            <button type="button" class="btn" id="btnFontUp" data-i18n-title="font.increase"><i data-icon="plus" data-size="16"></i><span class="btn-label" data-i18n="font.increase">Larger text</span></button>
-          </div>
-          <div class="tgroup">
-            <button type="button" class="btn" id="btnTheme" data-i18n-title="theme.label"><i data-icon="monitor" data-size="16"></i><span class="btn-label" data-i18n="theme.label">Theme</span></button>
-            <button type="button" class="btn" id="btnWrap" aria-pressed="false" data-i18n-title="toggle.wrap"><i data-icon="wrap" data-size="16"></i><span class="btn-label" data-i18n="toggle.wrap">Wrap long lines</span></button>
-            <button type="button" class="btn" id="btnSync" aria-pressed="true" data-i18n-title="toggle.sync"><i data-icon="sync" data-size="16"></i><span class="btn-label" data-i18n="toggle.sync">Sync scrolling</span></button>
-          </div>
-        </div>
-        <section class="session-settings">
-          <h2 data-i18n="tools.session">Session</h2>
-          <label class="reading-check"><input type="checkbox" id="restoreSession"><span data-i18n="reading.restore">Restore open documents</span></label>
-          <p data-i18n="reading.sessionHint">When enabled, document text is saved on this device. Restored copies ask where to save.</p>
-          <button type="button" class="btn" id="clearSession" data-i18n="reading.clear">Clear saved session</button>
-        </section>
-        <details class="advanced-settings">
-          <summary data-i18n="tools.links">Advanced link settings</summary>
-          <label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label>
-          <input type="text" id="baseUrl" dir="ltr" spellcheck="false" data-i18n-placeholder="baseUrl.placeholder" placeholder="https://github.com/user/repo/blob/main/">
-        </details>
-      </div>
-    </details>
+    <div class="tgroup edit-tools">
+      <button type="button" class="btn btn-accent" id="btnEdit" aria-pressed="false" data-i18n-title="toggle.edit"><i data-icon="taskOn" data-size="16"></i><span class="btn-label" data-i18n="toggle.edit">Edit in preview</span></button>
+    </div>
+    <div class="tgroup tgroup-seg direction-tools" role="group" data-i18n-aria="dir.label">
+      <button type="button" class="seg seg-icon" data-dir="auto" data-i18n-title="dir.auto.hint"><i data-icon="globe" data-size="16"></i><span class="seg-label" data-i18n="dir.auto">Auto</span></button>
+      <button type="button" class="seg seg-icon" data-dir="ltr" data-i18n-title="dir.ltr"><i data-icon="ltr" data-size="16"></i><span class="seg-label">LTR</span></button>
+      <button type="button" class="seg seg-icon" data-dir="rtl" data-i18n-title="dir.rtl"><i data-icon="rtl" data-size="16"></i><span class="seg-label">RTL</span></button>
+    </div>
+    <div class="tgroup font-tools">
+      <button type="button" class="btn btn-icon" id="btnFontDown" data-i18n-title="font.decrease"><i data-icon="minus" data-size="16"></i></button>
+      <span class="tgroup-value" id="fontValue" title="Text size">16</span>
+      <button type="button" class="btn btn-icon" id="btnFontUp" data-i18n-title="font.increase"><i data-icon="plus" data-size="16"></i></button>
+    </div>
+    <div class="tgroup display-tools">
+      <button type="button" class="btn btn-icon" id="btnTheme" data-i18n-title="theme.label"><i data-icon="monitor" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnWrap" aria-pressed="false" data-i18n-title="toggle.wrap"><i data-icon="wrap" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnSync" aria-pressed="true" data-i18n-title="toggle.sync"><i data-icon="sync" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnToc" aria-pressed="true" data-i18n-title="toggle.toc"><i data-icon="toc" data-size="16"></i></button>
+    </div>
+    <div class="tgroup export-tools">
+      <button type="button" class="btn btn-icon" id="btnExport" data-i18n-title="action.export"><i data-icon="download" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnHelp" data-i18n-title="action.help"><i data-icon="help" data-size="16"></i></button>
+    </div>
   </div>
   <div class="workspacebar">
     <div id="documentTabs" class="document-tabs" role="tablist" data-i18n-aria="tabs.label" aria-label="Documents"></div>
@@ -273,6 +258,7 @@
 <script src="src/android.js"></script>
 <script src="src/native.js"></script>
 <script src="src/reading.js"></script>
+<script src="src/shell.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

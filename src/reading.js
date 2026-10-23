@@ -45,10 +45,10 @@
     persistRecords();
   }
   function applyPreferences() {
-    document.documentElement.setAttribute('data-reading-width', ['full', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'auto');
+    document.documentElement.setAttribute('data-reading-width', ['auto', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'full');
     document.documentElement.setAttribute('data-reading-spacing', prefs.spacing === 'relaxed' ? 'relaxed' : 'normal');
     app.el.preview.classList.toggle('hide-completed', !!prefs.hideDone);
-    byId('readingWidth').value = ['full', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'auto';
+    byId('readingWidth').value = ['auto', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'full';
     byId('readingSpacing').value = prefs.spacing === 'relaxed' ? 'relaxed' : 'normal';
     byId('hideCompleted').checked = !!prefs.hideDone;
     byId('restoreSession').checked = !!prefs.session;
@@ -181,12 +181,12 @@
     }, { passive: true });
     window.addEventListener('pagehide', function () { savePosition(); saveSession(); });
     document.addEventListener('pointerdown', function (event) {
-      ['readingOptions', 'toolOptions'].forEach(function (id) {
+      ['readingOptions'].forEach(function (id) {
         var panel = byId(id); if (panel.open && !panel.contains(event.target)) panel.open = false;
       });
     });
     document.addEventListener('keydown', function (event) {
-      ['readingOptions', 'toolOptions'].forEach(function (id) {
+      ['readingOptions'].forEach(function (id) {
         var panel = byId(id);
         if (event.key === 'Escape' && panel.open) { event.preventDefault(); panel.open = false; panel.querySelector('summary').focus(); }
       });

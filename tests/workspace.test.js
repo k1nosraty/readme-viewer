@@ -378,10 +378,10 @@ test('same-name tabs expose locations and settings menus close with Escape', asy
   assert.notEqual(tabs[0].textContent, tabs[1].textContent);
   assert.equal(tabs[0].title, '/repo/docs/README.md');
   assert.match(tabs[1].getAttribute('aria-label'), /examples/);
-  assert.ok(document.querySelector('#toolOptions #restoreSession'));
-  assert.ok(document.querySelector('#toolOptions #baseUrl'));
+  assert.ok(document.querySelector('#menuFile #restoreSession'));
+  assert.ok(document.querySelector('#menuFile #baseUrl'));
   assert.equal(document.querySelector('#readingOptions #restoreSession'), null);
-  const menu = document.getElementById('toolOptions'); menu.open = true;
+  const menu = document.getElementById('menuFile'); menu.open = true;
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(menu.open, false);
   assert.equal(document.activeElement, menu.querySelector('summary'));
