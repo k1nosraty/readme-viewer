@@ -278,6 +278,24 @@ test('concurrent native opens deduplicate at commit time and preserve newer edit
   assert.equal(api.state.dirty, true);
 });
 
+test('late IME input stays dirty and undoable in its original background tab', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, window } = app;
+  api.setDoc('first', 'first.md');
+  const first = api.listTabs()[0].id, editor = api.el.editor;
+  api.newTab('second', 'second.md');
+  editor.value = 'late composition';
+  editor.dispatchEvent(new window.InputEvent('input', { inputType: 'insertCompositionText', bubbles: true }));
+  assert.equal(api.el.editor.value, 'second');
+  assert.equal(api.state.dirty, false);
+  api.switchTab(first);
+  assert.equal(api.el.editor.value, 'late composition');
+  assert.equal(api.state.dirty, true);
+  api.el.editor.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+  assert.equal(api.el.editor.value, 'first');
+  assert.equal(api.state.dirty, false);
+});
+
 function undoKey(app, redo) {
   app.api.el.editor.dispatchEvent(new app.window.KeyboardEvent('keydown', {
     key: 'z', ctrlKey: true, shiftKey: !!redo, bubbles: true, cancelable: true

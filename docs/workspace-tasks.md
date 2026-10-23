@@ -58,12 +58,12 @@ explicitly out of scope. No production dependencies were added.
 
 ## Local validation before CI
 
-- Final full JavaScript suite: 155 tests passed; the seven-test reading suite includes session
+- Final full JavaScript suite: 156 tests passed; the seven-test reading suite includes session
   reading metadata and revealing folded/filtered search results. CI runs the full suite again.
 - Chromium: per-tab undo/redo and document replacement, two-pane layouts at 1440/760/390px,
   reading preferences/task filtering, and mobile HTML export with an open Contents drawer passed.
 - Native asset preparation passed; native Rust preview-cache unit test runs in Linux CI.
-- Frontend comparison against v1.2.0: +66,109 source bytes; +43,472 minified bytes; +12,068
+- Frontend comparison against v1.2.0: +66,825 source bytes; +43,754 minified bytes; +12,201
   gzip bytes, measured per JS/CSS/HTML file. This is a frontend compression proxy, not an exact
   installer-size delta; native code and each package's compression can differ.
 

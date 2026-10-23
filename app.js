@@ -909,17 +909,19 @@
   }
 
   var restoringEdit = false;
-  function editorSnapshot() {
-    return { source: el.editor.value, start: el.editor.selectionStart, end: el.editor.selectionEnd,
-      direction: el.editor.selectionDirection, top: el.editor.scrollTop };
+  function editorSnapshot(editor) {
+    editor = editor || el.editor;
+    return { source: editor.value, start: editor.selectionStart, end: editor.selectionEnd,
+      direction: editor.selectionDirection, top: editor.scrollTop };
   }
   function resetUndo() {
     if (!activeTab) return;
     activeTab.undo = []; activeTab.redo = []; activeTab.lastEdit = editorSnapshot();
     activeTab.editType = null;
   }
-  function trimUndo(pile) {
-    var other = pile === activeTab.undo ? activeTab.redo : activeTab.undo;
+  function trimUndo(pile, tab) {
+    tab = tab || activeTab;
+    var other = pile === tab.undo ? tab.redo : tab.undo;
     var all = pile.concat(other);
     var size = all.reduce(function (sum, item) { return sum + item.source.length * 2; }, 0);
     while (pile.length + other.length > 100 || size > 4 * 1024 * 1024) {
@@ -2085,8 +2087,9 @@
   function wireEditor() {
     if (el.editor._rvWired) return;
     el.editor._rvWired = true;
-    var composing = false;
+    var composing = false, editor = el.editor;
     el.editor.addEventListener('beforeinput', function (event) {
+      if (editor !== el.editor) return;
       if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
         event.preventDefault(); undoEdit(event.inputType === 'historyRedo'); return;
       }
@@ -2096,6 +2099,18 @@
     el.editor.addEventListener('compositionend', function () { composing = false; });
 
     el.editor.addEventListener('input', function (e) {
+      // An IME may finish after focus has already moved to another document.
+      if (editor !== el.editor) {
+        var owner = tabs.filter(function (tab) { return tab.editor === editor; })[0];
+        if (owner) {
+          if (owner.lastEdit && owner.lastEdit.source !== editor.value) owner.undo.push(owner.lastEdit);
+          owner.redo = []; trimUndo(owner.undo, owner);
+          owner.lastEdit = editorSnapshot(editor); owner.editType = null;
+          owner.source = editor.value; owner.dirty = owner.needsSave || owner.source !== owner.saved;
+          updateChrome();
+        }
+        return;
+      }
       if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') {
         autoIndentAfterNewline();
       }
