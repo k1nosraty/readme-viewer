@@ -38,11 +38,24 @@ jobs:
       - name: Update Ubuntu package indexes
         timeout-minutes: 3
         run: |
+          # The runner's Azure mirror can stall large WebKitGTK downloads.
+          sudo python3 - <<'PYTHON'
+          from pathlib import Path
+          sources = [Path('/etc/apt/sources.list')]
+          sources += list(Path('/etc/apt/sources.list.d').glob('*.sources'))
+          sources += list(Path('/etc/apt/sources.list.d').glob('*.list'))
+          for source in sources:
+              if source.is_file():
+                  text = source.read_text()
+                  updated = text.replace('azure.archive.ubuntu.com', 'archive.ubuntu.com')
+                  if updated != text:
+                      source.write_text(updated)
+          PYTHON
           sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
       - name: Install Linux WebView and test libraries
         timeout-minutes: 8
         run: |
-          sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Dpkg::Use-Pty=0 install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev webkit2gtk-driver xvfb dbus-x11
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Dpkg::Use-Pty=0 install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev webkit2gtk-driver xvfb dbus-x11
       - name: Restore tauri-driver binary
         id: tauri-driver-cache
         uses: actions/cache/restore@v4
