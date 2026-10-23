@@ -97,8 +97,8 @@ project under `android/` is retained for historical 1.0.2 builds.
 ## Validation status
 
 The [native release workflow](https://github.com/k1nosraty/readme-viewer/actions/workflows/native.yml)
-runs unit and browser checks, Linux and Windows installed-app open/edit/save/uninstall checks, and
-Android APK signature/install/launch checks before publication. Its Android emulator test verifies
+runs unit and browser checks, Linux installed-app open/edit/save/uninstall checks, Windows
+install/window-launch/uninstall checks, and Android APK signature/install/launch checks before publication. Its Android emulator test verifies
 Persian task-list editing, full-width Preview, edit preservation through rotation, and the unsaved-
 changes prompt on Back. Physical Android devices and document providers, desktop file associations,
 and additional Linux distributions still need hands-on review.

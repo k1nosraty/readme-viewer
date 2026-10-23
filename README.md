@@ -5,7 +5,8 @@ scrolling, and **interactive task lists**: with *Edit in preview* turned on, you
 in the rendered document and the Markdown source is updated — one `[ ]` → `[x]` at a time, with
 every other byte of the file left exactly as it was.
 
-Version 1.2.0 adds a Tauri 2 native application for Windows and Linux, plus an Android Preview.
+Version 1.2.0 improves linked-document reading in the Tauri 2 application for Windows and Linux,
+plus the Android Preview.
 Open and Save use native file dialogs and direct file access in the app window. The portable
 browser application remains supported and needs no build step. Remote document images and
 external links can still use the network.
@@ -21,11 +22,11 @@ Existing 1.1.1 and earlier downloads remain available.
 | --- | --- |
 | Windows | NSIS `.exe` installer, per user; Windows 10/11 and current Microsoft Edge WebView2. The installer is unsigned. If WebView2 is missing, its bootstrap installer needs internet on first installation. |
 | Linux | `.deb` for Ubuntu/Debian with WebKitGTK 4.1, or `.AppImage` for compatible Linux systems. Both open an application window. |
-| Android | Universal Tauri Preview debug APK; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
+| Android | Tauri Preview debug APK for ARM64/x86_64; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
 
 Install from the 1.2.0 release: run the per-user installer on Windows; install the .deb with your
 software manager or make the .AppImage executable and open it on Linux; on Android, install the
-universal APK and allow your downloader to install apps when prompted. Each asset has a SHA-256
+APK matching your device and allow your downloader to install apps when prompted. Each asset has a SHA-256
 checksum beside it.
 
 No Node.js or Python is needed to use native packages. Click **Open**, choose your Markdown,

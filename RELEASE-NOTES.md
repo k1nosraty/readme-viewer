@@ -21,10 +21,10 @@
 
 - **Windows:** per-user NSIS `.exe`, Windows 10/11 with current WebView2. Unsigned installer; first installation needs internet if WebView2 must be installed.
 - **Linux:** `.deb` and `.AppImage` for compatible systems using WebKitGTK 4.1.
-- **Android Preview:** universal development-signed debug APK, Android 8.0+ with updated System WebView, distributed outside Play Store. Signing changes may require uninstall/reinstall; save documents outside the app first.
+- **Android Preview:** development-signed debug APK for ARM64/x86_64, Android 8.0+ with updated System WebView, distributed outside Play Store. Signing changes may require uninstall/reinstall; save documents outside the app first.
 
 Desktop Save writes to the opened file. Android's first Save asks for a destination and writes a copy; later saves update that copy. Android content URIs may not provide relative image access or a display name. Local images that traverse parent directories remain blocked. Saves use UTF-8 and retain an existing UTF-8 BOM and LF/CRLF style.
 
-Every download includes a SHA-256 checksum. Publication is gated on unit and real-browser tests, Linux and Windows installed-app open/edit/save/uninstall checks, and Android signature/install/launch and emulator checks for Persian task editing, full-width Preview, rotation and Back-button confirmation. Physical Android providers, desktop file associations and additional Linux distributions still need hands-on review.
+Every download includes a SHA-256 checksum. Publication is gated on unit and real-browser tests, Linux installed-app open/edit/save/uninstall checks, Windows install/window-launch/uninstall checks, and Android signature/install/launch and emulator checks for Persian task editing, full-width Preview, rotation and Back-button confirmation. Physical Android providers, desktop file associations and additional Linux distributions still need hands-on review.
 
 Tabs, multiple simultaneous documents and a file-tree sidebar are not included in this version. Earlier releases remain available on the releases page.
