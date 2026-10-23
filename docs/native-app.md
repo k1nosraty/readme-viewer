@@ -1,6 +1,6 @@
 # Native application
 
-Version 1.1.1 uses Tauri 2 for Windows, Linux and Android. The existing HTML application also
+Version 1.2.0 uses Tauri 2 for Windows, Linux and Android. The existing HTML application also
 runs directly in a browser. Native builds bundle their frontend locally and do not launch a
 browser for document editing. External links may open your browser; remote images need network
 access.
@@ -13,6 +13,10 @@ Open has read-only access: your first Save asks for a destination and writes a c
 source file unchanged. Later saves update that chosen copy. Desktop packages declare `.md`, `.markdown`, `.mdown` and `.mkd` associations; your
 system may require choosing README Viewer with **Open with**. Drop a document onto the desktop
 window to open it. Save changes before replacing a document or closing the app.
+
+Desktop document links can open sibling and parent-directory Markdown/text files on an explicit
+click, subject to native path checks. Directory links select a README, and fragments navigate to
+the matching heading. Files opened through the system use Preview mode.
 
 Local relative images resolve inside the opened document's directory. Parent-directory paths
 such as `../image.png` are blocked. Android document providers commonly return `content://`

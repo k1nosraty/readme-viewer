@@ -1,33 +1,30 @@
-# README Viewer 1.1.1 — smaller Android Preview
+# README Viewer 1.2.0 — linked documents and lighter reading tools
 
-This patch strips Rust debug information from Android debug builds to reduce APK download size. The APK remains development-signed for Preview use, outside the Play Store. The Tauri 2 application opens Markdown in its own window on Windows and Linux. Open, Save,
-Save as, reload and HTML export use native file access. Android moves to a Tauri Preview debug
-APK using the system document picker. On Android, the first Save of an opened document asks for
-a destination and writes a copy without overwriting the source; later saves update the chosen
-copy. Desktop Save writes back to the opened file. The portable browser application remains supported.
+## What's new
 
-- Windows: per-user NSIS `.exe`; Windows 10/11 with current WebView2. Unsigned installer;
-  first installation needs internet if the WebView2 bootstrapper must install the runtime.
-- Linux: native `.deb` and `.AppImage`, using WebKitGTK 4.1.
-- Android: Android 8.0+ with updated System WebView; development-signed debug Preview,
-  distributed outside Play Store. Signing changes may require uninstall/reinstall. Save your
-  documents outside the app before uninstalling.
-- Desktop Markdown associations and file drag-and-drop; local relative images inside the opened
-  document's directory. Parent-directory paths (`../`) are blocked. Android content URIs do not
-  provide a relative image base and may show the fallback name `README.md`.
-- Saves encode decoded text as UTF-8, retaining a UTF-8 BOM and LF/CRLF style when present.
+- Follow local desktop document links, including parent-directory Markdown/text files on an explicit click. Directory links find their README; document fragments navigate to the matching heading.
+- Browse linked documents with Back/Forward and Alt+Left/Right.
+- Search document text, see link destinations, and use accessible Help/Confirm dialogs.
+- Open files from the desktop's Open with menu directly in Preview mode.
+- Render GitHub alerts and footnotes, including repeated references with individual return links.
+- Reopen recent desktop files and reload externally changed files when there are no unsaved edits.
 
-Automated GitHub Actions tests run before this version is published. They cover unit and
-browser tests, Linux package install/open/edit/save/uninstall, Windows installer/open/edit/save/
-uninstall, and Android APK signature/install/launch, Persian task-list editing, full-width Preview,
-rotation, and Back-button confirmation on an emulator. Physical Android devices and document
-providers, desktop file associations, and additional Linux distributions still need hands-on review.
-Every release asset includes a SHA-256 checksum.
+## Fixes and size improvements
 
-## Historical 1.0.2 downloads
+- Dropped browser folders resolve local images through blob URLs and open accessible linked documents inside the viewer. Other browser links use a secure new tab, preserving the current document.
+- Folder discovery reads every entry batch, selects Markdown README files deterministically, and keeps each document's link base isolated.
+- Fix internal heading links, Unicode search offsets, recent-file cancellation and window/status text encoding.
+- Share light/dark Markdown rules, trim uncommon syntax grammars and minify native frontend assets without adding heavy runtime dependencies.
+- Bound Linux package setup time, avoid a slow package mirror and cache the pinned native WebDriver.
 
-Existing [GitHub releases](https://github.com/k1nosraty/readme-viewer/releases) remain available:
-Windows browser launcher installer, portable ZIP, Linux browser launcher `.deb` and `.tar.gz`,
-and the original Java Android Preview APK. The Java Preview's behavior and build instructions
-are documented in [android/README.md](android/README.md). These historical packages are distinct
-from the 1.1.1 native preview.
+## Downloads
+
+- **Windows:** per-user NSIS `.exe`, Windows 10/11 with current WebView2. Unsigned installer; first installation needs internet if WebView2 must be installed.
+- **Linux:** `.deb` and `.AppImage` for compatible systems using WebKitGTK 4.1.
+- **Android Preview:** universal development-signed debug APK, Android 8.0+ with updated System WebView, distributed outside Play Store. Signing changes may require uninstall/reinstall; save documents outside the app first.
+
+Desktop Save writes to the opened file. Android's first Save asks for a destination and writes a copy; later saves update that copy. Android content URIs may not provide relative image access or a display name. Local images that traverse parent directories remain blocked. Saves use UTF-8 and retain an existing UTF-8 BOM and LF/CRLF style.
+
+Every download includes a SHA-256 checksum. Publication is gated on unit and real-browser tests, Linux and Windows installed-app open/edit/save/uninstall checks, and Android signature/install/launch and emulator checks for Persian task editing, full-width Preview, rotation and Back-button confirmation. Physical Android providers, desktop file associations and additional Linux distributions still need hands-on review.
+
+Tabs, multiple simultaneous documents and a file-tree sidebar are not included in this version. Earlier releases remain available on the releases page.

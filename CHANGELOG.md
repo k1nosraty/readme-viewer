@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0
+
+- Open linked desktop documents and directory READMEs, including parent paths and heading fragments.
+- Keep browser folder links and images inside the viewer; open unavailable links in a secure new tab.
+- Add Back/Forward navigation, document search, link destinations, modal focus handling and desktop Preview defaults.
+- Add GitHub alerts, footnotes with repeated-reference backlinks, desktop recent files and safe disk-change reload.
+- Fix dropped-folder discovery, document base isolation, Unicode search and recent-file cancellation.
+- Reduce bundled language assets, consolidate Markdown themes and minify native frontend assets.
+- Bound Linux dependency setup and cache the pinned WebDriver binary.
+
 ## 1.0.2
 
 - Add desktop Linux `.deb` and portable `.tar.gz` packages with launchers and a menu entry.
