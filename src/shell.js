@@ -190,5 +190,5 @@
     });
     refresh();
   }
-  RV.Shell = { init: init, refresh: refresh };
+  RV.Shell = { close: close, init: init, refresh: refresh };
 }());

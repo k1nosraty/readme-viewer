@@ -1409,3 +1409,58 @@ button.toc-toggle:disabled { opacity: .45; cursor: default; }
 .menu-command[aria-pressed="true"] { background: transparent; color: var(--fg); }
 .menu-command[aria-pressed="true"]::before { background: currentColor; clip-path: polygon(0 45%, 14% 31%, 39% 57%, 86% 8%, 100% 22%, 39% 85%); }
 .menu-command[aria-pressed="true"]:hover, .menu-command[aria-pressed="true"]:focus-visible { background: var(--bg-hover); }
+
+/* Appearance is a live workspace inspector, with an explicit apply/cancel boundary. */
+.appearance-scrim { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .12); }
+.appearance-panel { position: fixed; z-index: 71; inset-block: 0; inset-inline-end: 0; width: min(380px, 100vw); display: grid; grid-template-rows: auto minmax(0,1fr) auto; background: var(--bg); color: var(--fg); border-inline-start: 1px solid var(--border); box-shadow: var(--shadow-lg); }
+.appearance-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px; border-block-end: 1px solid var(--border-muted); }
+.appearance-head h2 { margin: 0 0 5px; font-size: 18px; font-weight: 600; }
+.appearance-head p, .appearance-section p { margin: 0; color: var(--fg-muted); font-size: 12px; line-height: 1.6; }
+.appearance-body { min-height: 0; overflow: auto; padding: 20px; }
+.appearance-field { display: grid; grid-template-columns: 1fr 1.2fr; align-items: center; gap: 12px; margin-block-end: 12px; font-size: 13px; }
+.appearance-field select, .accent-custom input[type="text"] { min-width: 0; width: 100%; min-height: 36px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; }
+.appearance-section { margin: 20px 0 0; padding: 16px 0 0; border: 0; border-block-start: 1px solid var(--border-muted); min-width: 0; }
+.appearance-section legend { padding-inline: 0 10px; font-size: 13px; font-weight: 600; }
+.accent-presets { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; }
+.accent-preset { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 58px; min-width: 0; padding: 8px 2px; border: 1px solid transparent; border-radius: var(--r-sm); color: var(--fg-muted); background: transparent; font: inherit; font-size: 11px; cursor: pointer; }
+.accent-preset:hover { background: var(--bg-hover); }
+.accent-preset[aria-pressed="true"] { border-color: var(--accent); color: var(--fg); background: var(--accent-subtle); }
+.accent-dot { width: 19px; height: 19px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+.accent-custom { display: flex; gap: 8px; margin-block: 12px 8px; }
+.accent-custom input[type="color"] { flex: 0 0 38px; width: 38px; height: 36px; padding: 3px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); cursor: pointer; }
+.accent-custom input[type="text"] { font-family: var(--mono); }
+.appearance-check { display: flex; align-items: center; gap: 8px; margin-block-start: 12px; font-size: 12px; line-height: 1.5; cursor: pointer; }
+.appearance-panel input { accent-color: var(--accent); }
+.appearance-error, .appearance-section .appearance-error { color: var(--danger); font-size: 12px; line-height: 1.6; margin-block: 8px; }
+.accent-custom [aria-invalid="true"] { border-color: var(--danger); }
+.appearance-font { display: flex; align-items: center; gap: 10px; }
+.appearance-font input { min-width: 0; width: 100%; }
+.appearance-font output { min-width: 20px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.appearance-reset { margin-block-start: 12px; padding-inline: 0; color: var(--fg-muted); font-size: 12px; }
+.appearance-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-block-start: 1px solid var(--border-muted); }
+.appearance-foot .btn, .appearance-head .btn { min-height: 36px; }
+.appearance-foot .btn { min-width: 80px; }
+:root[data-surface] .markdown-body { --rv-md-theme-2: var(--fg); --rv-md-theme-3: var(--bg); --rv-md-theme-4: var(--document-link); --rv-md-theme-7: var(--border); --rv-md-theme-8: var(--fg-muted); --rv-md-theme-9: var(--bg-subtle); --rv-md-theme-10: .25em solid var(--border); --rv-md-theme-12: 1px solid var(--border); --rv-md-theme-14: 2px solid var(--accent); --rv-md-theme-22: var(--code-bg); --rv-md-theme-33: var(--border); }
+[data-density="comfortable"] .toolbar .btn, [data-density="comfortable"] .toolbar .seg { min-height: 32px; }
+[data-density="compact"] .toolbar { padding-block: 3px; gap: 6px; }
+[data-density="compact"] .toolbar .btn, [data-density="compact"] .toolbar .seg { min-height: 26px; height: 26px; }
+[data-density="compact"] .document-tab { min-height: 30px; }
+[data-density="compact"] .document-tab > [role="tab"] { height: 30px; }
+[data-density="compact"] .toc .toc-row a { padding-block: 3px; }
+[data-density="compact"] .toc-toggle { height: 24px; }
+[data-density="compact"] .reading-options summary, [data-density="compact"] .workspace-compare { min-height: 28px; height: 28px; }
+@media (max-width: 640px), (pointer: coarse) {
+  .appearance-panel select, .appearance-foot .btn, .appearance-head .btn, .accent-custom input[type="text"], .accent-custom input[type="color"], .appearance-check { min-height: 44px; }
+  [data-density] .toolbar .btn, [data-density] .toolbar .seg, [data-density] .document-tab, [data-density] .document-tab > [role="tab"], [data-density] .reading-options summary, [data-density] .workspace-compare { min-height: 44px; height: 44px; }
+  [data-density="compact"] .toc-toggle { height: 44px; }
+}
+@media print { .appearance-panel, .appearance-scrim { display: none !important; } }
+.appearance-scrim { background: transparent; }
+.appearance-head .btn { min-width: 36px; }
+@media (max-width: 640px) {
+  .appearance-panel { width: 100vw; }
+  .appearance-head .btn, .accent-custom input[type="color"] { min-width: 44px; }
+  .appearance-font input { min-height: 44px; }
+}
+html[data-theme="dark"] { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: light; }

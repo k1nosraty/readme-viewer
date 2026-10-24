@@ -746,7 +746,8 @@
         editPreview: state.editPreview, sidebar: state.sidebar, split: state.split,
         locale: I18n.getLocale()
       }));
-    } catch (e) { /* private mode / quota: settings simply are not remembered */ }
+      return true;
+    } catch (e) { return false; }
   }
 
   /* -------------------------------------------------------------- i18n wiring */
@@ -1941,6 +1942,7 @@
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     el.hljsLight.disabled = dark;
     el.hljsDark.disabled = !dark;
+    if (RV.Appearance) RV.Appearance.apply();
     updateThemeButton();
   }
 
@@ -1957,11 +1959,12 @@
     setTheme(state.theme === 'auto' ? 'light' : (state.theme === 'light' ? 'dark' : 'auto'));
   }
 
-  function setTheme(theme) {
+  function setTheme(theme, preview) {
     if (['auto', 'light', 'dark'].indexOf(theme) < 0) return;
     state.theme = theme;
     applyTheme();
     updateChrome();
+    if (preview) return;
     saveSettings();
     toast(t('info.theme', {
       mode: t('theme.' + (state.theme === 'auto' ? 'system' : state.theme))
@@ -3048,6 +3051,15 @@
       find: openFind, close: function () { closeTab(activeTab.id); },
       canUndo: function () { return !!(activeTab && activeTab.undo.length); },
       canRedo: function () { return !!(activeTab && activeTab.redo.length); }
+    });
+    if (RV.Appearance) RV.Appearance.init({
+      get: function () { var reading = RV.Reading.appearance(); return { theme: state.theme, font: state.font, width: reading.width, spacing: reading.spacing }; },
+      preview: function (value) {
+        state.font = clamp(Number(value.font) || 16, FONT_MIN, FONT_MAX); applyFont();
+        RV.Reading.appearance(value, false); setTheme(value.theme, true);
+        requestAnimationFrame(function () { measureParts(); markActiveToc(); });
+      },
+      save: function () { return saveSettings() && RV.Reading.appearance(RV.Reading.appearance(), true); }
     });
     if (nativeAvailable()) {
       Promise.resolve(RV.Native.initialize({

@@ -133,3 +133,30 @@ hidden duplicate title and mobile export. Additional English/Persian visual chec
 1440/1024/760/390/320px, including real browser persistence across reload. Native asset
 preparation passed. No runtime dependencies were added. Physical-device QA and final native
 build results remain separate from these browser checks; publication still requires approval.
+
+### Lightweight appearance customization
+
+- [x] View > Appearance opens a live workspace inspector with Apply, Cancel, Escape and restore defaults.
+- [x] Eight accent presets, native custom-color picker and validated short/full HEX input.
+- [x] Adapt accent shades to light/dark surfaces; check 4.5:1 text/control contrast on background,
+      subtle, inset and selected surfaces. Preserve the user's original chosen color.
+- [x] Independent standard-blue document links option; coordinated links by default.
+- [x] Neutral / Warm / Cool surface palettes and Comfortable / Compact interface density.
+- [x] Theme, document text size, reading width and line spacing in the same inspector.
+- [x] Live previews do not persist until Apply; Cancel restores reading/appearance settings without
+      modifying source text. Failed persistence keeps the inspector open and attempts to roll back
+      partially written preferences. Keyboard focus is contained and restored on close.
+- [x] Keep coarse-pointer/mobile controls touch-sized in both densities; use native form color schemes.
+
+Validation: 167 unit/DOM tests passed, including persistence, cancellation/default restoration,
+invalid color input, storage failure and contrast across 13 accents × 3 surfaces × 2 themes.
+Earlier Chromium visual checks covered English/Persian, light/dark and 1440/1024/390/320px.
+The branch browser smoke now exercises the Appearance inspector at desktop/mobile sizes and
+checks link colors against the selected appearance policy. Native asset preparation passes.
+After the workspace resumed, the temporary Chromium executable was unavailable and its download
+failed; the new browser smoke is therefore additionally gated by branch CI.
+
+No production dependencies, fonts or image assets were added. Against the preceding branch
+commit, production HTML/JS/CSS grew by 19,478 prepared/minified bytes and 5,224 bytes when each
+file is gzip-compressed. This frontend-size comparison is not an exact installer-size delta.
+Native device visual QA remains outstanding. No release or main/develop merge was performed.

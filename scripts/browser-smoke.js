@@ -142,14 +142,18 @@ const { chromium } = require('playwright');
     const colors = new Map();
     for (let i = 0; i < 3; i++) {
       await page.locator('#btnTheme').click();
-      const result = await page.evaluate(() => ({
-        theme: document.documentElement.dataset.theme,
-        color: getComputedStyle(document.querySelector('#preview p a')).color
-      }));
+      const result = await page.evaluate(() => {
+        const probe = document.createElement('span');
+        probe.style.color = getComputedStyle(document.documentElement).getPropertyValue('--document-link');
+        document.body.appendChild(probe);
+        const expected = getComputedStyle(probe).color; probe.remove();
+        return { theme: document.documentElement.dataset.theme,
+          color: getComputedStyle(document.querySelector('#preview p a')).color, expected };
+      });
+      assert.equal(result.color, result.expected, 'document links follow the selected appearance policy');
       colors.set(result.theme, result.color);
     }
-    assert.equal(colors.get('light'), 'rgb(9, 105, 218)');
-    assert.equal(colors.get('dark'), 'rgb(68, 147, 248)');
+    assert.notEqual(colors.get('light'), colors.get('dark'), 'link color adapts to theme');
     assert.equal(await page.locator('#preview p > a').getAttribute('target'), '_blank');
     const footnotesValid = await page.evaluate(() => {
       const nodes = Array.from(document.querySelectorAll('#preview [id]'));
@@ -159,6 +163,21 @@ const { chromium } = require('playwright');
           document.getElementById(decodeURIComponent(link.getAttribute('href').slice(1))));
     });
     assert.equal(footnotesValid, true);
+    const beforeAppearance = await page.evaluate(() => ({ theme: RVApp.state.theme, font: RVApp.state.font, source: RVApp.el.editor.value }));
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.locator('#menuView > summary').click();
+      await page.locator('#btnAppearance').click();
+      await page.locator('#appearanceSurface').selectOption('warm');
+      await page.locator('#accentHex').fill('#c93671');
+      await page.locator('#appearanceDensity').selectOption('compact');
+      await page.locator('#appearanceStandardLinks').check();
+      assert.ok(await page.locator('#appearancePanel').evaluate(panel => panel.scrollWidth <= panel.clientWidth));
+      assert.equal(await page.locator('#appearanceApply').isVisible(), true);
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#appearancePanel').isVisible(), false);
+      assert.deepEqual(await page.evaluate(() => ({ theme: RVApp.state.theme, font: RVApp.state.font, source: RVApp.el.editor.value })), beforeAppearance);
+    }
     await page.evaluate(() => window.RVApp.setDoc('- [x] یادگیری PostgreSQL', 'persian.md', null, {}));
     await page.setViewportSize({ width: 390, height: 900 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));

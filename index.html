@@ -93,7 +93,7 @@
               <button type="button" class="menu-command" data-toolbar-reset="" data-i18n="toolbar.reset">Restore defaults</button>
             </div>
           </div>
-        </div>
+        <button type="button" class="menu-command" id="btnAppearance" data-i18n="appearance.title">Appearance…</button></div>
       </details>
       <details class="app-menu" id="menuHelp">
         <summary data-i18n="menu.help">Help</summary>
@@ -300,6 +300,21 @@
   </div>
 </div>
 
+
+<div class="appearance-scrim" id="appearanceScrim" hidden></div>
+<section class="appearance-panel" id="appearancePanel" role="dialog" aria-modal="true" aria-labelledby="appearanceTitle" hidden>
+  <header class="appearance-head"><div><h2 id="appearanceTitle" data-i18n="appearance.heading">Appearance</h2><p data-i18n="appearance.live">Preview changes in your workspace.</p></div><button type="button" class="btn btn-icon" id="appearanceClose" data-i18n-aria="action.close" data-i18n-title="action.close"><i data-icon="close" data-size="18"></i></button></header>
+  <div class="appearance-body">
+    <div class="appearance-field"><label for="appearanceTheme" data-i18n="theme.label">Theme</label><select id="appearanceTheme"><option value="auto" data-i18n="theme.system">System</option><option value="light" data-i18n="theme.light">Light</option><option value="dark" data-i18n="theme.dark">Dark</option></select></div>
+    <fieldset class="appearance-section"><legend data-i18n="appearance.accent">Accent color</legend><div class="accent-presets" id="accentPresets"></div><div class="accent-custom"><label for="accentPicker" class="sr-only" data-i18n="appearance.custom">Custom color</label><input type="color" id="accentPicker" value="#0969da"><label for="accentHex" class="sr-only" data-i18n="appearance.hex">Hex color</label><input type="text" id="accentHex" dir="ltr" spellcheck="false" maxlength="7" value="#0969DA" aria-describedby="accentError accentHint"></div><p class="appearance-error" id="accentError" aria-live="polite" hidden data-i18n="appearance.invalid">Use a hex color such as #0969DA.</p><p id="accentHint" data-i18n="appearance.contrast">Your color is adapted for readable controls in each theme.</p><label class="appearance-check"><input type="checkbox" id="appearanceStandardLinks"><span data-i18n="appearance.links">Keep standard blue document links</span></label></fieldset>
+    <fieldset class="appearance-section"><legend data-i18n="appearance.interface">Interface</legend><div class="appearance-field"><label for="appearanceSurface" data-i18n="appearance.surface">Surfaces</label><select id="appearanceSurface"><option value="neutral" data-i18n="appearance.neutral">Neutral</option><option value="warm" data-i18n="appearance.warm">Warm</option><option value="cool" data-i18n="appearance.cool">Cool</option></select></div><div class="appearance-field"><label for="appearanceDensity" data-i18n="appearance.density">Density</label><select id="appearanceDensity"><option value="comfortable" data-i18n="appearance.comfortable">Comfortable</option><option value="compact" data-i18n="appearance.compact">Compact</option></select></div></fieldset>
+    <fieldset class="appearance-section"><legend data-i18n="reading.title">Reading</legend><div class="appearance-field"><label for="appearanceFont" data-i18n="font.size">Text size</label><div class="appearance-font"><input type="range" id="appearanceFont" min="12" max="26" step="1"><output id="appearanceFontValue" for="appearanceFont">16</output></div></div><div class="appearance-field"><label for="appearanceWidth" data-i18n="reading.width">Text width</label><select id="appearanceWidth"><option value="full" data-i18n="reading.full">Full width</option><option value="comfortable" data-i18n="reading.comfortable">Reading width</option><option value="auto" data-i18n="reading.auto">Adaptive</option></select></div><div class="appearance-field"><label for="appearanceSpacing" data-i18n="reading.spacing">Line spacing</label><select id="appearanceSpacing"><option value="normal" data-i18n="reading.normal">Normal</option><option value="relaxed" data-i18n="reading.relaxed">Relaxed</option></select></div></fieldset>
+    <button type="button" class="btn appearance-reset" id="appearanceReset" data-i18n="appearance.reset">Restore appearance defaults</button>
+    <p id="appearanceStorageError" class="appearance-error" role="alert" hidden data-i18n="appearance.storageError">Settings could not be saved. You can retry or cancel.</p>
+  </div>
+  <footer class="appearance-foot"><button type="button" class="btn" id="appearanceCancel" data-i18n="action.cancel">Cancel</button><button type="button" class="btn btn-primary" id="appearanceApply" data-i18n="appearance.apply">Apply</button></footer>
+</section>
+
 <div class="drop-hint" id="dropHint">
   <i data-icon="upload" data-size="24"></i>
   <span data-i18n="drop.hint">Drop a Markdown file to open it</span>
@@ -324,6 +339,7 @@
 <script src="src/native.js"></script>
 <script src="src/reading.js"></script>
 <script src="src/shell.js"></script>
+<script src="src/appearance.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

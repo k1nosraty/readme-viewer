@@ -216,6 +216,15 @@
     }
     refresh();
   }
-  RV.Reading = { init: init, refresh: refresh, workspaceChanged: workspaceChanged, saveSession: saveSession,
+  function appearance(value, persist) {
+    if (value) {
+      prefs.width = ['full', 'comfortable', 'auto'].indexOf(value.width) >= 0 ? value.width : 'full';
+      prefs.spacing = value.spacing === 'relaxed' ? 'relaxed' : 'normal';
+      applyPreferences();
+      if (persist) return write('rv.reading.options', prefs);
+    }
+    return { width: ['auto', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'full', spacing: prefs.spacing === 'relaxed' ? 'relaxed' : 'normal' };
+  }
+  RV.Reading = { appearance: appearance, init: init, refresh: refresh, workspaceChanged: workspaceChanged, saveSession: saveSession,
     reveal: reveal, clearFindVisibility: clearFindVisibility };
 }());
