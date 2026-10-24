@@ -1,25 +1,25 @@
 # README Viewer
 
-> Development branch: document tabs, a second reading pane, link context menus and local reading tools.
-> This work is not a published release. See [workspace tasks and validation](docs/workspace-tasks.md).
-
 A local, offline Markdown and README viewer with a live preview, a table of contents, synchronized
 scrolling, and **interactive task lists**: with *Edit in preview* turned on, you can tick a checkbox
 in the rendered document and the Markdown source is updated — one `[ ]` → `[x]` at a time, with
 every other byte of the file left exactly as it was.
 
-Version 1.2.0 improves linked-document reading in the Tauri 2 application for Windows and Linux,
+Version 1.3.0 adds document tabs, a second reading pane, reading tools and appearance customization in the Tauri 2 application for Windows and Linux,
 plus the Android Preview.
 Open and Save use native file dialogs and direct file access in the app window. The portable
 browser application remains supported and needs no build step. Remote document images and
 external links can still use the network.
 
-## Native application (1.2.0)
+## Native application (1.3.0)
 
-Native 1.2.0 adds linked-document navigation, Back/Forward, document search, GitHub alerts and
-footnotes, with smaller shared theme assets and safer browser folder handling. The release workflow runs all platform checks before publishing the installers
-and APK in [GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/tag/v1.2.0).
-Existing 1.1.1 and earlier downloads remain available.
+Native 1.3.0 adds independent document tabs, a resizable second reading pane, link context menus,
+bookmarks, section folding, a collapsible outline and optional session restoration. File / Edit /
+View / Help menus complement a customizable toolbar. View > Appearance offers accent presets,
+custom colors, warm/cool surfaces, interface density and live reading preferences.
+The release workflow runs all platform checks before publishing the installers and APK in
+[GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/tag/v1.3.0).
+Earlier downloads remain available.
 
 | Platform | Native package and requirements |
 | --- | --- |
@@ -27,7 +27,7 @@ Existing 1.1.1 and earlier downloads remain available.
 | Linux | `.deb` for Ubuntu/Debian with WebKitGTK 4.1, or `.AppImage` for compatible Linux systems. Both open an application window. |
 | Android | Tauri Preview debug APK for ARM64/x86_64; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
 
-Install from the 1.2.0 release: run the per-user installer on Windows; install the .deb with your
+Install from the 1.3.0 release: run the per-user installer on Windows; install the .deb with your
 software manager or make the .AppImage executable and open it on Linux; on Android, install the
 APK matching your device and allow your downloader to install apps when prompted. Each asset has a SHA-256
 checksum beside it.

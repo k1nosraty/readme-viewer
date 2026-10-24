@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+- Add independent document tabs with per-tab editing history, unsaved-change protection and optional session restoration.
+- Add a resizable second reading pane and link actions for the current tab, a new tab or the browser.
+- Add bookmarks, reading-position restoration, section folding, completed-task filtering and a collapsible Contents tree.
+- Add File / Edit / View / Help menus and a persistent customizable toolbar; restore complete status metadata.
+- Add appearance presets/custom accents with contrast adaptation, independent link colors, warm/cool surfaces and interface density.
+- Preview appearance and reading changes live, then apply or cancel without changing document text.
+- Fix stacked comparison controls, same-name tab identification, late IME edits and per-tab undo/redo isolation.
+- Keep the frontend dependency-free at runtime beyond existing packages; add no fonts or image assets.
+
 ## 1.2.0
 
 - Open linked desktop documents and directory READMEs, including parent paths and heading fragments.

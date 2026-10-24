@@ -1,21 +1,22 @@
-# README Viewer 1.2.0 — linked documents and lighter reading tools
+# README Viewer 1.3.0 — document workspace and personal appearance
 
 ## What's new
 
-- Follow local desktop document links, including parent-directory Markdown/text files on an explicit click. Directory links find their README; document fragments navigate to the matching heading.
-- Browse linked documents with Back/Forward and Alt+Left/Right.
-- Search document text, see link destinations, and use accessible Help/Confirm dialogs.
-- Open files from the desktop's Open with menu directly in Preview mode.
-- Render GitHub alerts and footnotes, including repeated references with individual return links.
-- Reopen recent desktop files and reload externally changed files when there are no unsaved edits.
+- **Document tabs:** open several README files, keep independent edits, selection, scroll position and undo/redo, and identify same-name files by their location. Unsaved documents are protected when tabs or the window close.
+- **Two-document view:** read another document alongside the main Source / Split / Preview pane, resize the views, and bring the second document into the main pane for editing. Narrow windows stack the views vertically.
+- **Link actions:** open links in the current tab, a new tab or the browser from the context menu. Desktop local-document browser previews use bounded, script-blocked HTML snapshots.
+- **Reading tools:** bookmarks, reading-position restoration, section folding, completed-task filtering, comfortable/full/adaptive widths and relaxed line spacing.
+- **Contents tree:** expand/collapse branches or all headings, search with ancestor context, and follow the current reading location. Outline folding is independent of document section folding.
+- **Familiar application controls:** File / Edit / View / Help menus, explicit theme choices, a compact organized toolbar and persistent toolbar customization. Encoding, EOL and render information are visible in the status bar.
+- **View > Appearance:** eight accent presets, a native color picker and HEX input, contrast-adapted light/dark accents, independent document link colors, Neutral / Warm / Cool surfaces and Compact / Comfortable density. Preview changes live, then Apply, Cancel or restore defaults.
+- **Optional session restoration:** explicitly opt in to saving open document text locally. Restored documents are detached copies and ask where to save; the app does not silently reacquire file access.
 
-## Fixes and size improvements
+## Fixes and lightweight packaging
 
-- Dropped browser folders resolve local images through blob URLs and open accessible linked documents inside the viewer. Other browser links use a secure new tab, preserving the current document.
-- Folder discovery reads every entry batch, selects Markdown README files deterministically, and keeps each document's link base isolated.
-- Fix internal heading links, Unicode search offsets, recent-file cancellation and window/status text encoding.
-- Share light/dark Markdown rules, trim uncommon syntax grammars and minify native frontend assets without adding heavy runtime dependencies.
-- Bound Linux package setup time, avoid a slow package mirror and cache the pinned native WebDriver.
+- Fix comparison controls disappearing in stacked layouts, distinguish identical tab filenames and keep the active tab visible.
+- Preserve late IME input in its original document and keep undo/redo isolated between tabs.
+- Restore the original Markdown font stack and the short Split label; preserve full-width Preview.
+- Add no production dependencies, fonts or image assets. Appearance customization adds about 5.2 KB to the frontend when gzip-compressed; installer sizes depend on platform packaging.
 
 ## Downloads
 
@@ -27,4 +28,5 @@ Desktop Save writes to the opened file. Android's first Save asks for a destinat
 
 Every download includes a SHA-256 checksum. Publication is gated on unit and real-browser tests, Linux installed-app open/edit/save/uninstall checks, Windows install/window-launch/uninstall checks, and Android signature/install/launch and emulator checks for Persian task editing, full-width Preview, rotation and Back-button confirmation. Physical Android providers, desktop file associations and additional Linux distributions still need hands-on review.
 
-Tabs, multiple simultaneous documents and a file-tree sidebar are not included in this version. Earlier releases remain available on the releases page.
+
+The second pane is read-only until opened in the main pane. A Markdown file-tree sidebar is not included. Appearance changes do not edit the Markdown source. Earlier releases remain available on the releases page.

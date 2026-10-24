@@ -1,5 +1,8 @@
 # Document workspace
 
+Status: included in version 1.3.0, approved for publication by the owner. Earlier entries describe development-stage validation and publication restrictions.
+
+
 Branch: `feature/document-workspace`. Based on v1.2.0. Review branch only: no release, tag,
 or updates to main/develop until the owner approves publication.
 
