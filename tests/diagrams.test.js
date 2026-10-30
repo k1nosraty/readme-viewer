@@ -77,3 +77,29 @@ test('diagram errors retain source and unsupported embedded config never reaches
   }
   assert.equal(calls, 1);
 });
+
+test('math labels preserve MathML while stripping active HTML and external resources', async () => {
+  const { document: doc, window: win } = app;
+  win.MathMLElement = function () {};
+  win.mermaid.initialize = options => { assert.equal(options.securityLevel, 'strict'); assert.equal(options.htmlLabels, true); };
+  win.mermaid.render = async () => ({ svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><foreignObject width="200" height="100"><div xmlns="http://www.w3.org/1999/xhtml" onclick="alert(1)" style="background:url(https://bad.invalid/image)"><span><math xmlns="http://www.w3.org/1998/Math/MathML"><mfrac><mi>a</mi><mi>b</mi></mfrac><annotation-xml encoding="text/html"><script>alert(1)</script></annotation-xml></math></span><iframe src="https://bad.invalid/frame"/><img src="https://bad.invalid/track"/><form><input autofocus=""/></form><a href="javascript:alert(1)">bad</a></div></foreignObject></svg>' });
+  const source = '```mermaid\nflowchart TD\n A["$$\\frac{a}{b}$$"]\n```';
+  win.RVApp.setDoc(source, 'math.md');
+  await win.RV.Diagrams.render(doc.getElementById('preview'));
+  const image = doc.querySelector('#preview .diagram-figure img'); assert.ok(image);
+  const svg = decodeURIComponent(image.src.slice(image.src.indexOf(',') + 1));
+  assert.match(svg, /<math/); assert.match(svg, /<mfrac>/); assert.match(svg, /<foreignObject/);
+  assert.doesNotMatch(svg, /script|iframe|<img|<form|<input|onclick|annotation-xml|bad.invalid|javascript:/);
+  assert.equal(doc.querySelector('#preview math'), null, 'math remains isolated in the SVG image');
+  assert.equal(win.RVApp.el.editor.value, source); assert.equal(win.RVApp.state.dirty, false);
+});
+
+test('unsupported native math keeps the source with an explicit explanation', async () => {
+  const { document: doc, window: win } = app;
+  win.MathMLElement = undefined;
+  win.RVApp.setDoc('```mermaid\nflowchart TD\n B["$$x^2$$"]\n```', 'old-webview.md');
+  await win.RV.Diagrams.render(doc.getElementById('preview'));
+  assert.equal(doc.querySelector('#preview .diagram-figure'), null);
+  assert.equal(doc.querySelector('#preview pre').hidden, false);
+  assert.match(doc.querySelector('#preview .diagram-message').textContent, /MathML/);
+});

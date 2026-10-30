@@ -98,7 +98,7 @@ The Mermaid support described below is available on `feature/mermaid-diagrams` a
 
 Select **Load sample document** on the empty screen, or open [docs/demo.md](docs/demo.md)
 in README Viewer. Both include a system flowchart, a Persian sequence diagram, an entity
-relationship diagram, a pie chart, a mindmap and an architecture diagram, alongside ordinary Markdown examples.
+relationship diagram, a pie chart, a mindmap, an architecture diagram and mathematical labels, alongside ordinary Markdown examples.
 
 Wrap diagram source in a fenced block labelled `mermaid`, just as on GitHub:
 
@@ -126,8 +126,12 @@ existing system font stack by default. Optional font choices are available in **
 Use the **Layout** selector under a flowchart to compare Dagre and ELK. Layout choices are
 kept for up to 24 diagram sources during the current session. Full Mermaid 11.17.2 is pinned
 for compatibility with older WebViews. Embedded Mermaid configuration, external images,
-interactive diagram links and HTML labels remain disabled; math in labels stays literal text
-in this safe SVG-image mode. Diagrams are limited to 50,000 source characters and 500 edges. This is not a promise
+interactive diagram links and arbitrary HTML remain disabled. Labels containing `$$...$$`
+render powers, fractions, integrals and matrices using the already bundled KaTeX engine and
+native MathML inside sanitised SVG images. HTML wrappers are enabled only for mathematical
+diagrams and restricted to text/MathML; ordinary diagrams keep SVG text labels. A browser or
+system WebView with native MathML support is required. Unsupported environments and invalid
+formulas retain the source with an explanation. Diagrams are limited to 50,000 source characters and 500 edges. This is not a promise
 of exact rendering parity with whichever Mermaid version GitHub currently uses.
 
 ### Font choices

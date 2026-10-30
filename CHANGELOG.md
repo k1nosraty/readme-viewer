@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Render mathematical Mermaid labels (powers, fractions, integrals and matrices) with the existing KaTeX engine and native MathML; preserve sanitisation, offline SVG/HTML exports and source fallback.
+
 - Render full Mermaid diagrams offline in Preview, Split and the second reading pane.
 - Add source toggling, expanded zoom view and platform SVG downloads; embed diagrams in standalone HTML exports and native browser snapshots.
 - Keep diagram SVG/CSS isolated in images, reject embedded configuration/external resources, retain invalid source, and cache rendering within a bounded budget.

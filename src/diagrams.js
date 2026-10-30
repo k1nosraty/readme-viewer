@@ -30,15 +30,29 @@
     });
     if (owner) owner.focus();
   }
-  function safeSvg(raw) {
+  function safeSvg(raw, math) {
     var clean = root.DOMPurify.sanitize(raw, {
-      USE_PROFILES: { svg: true, svgFilters: true }, ADD_TAGS: ['style'],
-      FORBID_TAGS: ['foreignObject', 'image', 'a', 'script', 'animate', 'animateTransform', 'set'],
-      FORBID_ATTR: ['href', 'xlink:href'], ALLOW_DATA_ATTR: false
+      USE_PROFILES: { svg: true, svgFilters: true, html: math, mathMl: math },
+      ADD_TAGS: math ? ['style', 'foreignObject'] : ['style'],
+      HTML_INTEGRATION_POINTS: math ? { foreignobject: true } : {},
+      FORBID_TAGS: (math ? [] : ['foreignObject']).concat(['image', 'img', 'a', 'script', 'animate', 'animateTransform', 'set',
+        'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'audio', 'video', 'link', 'meta', 'base', 'annotation-xml']),
+      FORBID_ATTR: ['href', 'xlink:href', 'src', 'srcset'], ALLOW_DATA_ATTR: false, RETURN_DOM_FRAGMENT: true
     });
-    var doc = new DOMParser().parseFromString(clean, 'image/svg+xml');
-    var svg = doc.documentElement;
-    if (svg.localName !== 'svg' || doc.querySelector('parsererror')) throw new Error(t('invalid'));
+    var svg = clean.firstElementChild;
+    if (!svg || svg.localName !== 'svg') throw new Error(t('invalid'));
+    // Math labels need XHTML wrappers and native MathML, but no arbitrary HTML or resources.
+    if (math) Array.prototype.forEach.call(svg.querySelectorAll('foreignObject'), function (label) {
+      var htmlTags = ['div', 'span', 'p', 'br', 'strong', 'em', 'b', 'i'];
+      var mathTags = ['math', 'mrow', 'mi', 'mn', 'mo', 'msup', 'msub', 'msubsup', 'mfrac', 'msqrt', 'mroot',
+        'mover', 'munder', 'munderover', 'mtable', 'mtr', 'mtd', 'mstyle', 'mspace', 'mpadded', 'mphantom',
+        'menclose', 'semantics', 'mtext', 'none', 'mmultiscripts', 'mprescripts'];
+      Array.prototype.forEach.call(label.querySelectorAll('*'), function (node) {
+        var allowed = node.namespaceURI === 'http://www.w3.org/1998/Math/MathML' ? mathTags :
+          node.namespaceURI === 'http://www.w3.org/1999/xhtml' ? htmlTags : [];
+        if (allowed.indexOf(node.localName) < 0) node.remove();
+      });
+    });
     // No external resources in a downloaded SVG either; local paint/marker references are preserved.
     function localCss(value) {
       return value.replace(/@import[^;]*;?/gi, '').replace(/url\(\s*(['"]?)(.*?)\1\s*\)/gi, function (_, quote, target) {
@@ -133,6 +147,7 @@
       var source = block.querySelector('pre'), code = source && source.querySelector('code');
       if (!code) return Promise.resolve();
       var text = code.textContent;
+      var math = /\$\$[\s\S]*?\$\$/.test(text);
       var layout = block.getAttribute('data-diagram-layout') || layouts.get(text) || 'dagre';
       var key = JSON.stringify([theme, font, text, RV.I18n.getLocale(), layout, RV.Fonts ? RV.Fonts.key() : '']);
       var existing = jobs.get(block);
@@ -148,15 +163,16 @@
           if (/%%\s*\{/.test(text) || /^\s*---/.test(text)) throw new Error(t('config'));
           if (/(?:url\s*\(|@import|<\s*(?:img|image|iframe|script|style)\b|\bimg\s*:)/i.test(text) ||
               /(?:^|[;\n])\s*(?:classDef|style|linkStyle)\b[^\n]*[{}<>\\@]/i.test(text)) throw new Error(t('resources'));
+          if (math && typeof root.MathMLElement === 'undefined') throw new Error(t('mathUnsupported'));
           if (RV.Fonts) await RV.Fonts.ready();
           var mermaid = await load();
           if (jobs.get(block) !== job || (connected && !block.isConnected)) return;
           mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: theme, fontFamily: font, layout: layout,
-            htmlLabels: false, flowchart: { htmlLabels: false }, maxTextSize: 50000, maxEdges: 500,
+            htmlLabels: math, flowchart: { htmlLabels: math }, maxTextSize: 50000, maxEdges: 500,
             suppressErrorRendering: true });
           var stage = document.createElement('div'); stage.className = 'diagram-stage'; stage.dir = 'ltr';
           stage.setAttribute('aria-hidden', 'true'); document.body.appendChild(stage);
-          try { svg = safeSvg((await mermaid.render('rv-diagram-' + (++serial), text, stage)).svg); }
+          try { svg = safeSvg((await mermaid.render('rv-diagram-' + (++serial), text, stage)).svg, math); }
           finally { stage.remove(); }
           remember(key, svg);
         }

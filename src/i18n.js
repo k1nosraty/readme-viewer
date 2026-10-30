@@ -14,6 +14,7 @@
 
   var DICT = {
     en: {
+      'diagram.mathUnsupported': 'Math rendering needs an updated browser or system WebView with MathML support. The original source is preserved.',
       'diagram.layout': 'Layout',
       "fonts.title": "Fonts",
       "fonts.latin": "Latin / other scripts",
@@ -278,6 +279,7 @@
     },
 
     fa: {
+      'diagram.mathUnsupported': 'برای نمایش فرمول، مرورگر یا WebView سیستم باید به‌روز و دارای پشتیبانی MathML باشد. کد اصلی حفظ شده است.',
       'diagram.layout': 'چیدمان',
       "fonts.title": "فونت‌ها",
       "fonts.latin": "لاتین / سایر زبان‌ها",

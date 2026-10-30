@@ -25,6 +25,8 @@ The app itself gains no runtime npm dependencies. SHA-256 of the checked-in bund
 
 The engine loads only on the first Mermaid block. A flowchart's Layout selector offers
 Dagre and ELK; mindmaps and architecture diagrams work offline. Embedded document
-configuration, external diagram images, HTML labels and interactive links remain disabled.
-Math in labels stays literal text in this safe SVG-image mode. The generated SVG is
+configuration, external diagram images and interactive links remain disabled. Mathematical
+labels enable a tightly restricted XHTML/MathML path; non-math diagrams keep SVG text labels.
+The bundled KaTeX engine emits native MathML; no additional JS library, stylesheet or math
+fonts are shipped. An updated browser/WebView with native MathML is required. The generated SVG is
 sanitised and displayed as an image so diagram CSS cannot style the application.
