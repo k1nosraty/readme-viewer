@@ -131,6 +131,16 @@ test('HTML exports use HTML filters and Save As authorizes images only after wri
   await native.download('<p>hello</p>', 'export.html', 'text/html;charset=utf-8');
   assert.deepEqual(operations, [['dialog', 'html,htm'], ['write'], ['authorize_document_directory']]);
 });
+test('SVG diagram exports use the SVG save filter and write through the native adapter', async () => {
+  const operations = [];
+  const { native } = adapter({
+    save: async options => { operations.push(['dialog', options.defaultPath, options.filters[0].extensions.join(',')]); return '/saved/diagram.svg'; },
+    writeFile: async (path, bytes) => { operations.push(['write', path, new TextDecoder().decode(bytes)]); },
+    invoke: async () => {}
+  });
+  await native.download('<svg/>', 'diagram.svg', 'image/svg+xml;charset=utf-8');
+  assert.deepEqual(operations, [['dialog', 'diagram.svg', 'svg'], ['write', '/saved/diagram.svg', '<svg/>']]);
+});
 test('a saved file remains successful when image scope authorization fails', async () => {
   const { native } = adapter({
     invoke: async () => { throw new Error('scope unavailable'); },

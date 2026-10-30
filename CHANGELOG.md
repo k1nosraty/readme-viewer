@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Render Mermaid Tiny diagrams offline in Preview, Split and the second reading pane.
+- Add source toggling, expanded zoom view and platform SVG downloads; embed diagrams in standalone HTML exports and native browser snapshots.
+- Keep diagram SVG/CSS isolated in images, reject embedded configuration/external resources, retain invalid source, and cache rendering within a bounded budget.
+- Bundle the pinned MIT-licensed Mermaid Tiny 11.17.2 without fonts or new runtime npm dependencies.
+
 ## 1.3.0
 
 - Add independent document tabs with per-tab editing history, unsaved-change protection and optional session restoration.

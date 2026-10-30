@@ -14,6 +14,22 @@
 
   var DICT = {
     en: {
+      'diagram.resources': 'Images, external resources and unsafe diagram styles are disabled.',
+      "diagram.title": "Mermaid diagram",
+      "diagram.source": "Source",
+      "diagram.expand": "Expand",
+      "diagram.save": "Save SVG",
+      "diagram.close": "Close",
+      "diagram.in": "Zoom in",
+      "diagram.out": "Zoom out",
+      "diagram.reset": "Fit diagram",
+      "diagram.pan": "Diagram; scroll to pan when zoomed",
+      "diagram.unavailable": "The offline diagram library could not be loaded. Reopen the document to retry.",
+      "diagram.invalid": "Invalid diagram.",
+      "diagram.large": "This diagram exceeds the 50,000 character limit.",
+      "diagram.config": "Embedded Mermaid configuration is disabled. Remove the configuration block to render this diagram.",
+      "diagram.error": "Could not render diagram. The original source remains available.",
+
       'appearance.title': 'Appearance…',
       'appearance.heading': 'Appearance',
       'appearance.live': 'Preview changes in your workspace.',
@@ -249,6 +265,22 @@
     },
 
     fa: {
+      'diagram.resources': 'تصاویر، منابع خارجی و استایل‌های ناامن در نمودار غیرفعال هستند.',
+      "diagram.title": "نمودار Mermaid",
+      "diagram.source": "کد",
+      "diagram.expand": "نمای بزرگ",
+      "diagram.save": "ذخیره SVG",
+      "diagram.close": "بستن",
+      "diagram.in": "بزرگ‌نمایی",
+      "diagram.out": "کوچک‌نمایی",
+      "diagram.reset": "اندازه متناسب",
+      "diagram.pan": "نمودار؛ برای جابه‌جایی پس از بزرگ‌نمایی اسکرول کنید",
+      "diagram.unavailable": "کتابخانه آفلاین نمودار بارگذاری نشد. سند را دوباره باز کنید.",
+      "diagram.invalid": "کد نمودار نامعتبر است.",
+      "diagram.large": "نمودار بیشتر از ۵۰٬۰۰۰ نویسه دارد.",
+      "diagram.config": "تنظیمات جاسازی‌شده Mermaid غیرفعال است. برای نمایش نمودار، بخش تنظیمات را حذف کنید.",
+      "diagram.error": "نمایش نمودار ممکن نشد. کد اصلی نمایش داده می‌شود.",
+
       'appearance.title': 'شخصی‌سازی ظاهر',
       'appearance.heading': 'شخصی‌سازی ظاهر',
       'appearance.live': 'تغییرات را همین حالا روی محیط برنامه ببینید.',

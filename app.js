@@ -412,10 +412,15 @@
       } else img.setAttribute('src', resolveUrl(src, tab.baseUrl));
     }, preview);
     hl.all(preview);
+    if (RV.Diagrams) RV.Diagrams.render(preview);
   }
   function wireComparison() {
     var toggle = $('btnCompare'), select = $('comparisonSelect'), activate = $('btnActivateComparison');
     var close = $('btnCloseComparison'), preview = $('comparisonPreview'), divider = $('compareDivider');
+    if (preview) {
+      preview.addEventListener('click', function (event) { var copy = event.target.closest('[data-copy-code]'); if (copy) { event.preventDefault(); copyCode(copy); } });
+      preview.addEventListener('keydown', function (event) { var copy = event.target.closest('[data-copy-code]'); if (copy && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); copyCode(copy); } });
+    }
     if (toggle) toggle.addEventListener('click', function () { if (comparison.visible) hideComparison(); else showComparison(); });
     if (select) select.addEventListener('change', function () { showComparison(Number(select.value)); });
     if (activate) activate.addEventListener('click', function () { if (comparison.id) switchTab(comparison.id); });
@@ -499,7 +504,7 @@
     return Promise.resolve(open(path)).then(function (handle) {
       if (!handle) return false;
       return handle.getFile().then(function (file) {
-        return file.arrayBuffer().then(function (buffer) {
+        return file.arrayBuffer().then(async function (buffer) {
           var decoded = Encoding.decode(new Uint8Array(buffer));
           if (decoded.binary) { toast(t('error.binary', { name: file.name || '' }), 'error'); return false; }
           var renderer = Markdown.create({ marked: window.marked, purify: window.DOMPurify, icons: Icons.svg }, { strings: I18n.t });
@@ -514,6 +519,7 @@
             if (resolved) node.setAttribute(attr, fileBrowserUrl(resolved)); else node.removeAttribute(attr);
           }, preview);
           eachNode('input[type=checkbox]', function (box) { box.disabled = true; box.removeAttribute('data-rv-task'); }, preview);
+          if (RV.Diagrams) { await RV.Diagrams.render(preview); RV.Diagrams.cleanExport(preview); }
           return Promise.resolve(RV.Native.previewInBrowser(Exporter.build({ title: file.name || handle.name || 'README', html: preview.innerHTML,
             theme: state.theme === 'auto' ? (isDark() ? 'dark' : 'light') : state.theme,
             lang: Direction.detectLanguage(decoded.text), dir: Direction.dominantDir(decoded.text) }))).then(function () { return true; });
@@ -1178,11 +1184,14 @@
     return fallback();
   }
 
-  function exportHtml() {
+  async function exportHtml() {
     if (!state.hasDocument) return;
     render({ immediate: true });
     var src = el.editor.value;
     var snapshot = el.preview.cloneNode(true);
+    var exportName = state.name, exportTheme = isDark() ? 'dark' : 'light';
+    var exportDir = state.dirMode === 'auto' ? Direction.dominantDir(src) : state.dirMode;
+    if (RV.Diagrams && snapshot.querySelector('.code-block[data-lang="mermaid"]')) { await RV.Diagrams.render(snapshot); RV.Diagrams.cleanExport(snapshot); }
     eachNode('.section-tools', function (node) { node.parentNode.removeChild(node); }, snapshot);
     eachNode('.section-folded', function (node) { node.classList.remove('section-folded'); }, snapshot);
     eachNode('input[type=checkbox]', function (box) {
@@ -1191,13 +1200,13 @@
       box.disabled = true;
     }, snapshot);
     var doc = Exporter.build({
-      title: state.name || 'README',
+      title: exportName || 'README',
       html: snapshot.innerHTML,
-      theme: state.theme === 'auto' ? (isDark() ? 'dark' : 'light') : state.theme,
+      theme: exportTheme,
       lang: Direction.detectLanguage(src),
-      dir: state.dirMode === 'auto' ? Direction.dominantDir(src) : state.dirMode
+      dir: exportDir
     });
-    var name = (state.name || 'README').replace(/\.[^.]+$/, '') + '.html';
+    var name = (exportName || 'README').replace(/\.[^.]+$/, '') + '.html';
     download(doc, name, 'text/html;charset=utf-8').then(function () {
       toast(t('info.exported', { name: name }), 'success');
     }).catch(function (error) {
@@ -1516,7 +1525,10 @@
     }
     markGutterCursor();
     if (RV.Reading) RV.Reading.refresh();
+    if (RV.Diagrams) RV.Diagrams.render(el.preview);
   }
+
+  document.addEventListener('rv:diagram-layout', function () { measureParts(); markActiveToc(); });
 
   var renderTimer = 0;
   var renderOpts = null;
@@ -1944,6 +1956,7 @@
     el.hljsDark.disabled = !dark;
     if (RV.Appearance) RV.Appearance.apply();
     updateThemeButton();
+    if (RV.Diagrams) { RV.Diagrams.render(el.preview); RV.Diagrams.render($('comparisonPreview')); }
   }
 
   /** The theme button doubles as an indicator: its glyph and tooltip name the active mode. */
@@ -3002,6 +3015,7 @@
     }, { strings: I18n.t });
     hl = Highlight.create({ hljs: window.hljs });
 
+    if (RV.Diagrams) RV.Diagrams.download = download;
     loadSettings();
     Icons.inject(document.body);
     el.brandMark.innerHTML = Icons.svg('logo', 18);

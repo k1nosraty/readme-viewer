@@ -66,6 +66,8 @@ available. Other browsers download an updated copy; replace the original with it
 
 ## Features
 
+The Mermaid support described below is available on `feature/mermaid-diagrams` and is not yet part of the v1.3.0 installers.
+
 - **GitHub-accurate rendering** — headings, tables, task lists, fenced code with syntax
   highlighting, block quotes, images, strikethrough, footnotes-free GFM, hover heading anchors.
 - **Three view modes** — Source, Split, Preview (`Ctrl+1/2/3`), with a draggable divider that is
@@ -86,9 +88,43 @@ available. Other browsers download an updated copy; replace the original with it
   clear message.
 - **Unsaved-changes protection** — a dirty document is never replaced silently, and closing the tab
   warns.
+- **Offline Mermaid diagrams** — flowcharts, sequence diagrams and other Tiny-supported types,
+  with source/copy controls, an expandable zoom view, SVG downloads and embedded HTML exports.
 - **Standalone HTML export** — the rendered document as one self-contained file.
 - **English interface**, with a complete Persian locale one setting away (`Help → Interface
   language`). Documents in any language render as-is.
+
+## Mermaid diagrams
+
+Wrap diagram source in a fenced block labelled `mermaid`, just as on GitHub:
+
+````markdown
+```mermaid
+flowchart TD
+  T["Telegram bot"] --> W["Cloudflare Worker · Hono"]
+  A["Mini App · Preact"] --> W
+  C["Cron trigger"] --> W
+  W --> L["Shared accounting and access rules"]
+  L --> D["D1 · ledger and encrypted cards"]
+```
+````
+
+Diagrams render locally in Preview, Split and the second reading pane. The pinned Mermaid
+Tiny bundle loads only when the document contains a diagram, never from a CDN. Use **Source**
+to inspect the original code, the existing **Copy** action to copy it, **Expand** to zoom and
+scroll, or **Save SVG** to save a standalone image using the platform's normal save dialog.
+HTML exports embed diagram images and remain readable offline without JavaScript.
+
+The original Markdown is never changed by rendering. Invalid or unsupported diagrams retain
+their source with an explanation. Light/dark themes and Persian labels are supported, with the
+existing system font stack; no new fonts are downloaded or bundled.
+
+Tiny does not include mindmaps, the dedicated `architecture-beta` syntax, KaTeX math or ELK.
+Embedded Mermaid configuration, images/external resources and interactive diagram links are
+disabled. Diagrams are limited to 50,000 source characters and 500 edges. This is not a promise
+of exact rendering parity with whichever Mermaid version GitHub currently uses.
+
+See [the pinned bundle and license](vendor/mermaid/README.md) for update details.
 
 ## Interactive preview
 

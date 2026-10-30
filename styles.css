@@ -1464,3 +1464,21 @@ button.toc-toggle:disabled { opacity: .45; cursor: default; }
 }
 html[data-theme="dark"] { color-scheme: dark; }
 html[data-theme="light"] { color-scheme: light; }
+
+/* Mermaid stays inside the document; its generated CSS lives in an SVG image. */
+.diagram-stage { position: fixed; left: -20000px; top: 0; width: 1200px; pointer-events: none; }
+.markdown-body .diagram-figure { margin: 0; padding: 20px 12px; overflow: auto; background: var(--bg); text-align: center; }
+.markdown-body .diagram-figure img { display: block; margin: auto; max-width: 100%; height: auto; }
+.diagram-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-subtle); border-top: 1px solid var(--border); }
+.diagram-tools button { font: inherit; font-size: 12px; padding: 6px 10px; min-height: 32px; border: 1px solid var(--border); border-radius: 4px; color: var(--fg); background: var(--bg); cursor: pointer; }
+.diagram-tools button:hover { background: var(--bg-subtle); }
+.diagram-tools button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.markdown-body .diagram-message { padding: 10px 12px; margin: 0; color: var(--fg-muted); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.markdown-body .diagram-rendered pre[hidden] { display: none; }
+.diagram-dialog { width: calc(100vw - 32px); height: calc(100dvh - 32px); max-width: none; max-height: none; padding: 0; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
+.diagram-dialog[open] { display: flex; flex-direction: column; }
+.diagram-dialog::backdrop { background: rgba(0, 0, 0, .45); }
+.diagram-dialog .diagram-tools { flex-shrink: 0; border-top: 0; border-bottom: 1px solid var(--border); }
+.diagram-canvas { flex: 1; min-height: 0; overflow: auto; padding: 16px; direction: ltr; }
+.diagram-canvas img { display: block; width: 100%; max-width: none; }
+@media (pointer: coarse) { .diagram-tools button { min-height: 44px; } }

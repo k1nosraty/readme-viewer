@@ -25,7 +25,7 @@
     clj: 'clojure', ex: 'elixir', exs: 'elixir', f: 'fortran', jl: 'julia',
     tex: 'latex', bat: 'dos', cmd: 'dos', jinja: 'django',
     // No grammar for these: render as plain text instead of 404-ing on a missing file.
-    plain: 'plaintext', nohighlight: 'plaintext', rest: 'plaintext', rst: 'plaintext',
+    mermaid: 'plaintext', plain: 'plaintext', nohighlight: 'plaintext', rest: 'plaintext', rst: 'plaintext',
     adoc: 'plaintext', asciidoc: 'plaintext', org: 'plaintext', vim: 'plaintext',
     sol: 'plaintext',
     // Very large, rarely used grammars are not shipped to keep the app small.
@@ -79,7 +79,7 @@
     }
 
     function block(node) {
-      if (!hljs || !node) return;
+      if (!hljs || !node || langOf(node) === 'mermaid') return;
       var lang = resolve(langOf(node));
       if (!lang || !hljs.getLanguage(lang)) {
         if (lang && !requested[lang]) loadLang(lang, node);

@@ -1,7 +1,7 @@
 name: Native test and release
 on:
   push:
-    branches: [feature/tauri-native-app, feature/document-workspace, fix/linked-files, main, develop]
+    branches: [feature/tauri-native-app, feature/document-workspace, feature/mermaid-diagrams, fix/linked-files, main, develop]
   workflow_dispatch:
 permissions:
   contents: read

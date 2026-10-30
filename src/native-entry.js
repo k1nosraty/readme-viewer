@@ -61,7 +61,8 @@ const Native = {
   },
   async pickSave(name, mime) {
     const saveFilters = mime && /^text\/html(?:;|$)/i.test(mime)
-      ? [{ name: 'HTML', extensions: ['html', 'htm'] }] : filters;
+      ? [{ name: 'HTML', extensions: ['html', 'htm'] }]
+      : mime && /^image\/svg\+xml(?:;|$)/i.test(mime) ? [{ name: 'SVG image', extensions: ['svg'] }] : filters;
     const path = await save({ defaultPath: name, filters: saveFilters });
     return path ? handle(path, /^content:/i.test(path) ? name : undefined, false) : null;
   },
