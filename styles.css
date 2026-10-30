@@ -1466,6 +1466,7 @@ html[data-theme="dark"] { color-scheme: dark; }
 html[data-theme="light"] { color-scheme: light; }
 
 /* Mermaid stays inside the document; its generated CSS lives in an SVG image. */
+.markdown-body .code-block.diagram-rendered { border-width: 2px; }
 .diagram-stage { position: fixed; left: -20000px; top: 0; width: 1200px; pointer-events: none; }
 .markdown-body .diagram-figure { position: relative; container-type: inline-size; margin: 0; padding: 48px 12px 20px; overflow: auto; background: var(--bg); text-align: center; }
 .markdown-body .diagram-figure img { display: block; margin: auto; max-width: 100%; height: auto; }

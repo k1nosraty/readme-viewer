@@ -65,6 +65,8 @@ async function main() {
     await click('#btnEmptySample');
     await waitFor('window.RVApp.state.name === "sample.md"', 'sample document loaded');
     assert.equal(await evaluate('document.querySelector("#editor").value.includes("پشتیبانی از ورودی چینی و ژاپنی")'), true);
+    const diagramChecks = await evaluate(await fs.readFile('scripts/native-diagrams-check.js', 'utf8'));
+    assert.equal(diagramChecks.nativeMath, true, 'Android WebView mathematical layout failed');
     await click('#btnEdit');
     assert.equal(await evaluate('RVApp.state.editPreview'), true, 'Edit in preview did not turn on');
     assert.equal(await evaluate('RVApp.state.tasksOk'), true, 'Persian task mapping is unavailable');
@@ -93,7 +95,7 @@ async function main() {
     assert.equal(await evaluate('document.querySelectorAll(".toast[data-kind=error]").length'), 0);
     assert.deepEqual(errors, []);
     await fs.writeFile('native-test-results/android-webview.json', JSON.stringify({
-      native: true, ready: true, persianCheckbox: true, dirty: true,
+      native: true, ready: true, persianCheckbox: true, dirty: true, diagramChecks: diagramChecks,
       fullWidthPreview: true, rotationPreservedEdit: true, androidBackConfirmCancel: true
     }));
   } finally {

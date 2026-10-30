@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.4.0
+
+- Give diagrams the approved 2px frame while retaining the current theme border color; preserve the same frame in standalone HTML.
 
 - Fix font pickers hiding other choices after selection: use persistent preset menus with a separate custom installed-family field, all inside Appearance.
 

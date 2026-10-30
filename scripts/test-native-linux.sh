@@ -22,9 +22,9 @@ python3 - <<'PY'
 import base64,json,os,time,urllib.request
 from pathlib import Path
 base='http://127.0.0.1:4444'
-def request(method,url,data=None):
+def request(method,url,data=None,timeout=20):
     raw=None if data is None else json.dumps(data).encode()
-    with urllib.request.urlopen(urllib.request.Request(base+url,raw,{'Content-Type':'application/json'},method=method),timeout=20) as response:
+    with urllib.request.urlopen(urllib.request.Request(base+url,raw,{'Content-Type':'application/json'},method=method),timeout=timeout) as response:
         body=json.load(response)
     value=body.get('value')
     if isinstance(value,dict) and value.get('error'): raise RuntimeError(value)
@@ -53,13 +53,17 @@ try:
         time.sleep(1)
     else: raise AssertionError('Native save did not persist Persian checkbox')
     assert b'\r\n' in fixture.read_bytes(), 'CRLF preservation'
+    request('POST',prefix+'/timeouts',{'script':60000})
+    check_source=Path('scripts/native-diagrams-check.js').read_text()
+    result=request('POST',prefix+'/execute/async',{'script':'var done=arguments[arguments.length-1]; Promise.resolve('+check_source+').then(function(value){done({result:value})},function(error){done({error:String(error)})});','args':[]},timeout=75)
+    assert result.get('result',{}).get('nativeMath'), 'Installed WebView math check failed: '+str(result)
     image=request('GET',prefix+'/screenshot')
     Path('native-test-results/linux-native.png').write_bytes(base64.b64decode(image))
-    Path('native-test-results/linux-native.json').write_text(json.dumps({'native':True,'commandLineOpen':True,'persianCheckbox':True,'savedToDisk':True,'crlf':True}))
+    Path('native-test-results/linux-native.json').write_text(json.dumps({'native':True,'commandLineOpen':True,'persianCheckbox':True,'savedToDisk':True,'crlf':True,'diagramChecks':result['result']}))
 finally: request('DELETE',prefix)
 PY
 # Cleanup verifies the actual installed native package can be removed.
 cleanup
 trap - EXIT
 test ! -e "$app"
-echo 'Linux native install, command-line open, task edit, save, screenshot and uninstall passed.'
+echo 'Linux native install, command-line open, task edit, save, offline diagrams/math/fonts, screenshot and uninstall passed.'
