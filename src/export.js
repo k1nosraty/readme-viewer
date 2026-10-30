@@ -40,7 +40,7 @@
     '.code-copy, .diagram-tools, .diagram-message { display: none; }',
     '.diagram-figure { margin: 0; padding: 16px; text-align: center; }',
     '.diagram-figure img { max-width: 100%; height: auto; }',
-    '.diagram-rendered pre[hidden] { display: none; }',
+    '.diagram-rendered pre[hidden], .diagram-rendered .code-bar[hidden] { display: none; }',
     'blockquote { padding: 0 1em; color: #59636e; border-left: .25em solid #d1d9e0; margin-inline-start: 0; }',
     '.markdown-alert { padding: .5em 1em; margin: 0 0 16px; border-inline-start: .25em solid #0969da; }',
     '.markdown-alert-title { font-weight: 600; margin: 0 0 4px; }',

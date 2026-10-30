@@ -22,6 +22,11 @@
     node.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); action(node); });
     return node;
   }
+  function iconButton(key, icon, action) {
+    var label = t(key), node = button(label, action);
+    node.className = 'diagram-icon'; node.setAttribute('aria-label', label); node.title = label;
+    node.innerHTML = RV.Icons.svg(icon, 16); return node;
+  }
   function imageUrl(svg) { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); }
   function save(svg, owner) {
     Promise.resolve(RV.Diagrams.download(svg, 'diagram.svg', 'image/svg+xml;charset=utf-8')).catch(function (error) {
@@ -121,21 +126,35 @@
     var img = document.createElement('img'); img.src = imageUrl(svg); img.alt = t('title');
     figure.appendChild(img);
     var tools = document.createElement('div'); tools.className = 'diagram-tools';
-    tools.appendChild(button(t('source'), function (node) {
-      source.hidden = !source.hidden; node.setAttribute('aria-expanded', String(!source.hidden));
+    var codeBar = block.querySelector('.code-bar');
+    tools.appendChild(iconButton('source', 'code', function (node) {
+      source.hidden = !source.hidden; if (codeBar) codeBar.hidden = source.hidden;
+      node.setAttribute('aria-expanded', String(!source.hidden));
+      block.dispatchEvent(new CustomEvent('rv:diagram-layout', { bubbles: true }));
     })); tools.firstChild.setAttribute('aria-expanded', 'false');
-    tools.appendChild(button(t('expand'), function (node) { enlarge(svg, node); }));
-    tools.appendChild(button(t('save'), function (node) { save(svg, node); }));
+    tools.appendChild(iconButton('expand', 'maximize', function (node) { enlarge(svg, node); }));
+    tools.appendChild(iconButton('save', 'download', function (node) { save(svg, node); }));
     var selector = document.createElement('select'); selector.setAttribute('aria-label', t('layout'));
     [['dagre', 'Dagre'], ['elk', 'ELK']].forEach(function (item) { var option = document.createElement('option'); option.value = item[0]; option.textContent = item[1]; selector.appendChild(option); });
     selector.value = block.getAttribute('data-diagram-layout') || layouts.get(source.textContent) || 'dagre';
     selector.addEventListener('change', function () {
       if (layouts.size >= 24) layouts.delete(layouts.keys().next().value);
       layouts.set(source.textContent, selector.value);
-      block.setAttribute('data-diagram-layout', selector.value); render(block.parentNode);
+      var focused = document.activeElement === selector;
+      block.setAttribute('data-diagram-layout', selector.value);
+      render(block.parentNode).then(function () {
+        if (focused && document.activeElement === document.body && block.isConnected) block.querySelector('.diagram-layout select').focus();
+      });
     });
-    if (/^\s*(?:flowchart|graph)\b/.test(source.textContent)) { var label = document.createElement('label'); label.className = 'diagram-layout'; label.textContent = t('layout') + ' '; label.appendChild(selector); tools.appendChild(label); }
-    block.appendChild(figure); block.appendChild(tools); source.hidden = true;
+    if (/^\s*(?:flowchart|graph)\b/.test(source.textContent)) {
+      var label = document.createElement('label'); label.className = 'diagram-layout';
+      label.innerHTML = RV.Icons.svg('diagramLayout', 16);
+      selector.title = t('layout') + ': ' + (selector.value === 'elk' ? 'ELK' : 'Dagre');
+      label.appendChild(selector); tools.appendChild(label);
+    }
+    figure.appendChild(tools); block.appendChild(figure);
+    if (codeBar) { codeBar.hidden = true; block.appendChild(codeBar); }
+    block.appendChild(source); source.hidden = true;
     block.classList.add('diagram-rendered'); block.removeAttribute('aria-busy');
   }
   function render(container) {
@@ -153,7 +172,9 @@
       var existing = jobs.get(block);
       if (existing && existing.key === key) return existing.promise;
       block.querySelectorAll('.diagram-figure, .diagram-tools, .diagram-message').forEach(function (node) { node.remove(); });
-      block.classList.remove('diagram-rendered'); source.hidden = false; block.setAttribute('aria-busy', 'true');
+      block.classList.remove('diagram-rendered'); source.hidden = false;
+      var codeBar = block.querySelector('.code-bar'); if (codeBar) codeBar.hidden = false;
+      block.setAttribute('aria-busy', 'true');
       var job = { key: key }; jobs.set(block, job);
       var work = queue.then(async function () {
         if (jobs.get(block) !== job || (connected && !block.isConnected)) return;

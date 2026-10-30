@@ -1467,7 +1467,7 @@ html[data-theme="light"] { color-scheme: light; }
 
 /* Mermaid stays inside the document; its generated CSS lives in an SVG image. */
 .diagram-stage { position: fixed; left: -20000px; top: 0; width: 1200px; pointer-events: none; }
-.markdown-body .diagram-figure { margin: 0; padding: 20px 12px; overflow: auto; background: var(--bg); text-align: center; }
+.markdown-body .diagram-figure { position: relative; container-type: inline-size; margin: 0; padding: 48px 12px 20px; overflow: auto; background: var(--bg); text-align: center; }
 .markdown-body .diagram-figure img { display: block; margin: auto; max-width: 100%; height: auto; }
 .diagram-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-subtle); border-top: 1px solid var(--border); }
 .diagram-tools button { font: inherit; font-size: 12px; padding: 6px 10px; min-height: 32px; border: 1px solid var(--border); border-radius: 4px; color: var(--fg); background: var(--bg); cursor: pointer; }
@@ -1490,5 +1490,23 @@ html[data-theme="light"] { color-scheme: light; }
 .font-sample p { margin: 0; color: var(--fg); font-size: inherit; line-height: inherit; }
 #fontHint, #fontStatus { overflow-wrap: anywhere; font-size: 12px; line-height: 1.7; color: var(--fg-muted); }
 
-.diagram-layout { font-size: 12px; margin-inline-start: auto; }
-.diagram-layout select { padding: 5px; min-height: 32px; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; }
+/* Compact diagram actions float over the image; source/copy controls appear only on request. */
+.diagram-figure > .diagram-tools { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; display: flex; flex-wrap: wrap; max-width: calc(100% - 16px); gap: 2px; padding: 3px; background: var(--bg); border: 1px solid var(--border-muted); border-radius: var(--r-sm); opacity: .64; transition: opacity var(--dur) var(--ease); }
+.diagram-figure:hover > .diagram-tools, .diagram-figure > .diagram-tools:focus-within { opacity: 1; }
+.diagram-tools .diagram-icon, .diagram-layout { flex: 0 0 32px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; min-height: 32px; padding: 0; margin: 0; border: 0; border-radius: 4px; color: var(--fg); background: transparent; }
+.diagram-tools .diagram-icon:hover, .diagram-layout:hover { background: var(--bg-hover); }
+.diagram-tools .diagram-icon[aria-expanded="true"] { color: var(--accent); background: var(--accent-subtle); }
+.diagram-layout { position: relative; }
+.diagram-layout select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+.diagram-layout:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: none), (pointer: coarse) {
+  .diagram-figure > .diagram-tools { opacity: 1; }
+  .diagram-tools .diagram-icon, .diagram-layout { flex-basis: 44px; width: 44px; height: 44px; min-height: 44px; }
+  .markdown-body .diagram-figure { padding-top: 60px; }
+}
+@media print { .diagram-tools { display: none !important; } .markdown-body .diagram-figure { padding-top: 16px; } }
+
+@container (max-width: 170px) { .diagram-figure > img { margin-block-start: 48px; } }
+@container (max-width: 92px) { .diagram-figure > img { margin-block-start: 148px; } }
+
+.diagram-rendered > .code-bar:not([hidden]) { border-block-start: 1px solid var(--border); }

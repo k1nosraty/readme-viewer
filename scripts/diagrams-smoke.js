@@ -27,6 +27,14 @@ const { chromium } = require('playwright');
     const firstSvg = decodeURIComponent(firstUrl.slice(firstUrl.indexOf(',') + 1));
     assert.match(firstSvg.replace(/<[^>]+>/g, ''), /Telegram bot/);
     assert.match(firstSvg.replace(/<[^>]+>/g, '').replace(/\s/g, ''), /ledgerandencryptedcards/);
+    const overlay = page.locator('#preview .diagram-tools').first();
+    assert.equal(await overlay.locator('button').first().textContent(), '');
+    await page.mouse.move(0, 0);
+    await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('#preview .diagram-tools')).opacity) < .8);
+    await overlay.hover();
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#preview .diagram-tools')).opacity === '1');
+    await page.mouse.move(0, 0); await overlay.getByRole('button', { name: 'Source', exact: true }).focus();
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#preview .diagram-tools')).opacity === '1');
     await page.locator('#preview .diagram-tools button').first().click();
     assert.equal(await page.locator('#preview pre').first().isVisible(), true);
     const expand = page.locator('#preview .diagram-tools').first().getByRole('button', { name: 'Expand', exact: true });
@@ -50,11 +58,16 @@ const { chromium } = require('playwright');
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${mode} remains within viewport ${width}`);
         const images = await page.locator('.diagram-figure img').evaluateAll(nodes => nodes.map(node => ({ width: node.getBoundingClientRect().width, parent: node.parentElement.clientWidth })));
         assert.ok(images.every(img => img.width > 0 && img.width <= img.parent + 1), JSON.stringify({width, mode, images}));
+        const overlays = await page.locator('.diagram-figure').evaluateAll(nodes => nodes.map(node => {
+          const figure = node.getBoundingClientRect(), tools = node.querySelector('.diagram-tools').getBoundingClientRect(), image = node.querySelector('img').getBoundingClientRect();
+          return { contained: tools.left >= figure.left && tools.right <= figure.right + 1, above: tools.bottom <= image.top + 1, position: getComputedStyle(node.querySelector('.diagram-tools')).position };
+        }));
+        assert.ok(overlays.every(item => item.contained && item.above && item.position === 'absolute'), JSON.stringify({width, mode, overlays}));
       }
     }
     await page.setViewportSize({ width: 1200, height: 900 });
     const saved = page.waitForEvent('download');
-    await page.locator('#preview .diagram-tools button').filter({ hasText: 'Save SVG' }).first().click();
+    await page.locator('#preview .diagram-tools').first().getByRole('button', { name: 'Save SVG', exact: true }).click();
     const file = await saved;
     assert.match(file.suggestedFilename(), /diagram\.svg/);
     const svg = await fs.readFile(await file.path(), 'utf8');

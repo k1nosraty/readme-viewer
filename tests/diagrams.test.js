@@ -25,13 +25,23 @@ test('diagram integration preserves source, isolates SVG, and exports pending di
   const block = doc.querySelector('#preview .code-block');
   assert.ok(block.classList.contains('diagram-rendered'));
   assert.equal(block.querySelector('pre').hidden, true);
+  assert.equal(block.querySelector('.code-bar').hidden, true);
+  const controls = block.querySelector('.diagram-tools');
+  assert.equal(controls.parentElement.className, 'diagram-figure');
+  for (const control of controls.querySelectorAll('button')) {
+    assert.ok(control.querySelector('svg')); assert.ok(control.getAttribute('aria-label'));
+    assert.equal(control.title, control.getAttribute('aria-label'));
+    assert.equal(control.textContent, '');
+  }
   const svg = decodeURIComponent(block.querySelector('.diagram-figure img').getAttribute('src').split(',').slice(1).join(','));
   assert.match(svg, /سلام/);
   assert.doesNotMatch(svg, /<script|foreignObject|<image|onclick|javascript:|bad.invalid/);
   assert.match(svg, /url\(#arrow\)/);
-  assert.equal(block.querySelector('svg'), null, 'diagram CSS is isolated inside an image');
+  assert.equal(block.querySelector('.diagram-figure > svg'), null, 'diagram CSS is isolated inside an image');
   block.querySelector('.diagram-tools button').click();
   assert.equal(block.querySelector('pre').hidden, false);
+  assert.equal(block.querySelector('.code-bar').hidden, false);
+  assert.ok(block.querySelector('.diagram-figure').compareDocumentPosition(block.querySelector('pre')) & win.Node.DOCUMENT_POSITION_FOLLOWING);
   assert.equal(doc.getElementById('editor').value, source);
   assert.equal(api.state.dirty, false);
   const originalCalls = calls;

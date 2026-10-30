@@ -117,7 +117,10 @@ Diagrams render locally in Preview, Split and the second reading pane. The pinne
 full bundle (including the ELK layout engine) loads only when the document contains a diagram, never from a CDN. Use **Source**
 to inspect the original code, the existing **Copy** action to copy it, **Expand** to zoom and
 scroll, or **Save SVG** to save a standalone image using the platform's normal save dialog.
-HTML exports embed diagram images and remain readable offline without JavaScript.
+Diagram actions are compact icons in the upper-right corner: they brighten on hover or keyboard
+focus, remain visible on touch screens, and have accessible labels/tooltips. Source opens below
+the diagram; no extra action bar occupies document space. HTML exports embed diagram images
+and remain readable offline without JavaScript.
 
 The original Markdown is never changed by rendering. Invalid or unsupported diagrams retain
 their source with an explanation. Light/dark themes and Persian labels are supported, with the
