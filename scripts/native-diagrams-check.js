@@ -17,7 +17,9 @@
   await RV.Fonts.ready(); await RV.Diagrams.render(root);
   check(document.fonts.check('16px "RV Document Arabic"', 'سلام'), 'Bundled Arabic font did not load');
   var images = Array.from(root.querySelectorAll('.diagram-figure img'));
-  check(images.length === 7, 'Expected all seven offline diagram examples');
+  var failure = root.querySelector('.diagram-message');
+  check(!failure, failure ? failure.textContent : 'Diagram rendering reported an error');
+  check(images.length === 7, 'Expected all seven offline diagram examples; found ' + images.length);
   await Promise.all(images.map(function (image) { return image.decode ? image.decode() : Promise.resolve(); }));
   check(images.every(function (image) { return image.complete && image.naturalWidth > 0; }), 'Diagram image did not decode');
   check(!root.querySelector('.diagram-message'), 'Diagram rendering reported an error');

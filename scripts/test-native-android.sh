@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'status=$?; printf "::error title=Android native smoke::Failed at line %s (exit %s)\n" "$LINENO" "$status"' ERR
 cd "$(dirname "$0")/.."
 mkdir -p native-test-results dist
 apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' ! -name '*androidTest*' | sort | head -n 1)

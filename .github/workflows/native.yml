@@ -198,6 +198,13 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: bash scripts/test-native-android.sh
+      - name: Capture Android failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-android-failure-diagnostics
+          path: native-test-results/*
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: native-android-debug-preview

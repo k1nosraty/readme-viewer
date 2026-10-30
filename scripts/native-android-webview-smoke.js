@@ -104,7 +104,10 @@ async function main() {
     socket.close();
   }
 }
-main().catch(error => {
+main().catch(async error => {
+  const details = String(error && (error.stack || error.message) || error);
   console.error(error);
+  console.error('::error title=Android WebView smoke::' + details.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A'));
+  await fs.writeFile('native-test-results/android-smoke-error.txt', details).catch(() => {});
   process.exitCode = 1;
 });
