@@ -1,0 +1,106 @@
+# README Viewer
+
+A local, offline Markdown reader. This sample doubles as a rendering test:
+headings, tables, code, links, **bold**, *italic*, ~~strikethrough~~ and `inline code`.
+
+## Diagrams
+
+These diagrams render offline in Preview, Split and the second reading pane.
+Use **Source** to show the code, **Expand** to zoom, or **Save SVG** to save an image.
+
+### System flowchart
+
+```mermaid
+flowchart TD
+  T["Telegram bot"] --> W["Cloudflare Worker · Hono"]
+  A["Mini App · Preact"] --> W
+  C["Cron trigger"] --> W
+  W --> L["Shared accounting and access rules"]
+  L --> D["D1 · ledger and encrypted cards"]
+```
+
+### نمودار توالی فارسی
+
+این نمونه برای بررسی شکل حروف فارسی و پیام‌های رفت‌وبرگشت است.
+
+```mermaid
+sequenceDiagram
+  participant U as کاربر
+  participant B as بات تلگرام
+  participant S as سرور
+  U->>B: ثبت هزینه
+  B->>S: ذخیره اطلاعات
+  S-->>B: ثبت موفق
+  B-->>U: نمایش نتیجه
+```
+
+### Entity relationships
+
+```mermaid
+erDiagram
+  USER ||--o{ EXPENSE : records
+  GROUP ||--o{ EXPENSE : contains
+  USER }o--o{ GROUP : joins
+  EXPENSE ||--|{ SHARE : splits
+  USER ||--o{ SHARE : owes
+```
+
+### Progress overview
+
+```mermaid
+pie title Reading progress
+  "Completed" : 6
+  "In progress" : 3
+  "Remaining" : 2
+```
+
+> [!NOTE]
+> These examples work with Mermaid Tiny. Mindmaps and the dedicated Architecture syntax need full Mermaid and are not enabled in this build.
+
+
+## Tasks
+
+Turn on **Edit in preview**, then click any checkbox — only its `[ ]` marker is rewritten.
+
+- [x] Render GitHub flavoured Markdown
+- [ ] Learn PostgreSQL
+- [ ] Ship the release notes
+  - [x] Draft the changelog
+  - [ ] Tag the next release
+- [ ] Duplicate task
+- [ ] Duplicate task
+
+> Block quotes keep their own direction, and nested lists stay aligned.
+
+## Code
+
+```python
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+```
+
+```bash
+npm test && open index.html
+```
+
+## Table
+
+| Feature | Status | Notes |
+| --- | :---: | --- |
+| Task lists | ✅ | Interactive in preview |
+| RTL content | ✅ | Per block |
+| Offline | ✅ | No network calls |
+
+## فارسی
+
+این پاراگراف راست‌به‌چپ است و جهت آن به‌صورت خودکار تشخیص داده می‌شود.
+متن فارسی در میان متن English باید درست نمایش داده شود، بدون به‌هم‌ریختن پرانتزها (parentheses).
+
+- [x] پشتیبانی از کیبورد فارسی
+- [ ] پشتیبانی از ورودی چینی و ژاپنی (IME)
+
+---
+
+Links: [external](https://github.com) and a relative [reference][ref].
+
+[ref]: https://example.com "Reference"

@@ -73,6 +73,11 @@ const { chromium } = require('playwright');
     await page.waitForSelector('#preview .diagram-message');
     assert.equal(await page.locator('#preview pre').isVisible(), true);
     assert.equal(await page.evaluate(() => window.RVApp.state.dirty), false);
+    const demo = await fs.readFile(path.resolve(__dirname, '../docs/demo.md'), 'utf8');
+    await page.evaluate(() => { window.RVApp.loadSample(); window.RVApp.setMode('preview'); });
+    await page.waitForFunction(() => document.querySelectorAll('#preview .diagram-figure img').length === 4 && Array.from(document.querySelectorAll('#preview .diagram-figure img')).every(img => img.complete && img.naturalWidth > 0));
+    assert.equal(await page.locator('#editor').inputValue(), demo, 'built-in sample matches the downloadable demo');
+    assert.equal(await page.locator('#preview .diagram-message').count(), 0);
     assert.deepEqual(errors, []);
     console.log('Mermaid browser smoke passed: offline flowchart + Persian sequence, both panes, themes, mobile, zoom, SVG and standalone export, invalid source.');
   } finally { await browser.close(); }

@@ -96,6 +96,10 @@ The Mermaid support described below is available on `feature/mermaid-diagrams` a
 
 ## Mermaid diagrams
 
+Try the built-in **Load sample document** document on the empty screen, or open [docs/demo.md](docs/demo.md)
+in README Viewer. Both include a system flowchart, a Persian sequence diagram, an entity
+relationship diagram and a pie chart, alongside ordinary Markdown examples.
+
 Wrap diagram source in a fenced block labelled `mermaid`, just as on GitHub:
 
 ````markdown
