@@ -78,9 +78,27 @@
     byId('appearanceStandardLinks').checked = prefs.standardLinks;
     byId('accentPicker').value = prefs.accent; byId('accentHex').value = prefs.accent.toUpperCase();
     byId('accentHex').setAttribute('aria-invalid', 'false'); byId('accentError').hidden = true;
-    ['latin', 'persian', 'ui'].forEach(function (key) { byId('font' + key.charAt(0).toUpperCase() + key.slice(1)).value = prefs.fonts[key]; });
+    ['latin', 'persian', 'ui'].forEach(function (key) { byId('font' + key.charAt(0).toUpperCase() + key.slice(1)).value = prefs.fonts[key]; syncFontChoice(byId('font' + key.charAt(0).toUpperCase() + key.slice(1))); });
     validateFonts(); fontStatus();
     document.querySelectorAll('[data-accent-preset]').forEach(function (button) { button.setAttribute('aria-pressed', button.getAttribute('data-accent-preset') === prefs.accent ? 'true' : 'false'); });
+  }
+  function syncFontChoice(input) {
+    var choice = byId(input.id + 'Choice');
+    var preset = Array.prototype.some.call(choice.options, function (option) { return option.value !== '__custom__' && option.value === input.value; });
+    choice.value = preset ? input.value : '__custom__'; input.hidden = preset;
+  }
+  function wireFontChoices() {
+    ['fontLatin', 'fontPersian', 'fontUi'].forEach(function (id) {
+      var input = byId(id), choice = byId(id + 'Choice');
+      function change(event) {
+        if (choice.value === '__custom__') {
+          if (input.hidden) input.value = '';
+          input.hidden = false;
+          if (event.type === 'change') input.focus();
+        } else { input.value = choice.value; input.hidden = true; }
+      }
+      choice.addEventListener('input', change); choice.addEventListener('change', change);
+    });
   }
   function fontValues() { return { latin: byId('fontLatin').value.trim(), persian: byId('fontPersian').value.trim(), ui: byId('fontUi').value.trim() }; }
   function validateFonts() {
@@ -106,6 +124,7 @@
   function preview(event) {
     if (!validateFonts()) return;
     var input = event.target, color = prefs.accent;
+    if (/^font(?:Latin|Persian|Ui)$/.test(input.id) && byId(input.id + 'Choice').value !== '__custom__') syncFontChoice(input);
     if (input.id === 'accentHex' || input.id === 'accentPicker') {
       color = hex(input.value);
       byId('accentHex').setAttribute('aria-invalid', color ? 'false' : 'true');
@@ -142,7 +161,7 @@
     if (returnFocus && returnFocus.isConnected) returnFocus.focus();
   }
   function init(callbacks) {
-    api = callbacks;
+    api = callbacks; wireFontChoices();
     var list = byId('accentPresets');
     presets.forEach(function (preset) {
       var button = document.createElement('button'), dot = document.createElement('span'), label = document.createElement('span');

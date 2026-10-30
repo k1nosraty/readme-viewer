@@ -130,3 +130,25 @@ test('font names cannot inject CSS and corrupt persisted choices fall back to de
   a.click('appearanceApply');
   assert.equal(a.window.RV.Fonts.snapshot().latin, 'Noto Sans CJK JP');
 });
+
+test('font pickers keep every preset available after repeat choices and retain custom families', async t => {
+  const a = await load(t); if (!a) return;
+  a.open();
+  for (const id of ['fontLatin', 'fontPersian', 'fontUi']) {
+    const choice = a.document.getElementById(id + 'Choice'), input = a.document.getElementById(id);
+    assert.ok(a.document.getElementById('appearancePanel').contains(choice));
+    const options = Array.from(choice.options, option => option.value);
+    for (const name of ['Arial', 'Vazirmatn', '', 'Arial']) {
+      a.set(id + 'Choice', name);
+      assert.equal(input.value, name); assert.equal(input.hidden, true);
+      assert.deepEqual(Array.from(choice.options, option => option.value), options, 'selection never filters the preset list');
+    }
+    a.set(id + 'Choice', '__custom__'); assert.equal(input.hidden, false);
+    a.set(id, 'My Installed Font');
+    assert.equal(choice.value, '__custom__');
+    a.click('appearanceApply'); a.open();
+    assert.equal(choice.value, '__custom__'); assert.equal(input.hidden, false); assert.equal(input.value, 'My Installed Font');
+    a.set(id + 'Choice', ''); assert.equal(input.hidden, true);
+  }
+  a.click('appearanceCancel'); assert.deepEqual(a.errors, []);
+});

@@ -141,8 +141,8 @@ of exact rendering parity with whichever Mermaid version GitHub currently uses.
 
 In **View → Appearance → Fonts**, choose a Latin/other-script family and a separate Persian/Arabic
 family. Interface text has its own optional family. Suggestions include Arial, Segoe UI, Georgia,
-Tahoma, Noto Sans Arabic, Noto Naskh Arabic and Amiri. Enter another installed family name for
-other languages. The app checks only the names you choose; it does not enumerate system fonts
+Tahoma, Noto Sans Arabic, Noto Naskh Arabic and Amiri. Preset menus always show all choices.
+Choose **Other installed font…** to enter another family name for other languages. The app checks only the names you choose; it does not enumerate system fonts
 or request font permissions. Missing families fall back safely. Clear a field for the original
 font stack. Code remains monospace.
 

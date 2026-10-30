@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fix font pickers hiding other choices after selection: use persistent preset menus with a separate custom installed-family field, all inside Appearance.
+
 - Replace diagram action bars with floating icon controls, hover/focus visibility, touch targets and an icon-based layout picker; reveal source/copy controls below the diagram only when requested.
 
 - Render mathematical Mermaid labels (powers, fractions, integrals and matrices) with the existing KaTeX engine and native MathML; preserve sanitisation, offline SVG/HTML exports and source fallback.
