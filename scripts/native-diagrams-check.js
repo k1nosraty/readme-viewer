@@ -23,7 +23,10 @@
   await Promise.all(images.map(function (image) { return image.decode ? image.decode() : Promise.resolve(); }));
   check(images.every(function (image) { return image.complete && image.naturalWidth > 0; }), 'Diagram image did not decode');
   check(!root.querySelector('.diagram-message'), 'Diagram rendering reported an error');
-  check(getComputedStyle(root.querySelector('.diagram-rendered')).borderTopWidth === '2px', 'Approved diagram frame missing');
+  var frameWidth = parseFloat(getComputedStyle(root.querySelector('.diagram-rendered')).borderTopWidth);
+  // Android can round CSS borders to a whole physical pixel on fractional display scales.
+  check(Math.abs(frameWidth - 2) <= 1 / devicePixelRatio + 0.001 && frameWidth > 1,
+    'Approved diagram frame missing: ' + frameWidth + 'px at scale ' + devicePixelRatio);
   var mathUrl = images[images.length - 1].src;
   var svg = decodeURIComponent(mathUrl.slice(mathUrl.indexOf(',') + 1));
   check(svg.indexOf('<mfrac>') >= 0 && svg.indexOf('<mtable ') >= 0, 'Math structure missing from SVG');
