@@ -3,8 +3,9 @@
   'use strict';
   var RV = root.RV = root.RV || {};
   var loading, queue = Promise.resolve(), serial = 0;
+  var layouts = new Map();
   var jobs = new WeakMap(), cache = new Map(), cacheBytes = 0;
-  var scriptUrl = new URL('../vendor/mermaid/mermaid.tiny.js', document.currentScript.src).href;
+  var scriptUrl = new URL('../vendor/mermaid/mermaid.full.js', document.currentScript.src).href;
   function t(key) { return RV.I18n.t('diagram.' + key); }
   function load() {
     if (root.mermaid) return Promise.resolve(root.mermaid);
@@ -54,6 +55,7 @@
     if (box.length === 4 && box.every(Number.isFinite) && box[2] > 0 && box[3] > 0 && box[2] <= 100000 && box[3] <= 100000) {
       svg.setAttribute('width', box[2]); svg.setAttribute('height', box[3]);
     }
+    if (RV.Fonts) RV.Fonts.svgFonts(svg);
     svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     return new XMLSerializer().serializeToString(svg);
   }
@@ -110,6 +112,15 @@
     })); tools.firstChild.setAttribute('aria-expanded', 'false');
     tools.appendChild(button(t('expand'), function (node) { enlarge(svg, node); }));
     tools.appendChild(button(t('save'), function (node) { save(svg, node); }));
+    var selector = document.createElement('select'); selector.setAttribute('aria-label', t('layout'));
+    [['dagre', 'Dagre'], ['elk', 'ELK']].forEach(function (item) { var option = document.createElement('option'); option.value = item[0]; option.textContent = item[1]; selector.appendChild(option); });
+    selector.value = block.getAttribute('data-diagram-layout') || layouts.get(source.textContent) || 'dagre';
+    selector.addEventListener('change', function () {
+      if (layouts.size >= 24) layouts.delete(layouts.keys().next().value);
+      layouts.set(source.textContent, selector.value);
+      block.setAttribute('data-diagram-layout', selector.value); render(block.parentNode);
+    });
+    if (/^\s*(?:flowchart|graph)\b/.test(source.textContent)) { var label = document.createElement('label'); label.className = 'diagram-layout'; label.textContent = t('layout') + ' '; label.appendChild(selector); tools.appendChild(label); }
     block.appendChild(figure); block.appendChild(tools); source.hidden = true;
     block.classList.add('diagram-rendered'); block.removeAttribute('aria-busy');
   }
@@ -121,7 +132,9 @@
     var tasks = Array.prototype.map.call(container.querySelectorAll('.code-block[data-lang="mermaid"]'), function (block) {
       var source = block.querySelector('pre'), code = source && source.querySelector('code');
       if (!code) return Promise.resolve();
-      var text = code.textContent, key = JSON.stringify([theme, font, text, RV.I18n.getLocale()]);
+      var text = code.textContent;
+      var layout = block.getAttribute('data-diagram-layout') || layouts.get(text) || 'dagre';
+      var key = JSON.stringify([theme, font, text, RV.I18n.getLocale(), layout, RV.Fonts ? RV.Fonts.key() : '']);
       var existing = jobs.get(block);
       if (existing && existing.key === key) return existing.promise;
       block.querySelectorAll('.diagram-figure, .diagram-tools, .diagram-message').forEach(function (node) { node.remove(); });
@@ -135,9 +148,10 @@
           if (/%%\s*\{/.test(text) || /^\s*---/.test(text)) throw new Error(t('config'));
           if (/(?:url\s*\(|@import|<\s*(?:img|image|iframe|script|style)\b|\bimg\s*:)/i.test(text) ||
               /(?:^|[;\n])\s*(?:classDef|style|linkStyle)\b[^\n]*[{}<>\\@]/i.test(text)) throw new Error(t('resources'));
+          if (RV.Fonts) await RV.Fonts.ready();
           var mermaid = await load();
           if (jobs.get(block) !== job || (connected && !block.isConnected)) return;
-          mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: theme, fontFamily: font,
+          mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: theme, fontFamily: font, layout: layout,
             htmlLabels: false, flowchart: { htmlLabels: false }, maxTextSize: 50000, maxEdges: 500,
             suppressErrorRendering: true });
           var stage = document.createElement('div'); stage.className = 'diagram-stage'; stage.dir = 'ltr';

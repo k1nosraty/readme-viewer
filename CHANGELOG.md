@@ -2,10 +2,12 @@
 
 ## Unreleased
 
-- Render Mermaid Tiny diagrams offline in Preview, Split and the second reading pane.
+- Render full Mermaid diagrams offline in Preview, Split and the second reading pane.
 - Add source toggling, expanded zoom view and platform SVG downloads; embed diagrams in standalone HTML exports and native browser snapshots.
 - Keep diagram SVG/CSS isolated in images, reject embedded configuration/external resources, retain invalid source, and cache rendering within a bounded budget.
-- Bundle the pinned MIT-licensed Mermaid Tiny 11.17.2 without fonts or new runtime npm dependencies.
+- Bundle Mermaid 11.17.2 with ELK 0.2.2, mindmaps and architecture support; expose Dagre/ELK selection for flowcharts.
+- Add independent Latin/other-script, Persian/Arabic and interface fonts with live preview, cancel/reset and persistent settings.
+- Include an optional OFL-licensed Vazirmatn variable font; keep other font files on the user’s system, preserve monospace code and embed the included face in HTML/SVG exports when selected.
 
 ## 1.3.0
 

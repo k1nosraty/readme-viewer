@@ -88,7 +88,7 @@ The Mermaid support described below is available on `feature/mermaid-diagrams` a
   clear message.
 - **Unsaved-changes protection** — a dirty document is never replaced silently, and closing the tab
   warns.
-- **Offline Mermaid diagrams** — flowcharts, sequence diagrams and other Tiny-supported types,
+- **Offline Mermaid diagrams** — flowcharts, sequence diagrams, mindmaps and architecture diagrams,
   with source/copy controls, an expandable zoom view, SVG downloads and embedded HTML exports.
 - **Standalone HTML export** — the rendered document as one self-contained file.
 - **English interface**, with a complete Persian locale one setting away (`Help → Interface
@@ -96,9 +96,9 @@ The Mermaid support described below is available on `feature/mermaid-diagrams` a
 
 ## Mermaid diagrams
 
-Try the built-in **Load sample document** document on the empty screen, or open [docs/demo.md](docs/demo.md)
+Select **Load sample document** on the empty screen, or open [docs/demo.md](docs/demo.md)
 in README Viewer. Both include a system flowchart, a Persian sequence diagram, an entity
-relationship diagram and a pie chart, alongside ordinary Markdown examples.
+relationship diagram, a pie chart, a mindmap and an architecture diagram, alongside ordinary Markdown examples.
 
 Wrap diagram source in a fenced block labelled `mermaid`, just as on GitHub:
 
@@ -114,19 +114,37 @@ flowchart TD
 ````
 
 Diagrams render locally in Preview, Split and the second reading pane. The pinned Mermaid
-Tiny bundle loads only when the document contains a diagram, never from a CDN. Use **Source**
+full bundle (including the ELK layout engine) loads only when the document contains a diagram, never from a CDN. Use **Source**
 to inspect the original code, the existing **Copy** action to copy it, **Expand** to zoom and
 scroll, or **Save SVG** to save a standalone image using the platform's normal save dialog.
 HTML exports embed diagram images and remain readable offline without JavaScript.
 
 The original Markdown is never changed by rendering. Invalid or unsupported diagrams retain
 their source with an explanation. Light/dark themes and Persian labels are supported, with the
-existing system font stack; no new fonts are downloaded or bundled.
+existing system font stack by default. Optional font choices are available in **View → Appearance → Fonts**.
 
-Tiny does not include mindmaps, the dedicated `architecture-beta` syntax, KaTeX math or ELK.
-Embedded Mermaid configuration, images/external resources and interactive diagram links are
-disabled. Diagrams are limited to 50,000 source characters and 500 edges. This is not a promise
+Use the **Layout** selector under a flowchart to compare Dagre and ELK. Layout choices are
+kept for up to 24 diagram sources during the current session. Full Mermaid 11.17.2 is pinned
+for compatibility with older WebViews. Embedded Mermaid configuration, external images,
+interactive diagram links and HTML labels remain disabled; math in labels stays literal text
+in this safe SVG-image mode. Diagrams are limited to 50,000 source characters and 500 edges. This is not a promise
 of exact rendering parity with whichever Mermaid version GitHub currently uses.
+
+### Font choices
+
+In **View → Appearance → Fonts**, choose a Latin/other-script family and a separate Persian/Arabic
+family. Interface text has its own optional family. Suggestions include Arial, Segoe UI, Georgia,
+Tahoma, Noto Sans Arabic, Noto Naskh Arabic and Amiri. Enter another installed family name for
+other languages. The app checks only the names you choose; it does not enumerate system fonts
+or request font permissions. Missing families fall back safely. Clear a field for the original
+font stack. Code remains monospace.
+
+Vazirmatn 33.003 is included under SIL OFL 1.1 (about 111 KB of font data, loaded only when selected).
+All other fonts use the user's own installation; their files are not copied or redistributed.
+Font changes preview live and persist only on **Apply**; **Cancel**, Escape and restoring defaults
+keep the same reversible behavior as the rest of Appearance. Standalone HTML and SVG exports
+embed the included font when selected. System fonts remain local and may look different on
+another device. See [font licensing](vendor/fonts/README.md).
 
 See [the pinned bundle and license](vendor/mermaid/README.md) for update details.
 

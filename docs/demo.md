@@ -55,7 +55,33 @@ pie title Reading progress
 ```
 
 > [!NOTE]
-> These examples work with Mermaid Tiny. Mindmaps and the dedicated Architecture syntax need full Mermaid and are not enabled in this build.
+> These diagrams render offline with full Mermaid. Use the Layout control on a flowchart to compare Dagre with ELK.
+
+
+### Mindmap
+
+```mermaid
+mindmap
+  root((README Viewer))
+    Reading
+      Tabs
+      Search
+    Diagrams
+      Flowchart
+      Sequence
+    Export
+      HTML
+      SVG
+```
+
+### Architecture
+
+```mermaid
+architecture-beta
+  service api(server)[API]
+  service db(database)[Database]
+  api:R -- L:db
+```
 
 
 ## Tasks

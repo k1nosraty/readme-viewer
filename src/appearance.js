@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   var RV = window.RV = window.RV || {}, api, snapshot, returnFocus;
-  var defaults = { accent: '#0969da', surface: 'neutral', density: 'comfortable', standardLinks: false };
+  var defaults = { accent: '#0969da', surface: 'neutral', density: 'comfortable', standardLinks: false, fonts: { latin: '', persian: '', ui: '' } };
   var presets = [['blue', '#0969da'], ['emerald', '#12805c'], ['teal', '#087f8c'], ['violet', '#8250df'],
     ['indigo', '#5364cf'], ['orange', '#ce620e'], ['rose', '#c93671'], ['copper', '#a45a37']];
   var palettes = {
@@ -27,7 +27,7 @@
     value = value && typeof value === 'object' ? value : {};
     return { accent: hex(value.accent) || defaults.accent,
       surface: ['warm', 'cool'].indexOf(value.surface) >= 0 ? value.surface : 'neutral',
-      density: value.density === 'compact' ? 'compact' : 'comfortable', standardLinks: value.standardLinks === true };
+      density: value.density === 'compact' ? 'compact' : 'comfortable', standardLinks: value.standardLinks === true, fonts: RV.Fonts.normalize(value.fonts) };
   }
   var prefs = normalize(null);
   try { prefs = normalize(JSON.parse(localStorage.getItem('rv.appearance'))); } catch (e) { void 0; }
@@ -65,6 +65,7 @@
     ['--bg', '--bg-subtle', '--bg-inset', '--border', '--border-muted', '--border-strong'].forEach(function (key, i) { vars[key] = p[i]; });
     Object.keys(vars).forEach(function (key) { root.style.setProperty(key, vars[key]); });
     root.dataset.surface = prefs.surface; root.dataset.density = prefs.density;
+    RV.Fonts.apply(prefs.fonts);
   }
   function fields() { return { theme: byId('appearanceTheme').value, font: Number(byId('appearanceFont').value),
     width: byId('appearanceWidth').value, spacing: byId('appearanceSpacing').value }; }
@@ -77,10 +78,33 @@
     byId('appearanceStandardLinks').checked = prefs.standardLinks;
     byId('accentPicker').value = prefs.accent; byId('accentHex').value = prefs.accent.toUpperCase();
     byId('accentHex').setAttribute('aria-invalid', 'false'); byId('accentError').hidden = true;
-    byId('appearanceApply').disabled = false;
+    ['latin', 'persian', 'ui'].forEach(function (key) { byId('font' + key.charAt(0).toUpperCase() + key.slice(1)).value = prefs.fonts[key]; });
+    validateFonts(); fontStatus();
     document.querySelectorAll('[data-accent-preset]').forEach(function (button) { button.setAttribute('aria-pressed', button.getAttribute('data-accent-preset') === prefs.accent ? 'true' : 'false'); });
   }
+  function fontValues() { return { latin: byId('fontLatin').value.trim(), persian: byId('fontPersian').value.trim(), ui: byId('fontUi').value.trim() }; }
+  function validateFonts() {
+    var valid = true;
+    ['fontLatin', 'fontPersian', 'fontUi'].forEach(function (id) {
+      var ok = RV.Fonts.valid(byId(id).value.trim()); byId(id).setAttribute('aria-invalid', String(!ok)); if (!ok) valid = false;
+    });
+    byId('fontError').hidden = valid;
+    byId('appearanceApply').disabled = !valid || !hex(byId('accentHex').value);
+    return valid;
+  }
+  var statusVersion = 0;
+  function fontStatus() {
+    var version = ++statusVersion, values = fontValues();
+    Promise.all(Object.keys(values).map(function (key) {
+      var name = values[key];
+      if (!name || !RV.Fonts.valid(name)) return '';
+      return RV.Fonts.available(name).then(function (available) {
+        return name + ': ' + RV.I18n.t('fonts.' + (name === 'Vazirmatn' ? 'included' : available === true ? 'installed' : available === false ? 'missing' : 'unknown'));
+      });
+    })).then(function (items) { if (version === statusVersion) byId('fontStatus').textContent = items.filter(Boolean).filter(function (item, index, all) { return all.indexOf(item) === index; }).join(' · '); });
+  }
   function preview(event) {
+    if (!validateFonts()) return;
     var input = event.target, color = prefs.accent;
     if (input.id === 'accentHex' || input.id === 'accentPicker') {
       color = hex(input.value);
@@ -90,8 +114,9 @@
     }
     if (input.id !== 'accentHex') { byId('accentHex').setAttribute('aria-invalid', 'false'); byId('accentError').hidden = true; byId('appearanceApply').disabled = false; }
     prefs = { accent: color, surface: byId('appearanceSurface').value, density: byId('appearanceDensity').value,
-      standardLinks: byId('appearanceStandardLinks').checked };
-    api.preview(fields()); apply();
+      standardLinks: byId('appearanceStandardLinks').checked, fonts: RV.Fonts.normalize(fontValues()) };
+    api.preview(fields()); apply(); validateFonts();
+    if (/^font/.test(input.id)) fontStatus();
     // Keep partially entered HEX text intact while the user types.
     byId('accentPicker').value = prefs.accent;
     if (input.id !== 'accentHex') byId('accentHex').value = prefs.accent.toUpperCase();

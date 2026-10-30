@@ -14,6 +14,19 @@
 
   var DICT = {
     en: {
+      'diagram.layout': 'Layout',
+      "fonts.title": "Fonts",
+      "fonts.latin": "Latin / other scripts",
+      "fonts.persian": "Persian / Arabic",
+      "fonts.ui": "Interface",
+      "fonts.default": "System default",
+      "fonts.hint": "Vazirmatn is included (SIL OFL). Other families must be installed on your device. Enter any local family name, or clear the field for the default.",
+      "fonts.invalid": "Enter a font family name without quotes or file paths.",
+      "fonts.included": "included",
+      "fonts.installed": "installed",
+      "fonts.missing": "not installed; using fallback",
+      "fonts.unknown": "availability unknown",
+
       'diagram.resources': 'Images, external resources and unsafe diagram styles are disabled.',
       "diagram.title": "Mermaid diagram",
       "diagram.source": "Source",
@@ -265,6 +278,19 @@
     },
 
     fa: {
+      'diagram.layout': 'چیدمان',
+      "fonts.title": "فونت‌ها",
+      "fonts.latin": "لاتین / سایر زبان‌ها",
+      "fonts.persian": "فارسی / عربی",
+      "fonts.ui": "رابط کاربری",
+      "fonts.default": "پیش‌فرض سیستم",
+      "fonts.hint": "وزیرمتن با مجوز آزاد SIL OFL همراه برنامه است. فونت‌های دیگر باید روی دستگاه نصب باشند. نام هر خانوادهٔ فونت نصب‌شده را وارد کنید؛ برای پیش‌فرض، کادر را خالی کنید.",
+      "fonts.invalid": "نام خانوادهٔ فونت را بدون کوتیشن یا مسیر فایل وارد کنید.",
+      "fonts.included": "همراه برنامه",
+      "fonts.installed": "نصب‌شده",
+      "fonts.missing": "نصب نیست؛ فونت جایگزین استفاده می‌شود",
+      "fonts.unknown": "وضعیت نصب نامشخص",
+
       'diagram.resources': 'تصاویر، منابع خارجی و استایل‌های ناامن در نمودار غیرفعال هستند.',
       "diagram.title": "نمودار Mermaid",
       "diagram.source": "کد",

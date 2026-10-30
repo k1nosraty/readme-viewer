@@ -105,7 +105,7 @@ body {
   grid-template-rows: auto minmax(0, 1fr) auto;
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--sans);
+  font-family: var(--ui-font, var(--sans));
   font-size: 14px;
   line-height: 1.45;
   overflow: hidden;
@@ -1482,3 +1482,13 @@ html[data-theme="light"] { color-scheme: light; }
 .diagram-canvas { flex: 1; min-height: 0; overflow: auto; padding: 16px; direction: ltr; }
 .diagram-canvas img { display: block; width: 100%; max-width: none; }
 @media (pointer: coarse) { .diagram-tools button { min-height: 44px; } }
+
+.markdown-body, .font-sample { font-family: var(--doc-font, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"); }
+.appearance-field > input[type="text"] { min-width: 0; width: 100%; min-height: 36px; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 7px 9px; background: var(--bg); color: var(--fg); font: inherit; }
+.appearance-field > input[aria-invalid="true"] { border-color: var(--danger); }
+.font-sample { background: var(--bg-subtle); border: 1px solid var(--border-muted); border-radius: var(--r-sm); padding: 12px; margin-top: 12px; font-size: 16px; line-height: 1.8; }
+.font-sample p { margin: 0; color: var(--fg); font-size: inherit; line-height: inherit; }
+#fontHint, #fontStatus { overflow-wrap: anywhere; font-size: 12px; line-height: 1.7; color: var(--fg-muted); }
+
+.diagram-layout { font-size: 12px; margin-inline-start: auto; }
+.diagram-layout select { padding: 5px; min-height: 32px; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; }

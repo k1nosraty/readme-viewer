@@ -115,6 +115,7 @@
       '<title>' + title + '</title>',
       '<style>',
       BASE_CSS,
+      String(opts.fontCss || ''),
       '</style>',
       '</head>',
       '<body data-theme="' + theme + '">',

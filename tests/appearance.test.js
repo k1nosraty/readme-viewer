@@ -87,3 +87,46 @@ test('failed appearance storage keeps preview open and rolls back partially writ
   assert.equal(storage.get('rv.settings'),' {"font":17}'.trim());
   a.click('appearanceCancel'); assert.equal(a.api.state.font,17);
 });
+
+test('font previews keep Latin and Arabic separate, cancel exactly, persist and export the free face', async t => {
+  const storage = new Map(); const a = await load(t, storage); if (!a) return;
+  const { document: d, window: w } = a;
+  a.api.setDoc('# Hello سلام\n\n```js\nconst value = 1;\n```', 'fonts.md');
+  const original = a.api.el.editor.value;
+  assert.equal(d.documentElement.style.getPropertyValue('--doc-font'), '');
+  assert.equal(d.querySelector('script[src*="vazirmatn.js"]'), null);
+  a.open(); a.set('fontLatin', 'Georgia'); a.set('fontPersian', 'Vazirmatn'); a.set('fontUi', 'Arial');
+  await w.RV.Fonts.ready();
+  assert.match(d.documentElement.style.getPropertyValue('--doc-font'), /RV Document Arabic.*Georgia/);
+  assert.match(d.documentElement.style.getPropertyValue('--ui-font'), /Arial/);
+  assert.match(d.getElementById('document-font-faces').textContent, /unicode-range:U\+0600-06FF/);
+  assert.match(w.RV.Fonts.exportCss(), /data:font\/woff2;base64/);
+  assert.equal(storage.has('rv.appearance'), false);
+  a.click('appearanceCancel'); await w.RV.Fonts.ready();
+  assert.equal(d.documentElement.style.getPropertyValue('--doc-font'), '');
+  assert.equal(d.documentElement.style.getPropertyValue('--ui-font'), '');
+  assert.equal(a.api.el.editor.value, original); assert.equal(a.api.state.dirty, false);
+  a.open(); a.set('fontLatin', 'Georgia'); a.set('fontPersian', 'Tahoma'); a.click('appearanceApply');
+  const b = await load(t, storage); b.open();
+  assert.equal(b.document.getElementById('fontLatin').value, 'Georgia');
+  assert.equal(b.document.getElementById('fontPersian').value, 'Tahoma');
+  assert.doesNotMatch(b.window.RV.Fonts.exportCss(), /data:font/);
+  b.click('appearanceReset'); b.click('appearanceCancel');
+  assert.equal(b.window.RV.Fonts.snapshot().persian, 'Tahoma');
+  assert.deepEqual(a.errors, []);
+});
+
+test('font names cannot inject CSS and corrupt persisted choices fall back to defaults', async t => {
+  const storage = new Map([['rv.appearance', JSON.stringify({ fonts: { latin: 'Arial; color:red', persian: 'Amiri', ui: '</style>' } })]]);
+  const a = await load(t, storage); if (!a) return;
+  a.open();
+  assert.equal(a.document.getElementById('fontLatin').value, '');
+  assert.equal(a.document.getElementById('fontPersian').value, 'Amiri');
+  a.set('fontLatin', 'Arial; color:red');
+  assert.equal(a.document.getElementById('appearanceApply').disabled, true);
+  assert.equal(a.document.getElementById('fontError').hidden, false);
+  a.set('fontLatin', 'Noto Sans CJK JP');
+  assert.equal(a.document.getElementById('appearanceApply').disabled, false);
+  a.click('appearanceApply');
+  assert.equal(a.window.RV.Fonts.snapshot().latin, 'Noto Sans CJK JP');
+});

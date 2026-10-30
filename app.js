@@ -520,7 +520,8 @@
           }, preview);
           eachNode('input[type=checkbox]', function (box) { box.disabled = true; box.removeAttribute('data-rv-task'); }, preview);
           if (RV.Diagrams) { await RV.Diagrams.render(preview); RV.Diagrams.cleanExport(preview); }
-          return Promise.resolve(RV.Native.previewInBrowser(Exporter.build({ title: file.name || handle.name || 'README', html: preview.innerHTML,
+          if (RV.Fonts) await RV.Fonts.ready();
+          return Promise.resolve(RV.Native.previewInBrowser(Exporter.build({ title: file.name || handle.name || 'README', html: preview.innerHTML, fontCss: RV.Fonts ? RV.Fonts.exportCss() : '',
             theme: state.theme === 'auto' ? (isDark() ? 'dark' : 'light') : state.theme,
             lang: Direction.detectLanguage(decoded.text), dir: Direction.dominantDir(decoded.text) }))).then(function () { return true; });
         });
@@ -1191,6 +1192,9 @@
     var snapshot = el.preview.cloneNode(true);
     var exportName = state.name, exportTheme = isDark() ? 'dark' : 'light';
     var exportDir = state.dirMode === 'auto' ? Direction.dominantDir(src) : state.dirMode;
+    var fontSnapshot = RV.Fonts ? RV.Fonts.snapshot() : {};
+    if (RV.Fonts && (fontSnapshot.latin || fontSnapshot.persian)) await RV.Fonts.ready();
+    var exportFonts = RV.Fonts ? RV.Fonts.exportCss(fontSnapshot) : '';
     if (RV.Diagrams && snapshot.querySelector('.code-block[data-lang="mermaid"]')) { await RV.Diagrams.render(snapshot); RV.Diagrams.cleanExport(snapshot); }
     eachNode('.section-tools', function (node) { node.parentNode.removeChild(node); }, snapshot);
     eachNode('.section-folded', function (node) { node.classList.remove('section-folded'); }, snapshot);
@@ -1202,6 +1206,7 @@
     var doc = Exporter.build({
       title: exportName || 'README',
       html: snapshot.innerHTML,
+      fontCss: exportFonts,
       theme: exportTheme,
       lang: Direction.detectLanguage(src),
       dir: exportDir
@@ -1529,6 +1534,11 @@
   }
 
   document.addEventListener('rv:diagram-layout', function () { measureParts(); markActiveToc(); });
+
+  document.addEventListener('rv:fonts-layout', function () {
+    measureParts(); markActiveToc();
+    if (RV.Diagrams) { RV.Diagrams.render(el.preview); RV.Diagrams.render($('comparisonPreview')); }
+  });
 
   var renderTimer = 0;
   var renderOpts = null;
@@ -2987,7 +2997,33 @@
     "```",
     "",
     "> [!NOTE]",
-    "> These examples work with Mermaid Tiny. Mindmaps and the dedicated Architecture syntax need full Mermaid and are not enabled in this build.",
+    "> These diagrams render offline with full Mermaid. Use the Layout control on a flowchart to compare Dagre with ELK.",
+    "",
+    "",
+    "### Mindmap",
+    "",
+    "```mermaid",
+    "mindmap",
+    "  root((README Viewer))",
+    "    Reading",
+    "      Tabs",
+    "      Search",
+    "    Diagrams",
+    "      Flowchart",
+    "      Sequence",
+    "    Export",
+    "      HTML",
+    "      SVG",
+    "```",
+    "",
+    "### Architecture",
+    "",
+    "```mermaid",
+    "architecture-beta",
+    "  service api(server)[API]",
+    "  service db(database)[Database]",
+    "  api:R -- L:db",
+    "```",
     "",
     "",
     '## Tasks',

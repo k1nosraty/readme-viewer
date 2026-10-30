@@ -18,7 +18,7 @@ test('diagram integration preserves source, isolates SVG, and exports pending di
   } });
   const { window: win, document: doc } = app;
   const diagrams = win.RV.Diagrams, api = win.RVApp;
-  assert.equal(doc.querySelector('script[src*="mermaid.tiny"]'), null, 'ordinary startup never loads the bundle');
+  assert.equal(doc.querySelector('script[src*="mermaid.full"]'), null, 'ordinary startup never loads the bundle');
   const source = '# Diagram\n\n```mermaid\nflowchart TD\n A[سلام] --> B\n```\n';
   api.setDoc(source, 'diagram.md');
   await diagrams.render(doc.getElementById('preview'));
@@ -57,7 +57,7 @@ test('diagram integration preserves source, isolates SVG, and exports pending di
   const downloaded = [];
   diagrams.download = (svg, name, mime) => { downloaded.push({ svg, name, mime }); return Promise.resolve(true); };
   await diagrams.render(doc.getElementById('preview'));
-  doc.querySelector('#preview .diagram-tools button:last-child').click();
+  doc.querySelector('#preview .diagram-tools button:nth-of-type(3)').click();
   assert.equal(downloaded[0].name, 'diagram.svg');
   assert.match(downloaded[0].mime, /^image\/svg\+xml/);
   assert.doesNotMatch(downloaded[0].svg, /bad.invalid/);
