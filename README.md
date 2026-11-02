@@ -5,36 +5,44 @@ scrolling, and **interactive task lists**: with *Edit in preview* turned on, you
 in the rendered document and the Markdown source is updated — one `[ ]` → `[x]` at a time, with
 every other byte of the file left exactly as it was.
 
-Version 1.4.0 adds offline Mermaid diagrams, mathematical labels and selectable document/interface fonts in the Tauri 2 application for Windows and Linux,
-plus the Android Preview.
+Version 1.5.0 adds signed desktop updates, stronger opt-in draft recovery, distraction-free reading
+and an About dialog. It improves rendering speed, save safety and compact-screen usability while
+preserving full offline Mermaid, mathematical labels and selectable fonts on Windows, Linux and
+Android Preview.
 Open and Save use native file dialogs and direct file access in the app window. The portable
 browser application remains supported and needs no build step. Remote document images and
 external links can still use the network.
 
-## Native application (1.4.0)
+## Native application (1.5.0)
 
-Native 1.4.0 includes independent document tabs, a resizable second reading pane, link context menus,
+Native 1.5.0 includes independent document tabs, a resizable second reading pane, link context menus,
 bookmarks, section folding, a collapsible outline and optional session restoration. File / Edit /
 View / Help menus complement a customizable toolbar. View > Appearance offers accent presets,
 custom colors, warm/cool surfaces, interface density and live reading preferences.
 The release workflow runs all platform checks before publishing the installers and APK in
-[GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/tag/v1.4.0).
+[GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/tag/v1.5.0).
 Earlier downloads remain available.
 
 | Platform | Native package and requirements |
 | --- | --- |
-| Windows | NSIS `.exe` installer, per user; Windows 10/11 and current Microsoft Edge WebView2. The installer is unsigned. If WebView2 is missing, its bootstrap installer needs internet on first installation. |
+| Windows | NSIS `.exe` installer, per user; Windows 10/11 and current Microsoft Edge WebView2. No Windows Authenticode signature is provided; in-app updates use a separate cryptographic signature. If WebView2 is missing, its bootstrap installer needs internet on first installation. |
 | Linux | `.deb` for Ubuntu/Debian with WebKitGTK 4.1, or `.AppImage` for compatible Linux systems. Both open an application window. |
 | Android | Tauri Preview debug APK for ARM64/x86_64; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
 
-Install from the 1.4.0 release: run the per-user installer on Windows; install the .deb with your
+Install from the 1.5.0 release: run the per-user installer on Windows; install the .deb with your
 software manager or make the .AppImage executable and open it on Linux; on Android, install the
-APK matching your device and allow your downloader to install apps when prompted. Each asset has a SHA-256
-checksum beside it.
+APK matching your device and allow your downloader to install apps when prompted. Every installer
+and APK has a SHA-256 checksum beside it.
 
-Upcoming builds keep the full offline Mermaid bundle, optimize the native Release binary and
+The 1.5.0 builds keep the full offline Mermaid bundle, optimize the native Release binary and
 distribute Android Preview APKs separately for ARM64 and X86_64. CI measures actual installer
 sizes against [explicit budgets](docs/size-and-ui-audit.md); frontend size is reported separately.
+
+Help → Check for updates offers download/install and optional in-app version notices. Help → About
+includes the installed version and [developer GitHub](https://github.com/k1nosraty). Older versions
+need one manual upgrade to gain update checks. Android 1.4.0 used a temporary signing identity;
+upgrading to the stable 1.5.0 Preview identity may require reinstalling. Save documents outside the
+app first; uninstalling can remove local drafts.
 
 No Node.js or Python is needed to use native packages. Click **Open**, choose your Markdown,
 turn on **Edit in preview** to change task checkboxes, then click **Save**. Desktop Save writes
@@ -70,7 +78,7 @@ available. Other browsers download an updated copy; replace the original with it
 
 ## Features
 
-Mermaid diagrams, fonts and the updated sample document are included in the v1.4.0 installers.
+Mermaid diagrams, fonts and the updated sample document are included in the v1.5.0 installers.
 
 - **GitHub-accurate rendering** — headings, tables, task lists, fenced code with syntax
   highlighting, block quotes, images, strikethrough, footnotes-free GFM, hover heading anchors.

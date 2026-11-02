@@ -29,6 +29,12 @@ jobs:
           fi
       - run: npm ci
       - run: npm test
+      - name: Verify the pushed release tag
+        if: github.ref == 'refs/heads/main'
+        run: |
+          version=$(node -p "require('./package.json').version")
+          git fetch --no-tags origin "refs/tags/v$version:refs/tags/v$version"
+          test "$(git rev-parse "v$version^{commit}")" = "$GITHUB_SHA"
       - name: Configure bounded browser-test package downloads
         run: |
           sudo python3 - <<'PYTHON'
@@ -230,7 +236,7 @@ jobs:
           else:
               key = Path.home() / '.android/debug.keystore'
               key.parent.mkdir(parents=True, exist_ok=True)
-              key.write_bytes(base64.b64decode(encoded, validate=True))
+              key.write_bytes(base64.b64decode("".join(encoded.split()), validate=True))
               key.chmod(0o600)
           PYTHON
       - name: Build optimized native debug preview APKs per architecture
@@ -333,4 +339,4 @@ jobs:
             echo "v$version already exists; leaving published assets unchanged."
             exit 0
           fi
-          gh release create "v$version" dist/* --target "$GITHUB_SHA" --title "README Viewer v$version" --notes-file RELEASE-NOTES.md
+          gh release create "v$version" dist/* --verify-tag --latest --title "README Viewer v$version" --notes-file RELEASE-NOTES.md

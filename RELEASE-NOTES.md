@@ -1,31 +1,34 @@
-# README Viewer 1.4.0 — offline diagrams, math and fonts
+# README Viewer 1.5.0 — safer saves, recovery and signed updates
 
 ## What's new
 
-- **Full offline Mermaid:** flowcharts, sequence/ER/pie diagrams, mindmaps and architecture diagrams. Compare Dagre and ELK layouts without a CDN.
-- **Mathematical labels:** powers, fractions, integrals and matrices use the bundled KaTeX engine and native MathML. SVG and self-contained HTML exports retain the formulas. An updated browser/system WebView with MathML is required; unsupported environments retain the source with an explanation.
-- **Compact diagram controls:** source, expand and SVG download icons float in the diagram corner. Controls brighten on hover/focus and remain visible with 44px targets on touch screens. The approved 2px diagram frame keeps the current theme border color.
-- **View > Appearance > Fonts:** independent Latin/other-script, Persian/Arabic and interface choices. Preset menus always show every option; select Other installed font to enter a local family name. Live preview, Apply, Cancel and defaults preserve the document.
-- **Optional Vazirmatn:** the included variable font is licensed under SIL OFL 1.1 and loads only when selected. Other font files remain on the user's device. Included fonts are embedded in HTML/SVG exports; local fonts may look different on another device.
-- **Updated demo:** Load sample document and docs/demo.md include seven diagram examples, mathematics, Persian/English content and interactive Markdown.
+- **Help → Check for updates:** optional automatic checks announce newer stable releases inside the app. Windows and Linux can download a signed update, verify it, protect unsaved documents and install it. Android opens the matching APK for system-confirmed installation. Checks run while the app is open; document text and paths are never sent.
+- **Help → About:** installed version, license and developer link to [github.com/k1nosraty](https://github.com/k1nosraty).
+- **Stronger opt-in recovery:** File → Session → Restore open documents keeps transactional copies of large drafts, including unsaved edits. Autosave runs during continuous typing; failed writes preserve the previous committed copy. Restored tabs are separate dirty copies and ask where to save.
+- **Distraction-free reading:** press `F8` or use View → Distraction-free reading. `Esc` or the visible exit button restores the previous workspace and comparison panes without changing the saved view preference.
 
-## Fixes and packaging
+## Fixes and performance
 
-- Fix font suggestions disappearing after a previous choice.
-- Remove extra diagram action bars and reveal source/copy controls below the diagram only when requested.
-- Keep diagram output sanitised and isolated in images; embedded configuration, external diagram images and interactive diagram links remain disabled.
-- Reuse existing application controls and add no runtime npm dependencies. Full Mermaid and the optional font add approximately 0.7–0.9 MB of compressed frontend assets over the Tiny build; actual installer sizes depend on platform packaging.
-- Retain document tabs, independent undo/redo, two-document reading, local linked files, reading tools, native Save and appearance customization from 1.3.0.
+- Desktop saves stage and flush a complete sibling file before replacing the destination, preserving Unix permissions and symlink targets. External file changes offer Overwrite, Save as or Cancel; the desktop commit checks the file revision again after staging.
+- Reuse unchanged preview blocks and bounded highlight caches, preserving expanded details, focused controls, source mapping and rendered diagrams. An audit benchmark showed approximately four times faster incremental preview updates; results vary by document and device.
+- Prevent embedded document styles from covering the viewer interface. Fix numbered-heading collisions, language loading across code blocks, native embedded images and Unicode/binary detection.
+- Keep menus within small and RTL viewports, expose mobile Contents through its shortcut, protect background editing while dialogs are open, and improve compact labels, touch targets and focus return.
+- Preserve the complete offline Mermaid bundle, Dagre/ELK layouts, mindmaps, architecture diagrams, mathematical labels, fonts and SVG/HTML exports.
 
-## Downloads
+## Downloads and upgrades
 
-- **Windows:** per-user NSIS `.exe`, Windows 10/11 with current WebView2. Unsigned installer; first installation needs internet if WebView2 must be installed.
-- **Linux:** `.deb` and `.AppImage` for compatible systems using WebKitGTK 4.1.
-- **Android Preview:** development-signed debug APK for ARM64/x86_64, Android 8.0+ with updated System WebView, distributed outside Play Store. Signing changes may require uninstall/reinstall; save documents outside the app first.
+- **Windows:** per-user NSIS `.exe` for Windows 10/11 with current WebView2. There is no Windows Authenticode signature; in-app updates have a separate cryptographic signature. First installation needs internet only if WebView2 must be installed.
+- **Linux:** `.deb` and `.AppImage` for compatible WebKitGTK 4.1 systems. Signed updates select the installed package format; package installation may require normal OS authorization.
+- **Android Preview:** separate ARM64 and X86_64 development-signed debug APKs, Android 8.0+ with updated System WebView, outside Play Store. Download the ABI matching your device. This release starts using a stable Preview signing identity for future upgrades.
 
-Desktop Save writes to the opened file. Android's first Save asks for a destination and writes a copy; later saves update that copy. Android content URIs may not provide relative image access or a display name. Local images that traverse parent directories remain blocked. Saves use UTF-8 and retain an existing UTF-8 BOM and LF/CRLF style.
+**First upgrade:** versions through 1.4.0 do not have the new updater; install 1.5.0 manually once. An older Android APK signed with a different temporary key may require uninstall/reinstall. Save documents outside the app first: uninstalling can remove app-local drafts and settings. Keep the same Preview signing identity for subsequent APK releases.
 
-Every download includes a SHA-256 checksum. Publication is gated on unit and real-browser tests, Linux installed-app open/edit/save/uninstall checks, Windows install/window-launch/uninstall checks, and Android signature/install/launch and emulator checks for Persian task editing, full-width Preview, rotation and Back-button confirmation. Installed Linux and Android WebViews also verify all seven diagrams, mathematical layout, the bundled font and repeated font selection. Physical Android providers, desktop file associations and additional Linux distributions still need hands-on review.
+Release binaries are optimized for size with LTO and symbol stripping. CI enforces frontend and per-platform installer budgets; no reduced installer size is claimed before the platform artifacts are measured. The full Mermaid feature set is retained.
 
+Every installer/APK has a SHA-256 checksum. Desktop installers also have version-bound update signatures; `latest.json` provides the update feed. Publication waits for JavaScript/browser tests, size checks, native Rust checks, Windows install/launch/uninstall, Linux installed-app open/edit/save and Android emulator/signature checks.
 
-The second pane is read-only until opened in the main pane. A Markdown file-tree sidebar is not included. Appearance changes do not edit the Markdown source. Earlier releases remain available on the releases page.
+## Limits
+
+Recovery is optional and does not replace saving files. Changes after the last completed recovery update, OS-cleared app data and uninstalled app storage cannot be recovered. Android document providers may not supply relative image access or filenames; the first Save asks for a destination. Saves use UTF-8 and retain an existing UTF-8 BOM and LF/CRLF style. The comparison pane remains read-only.
+
+Physical-device providers, additional Linux distributions, accessibility tools and end-to-end upgrades between published signed native versions still need hands-on verification. Network failures do not prevent offline reading or editing. Earlier releases remain available on GitHub.

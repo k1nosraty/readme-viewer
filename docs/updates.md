@@ -46,6 +46,11 @@ Add two GitHub Actions repository secrets under Settings → Secrets and variabl
 1. `TAURI_SIGNING_PRIVATE_KEY`: the contents of `updater.key`.
 2. `ANDROID_DEBUG_KEYSTORE_BASE64`: single-line Base64 of `android-debug.keystore`.
 
+For GitHub's web UI, open each local file in a text editor and copy its full contents into the
+corresponding secret value. A ready-to-paste Android value is available in
+`$HOME/.config/readme-viewer/android-debug.keystore.base64` (also owner-only). Line breaks in
+Base64 values are accepted. Leave `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` unset for this key.
+
 For example, on a machine with an authenticated GitHub CLI, from this repository:
 
 ```sh
@@ -69,7 +74,11 @@ unsigned and keep producing ordinary test artifacts.
 1. Bump `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` and
    `src-tauri/tauri.conf.json` to the same stable version. Update `RELEASE-NOTES.md`.
    The prepared native/portable HTML version is filled from `package.json` during packaging.
-2. Merge to main. The existing native workflow runs JavaScript/browser tests, native install/save
+2. Update main and develop to the same tested release commit and create an annotated version
+   tag pointing to that commit. Push the branches and tag together, for example:
+   `git push --atomic origin main develop refs/tags/v1.5.0` (substitute the release version).
+   Main CI verifies the pushed tag resolves to its exact commit before building.
+   The existing native workflow runs JavaScript/browser tests, native install/save
    checks and size budgets. It signs the Windows installer, AppImage and deb with version-bound
    signatures and restores the fixed Android signing identity before building per-ABI APKs.
 3. After all platform checks pass, the release job uploads installers, checksums, signatures and
