@@ -3,12 +3,13 @@ set -euo pipefail
 trap 'status=$?; printf "::error title=Android native smoke::Failed at line %s (exit %s)\n" "$LINENO" "$status"' ERR
 cd "$(dirname "$0")/.."
 mkdir -p native-test-results dist
-apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' ! -name '*androidTest*' | sort | head -n 1)
+apk=""
+# Exercise the same single-ABI package distributed to emulator users.
+while IFS= read -r candidate; do
+  if unzip -l "$candidate" | grep 'lib/x86_64/' > /dev/null &&
+      ! unzip -l "$candidate" | grep 'lib/arm64-v8a/' > /dev/null; then apk="$candidate"; break; fi
+done < <(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' ! -name '*androidTest*' | sort)
 test -n "$apk"
-# Select a universal or x86_64 APK, never an arm-only split for this emulator.
-for candidate in $(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' ! -name '*androidTest*'); do
-  if unzip -l "$candidate" | grep 'lib/x86_64/' > /dev/null; then apk="$candidate"; break; fi
-done
 unzip -l "$apk" | grep 'lib/x86_64/' > /dev/null
 build_tools="$ANDROID_HOME/build-tools/35.0.0"
 "$build_tools/apksigner" verify --verbose --print-certs "$apk" > native-test-results/android-signature.txt
@@ -46,8 +47,7 @@ adb exec-out screencap -p > native-test-results/android-native.png
 adb logcat -d > native-test-results/android-logcat.txt
 if grep -E 'FATAL EXCEPTION|Fatal signal' native-test-results/android-logcat.txt; then exit 1; fi
 version=$(node -p "require('./package.json').version")
-# Prefer a single universal APK. If Gradle emits ABI splits, label them so an
-# emulator-only X86_64 build can never be mistaken for a phone ARM64 preview.
+# Publish each architecture separately to avoid downloading unused native libraries.
 package_apk() {
   local source="$1" architecture="$2"
   local output="README-Viewer-$version-Android-$architecture-Debug-Preview.apk"
@@ -60,15 +60,12 @@ package_apk() {
   cp "$source" "dist/$output"
   (cd dist && sha256sum "$output" > "$output.sha256")
 }
-if unzip -l "$apk" | grep 'lib/arm64-v8a/' > /dev/null; then
-  package_apk "$apk" Universal
-else
-  package_apk "$apk" X86_64
-  arm_apk=""
-  while IFS= read -r candidate; do
-    if unzip -l "$candidate" | grep 'lib/arm64-v8a/' > /dev/null; then arm_apk="$candidate"; break; fi
-  done < <(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' ! -name '*androidTest*')
-  test -n "$arm_apk"
-  package_apk "$arm_apk" ARM64
-fi
+package_apk "$apk" X86_64
+arm_apk=""
+while IFS= read -r candidate; do
+  if unzip -l "$candidate" | grep 'lib/arm64-v8a/' > /dev/null &&
+      ! unzip -l "$candidate" | grep 'lib/x86_64/' > /dev/null; then arm_apk="$candidate"; break; fi
+done < <(find src-tauri/gen/android/app/build/outputs/apk -name '*debug*.apk' ! -name '*androidTest*' | sort)
+test -n "$arm_apk"
+package_apk "$arm_apk" ARM64
 echo 'Native Android debug preview signature, launch, WebView editing, screenshot and uninstall smoke passed.'

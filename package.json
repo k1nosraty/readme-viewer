@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node --test",
     "start": "python3 -m http.server 8080 --bind 0.0.0.0",
-    "test:browser": "node scripts/browser-smoke.js && node scripts/diagrams-smoke.js",
+    "test:browser": "node scripts/browser-smoke.js && node scripts/diagrams-smoke.js && node scripts/ui-smoke.js",
+    "size:check": "node scripts/check-size.js frontend",
     "native:prepare": "node scripts/prepare-tauri-assets.js",
     "native:dev": "tauri dev",
     "native:build": "tauri build",

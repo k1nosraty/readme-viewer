@@ -32,6 +32,10 @@ software manager or make the .AppImage executable and open it on Linux; on Andro
 APK matching your device and allow your downloader to install apps when prompted. Each asset has a SHA-256
 checksum beside it.
 
+Upcoming builds keep the full offline Mermaid bundle, optimize the native Release binary and
+distribute Android Preview APKs separately for ARM64 and X86_64. CI measures actual installer
+sizes against [explicit budgets](docs/size-and-ui-audit.md); frontend size is reported separately.
+
 No Node.js or Python is needed to use native packages. Click **Open**, choose your Markdown,
 turn on **Edit in preview** to change task checkboxes, then click **Save**. Desktop Save writes
 back to the opened file. Android's first Save asks where to write a copy; the source stays

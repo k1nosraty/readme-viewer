@@ -31,3 +31,9 @@ custom-protocol = ["tauri/custom-protocol"]
 
 [profile.dev]
 debug = 0
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

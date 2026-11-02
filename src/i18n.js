@@ -174,6 +174,8 @@
       'mode.label': 'View',
       'mode.source': 'Source',
       'mode.split': 'Split',
+      'status.sourceMeta': '{lines} lines · {chars} chars',
+      'status.previewMeta': '{count} blocks · {direction}',
       'mode.preview': 'Preview',
 
       'dir.label': 'Text direction',
@@ -443,7 +445,9 @@
 
       'mode.label': 'نمایش',
       'mode.source': 'نوشتن',
-      'mode.split': 'Split',
+      'mode.split': 'دو نما',
+      'status.sourceMeta': '{lines} سطر · {chars} نویسه',
+      'status.previewMeta': '{count} بلوک · {direction}',
       'mode.preview': 'پیش‌نمایش',
 
       'dir.label': 'جهت متن',

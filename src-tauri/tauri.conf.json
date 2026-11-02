@@ -4,6 +4,7 @@
   "version": "1.4.0",
   "identifier": "io.github.readmeviewer.viewer",
   "build": {
+    "removeUnusedCommands": true,
     "beforeDevCommand": "npm run native:prepare",
     "beforeBuildCommand": "npm run native:prepare",
     "frontendDist": "../native-dist"
@@ -65,7 +66,11 @@
       }
     ],
     "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
       "nsis": {
+        "compression": "lzma",
         "installMode": "currentUser",
         "displayLanguageSelector": false
       }

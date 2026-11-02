@@ -39,6 +39,13 @@ jobs:
         timeout-minutes: 8
         run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+      - run: npm run native:prepare
+      - run: npm run size:check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-size-and-ui-checks
+          path: native-test-results/*
+          if-no-files-found: error
   linux:
     needs: test
     runs-on: ubuntu-24.04
@@ -103,6 +110,8 @@ jobs:
       - name: Build Linux packages
         timeout-minutes: 15
         run: npm run native:build -- --bundles deb,appimage
+      - name: Check installer size budgets
+        run: node scripts/check-size.js linux
       - name: Native Rust checks including atomic saves
         run: cargo test --release --locked --manifest-path src-tauri/Cargo.toml --lib
       - name: Installed native WebView open, edit and save
@@ -134,6 +143,8 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm run native:build -- --bundles nsis
+      - name: Check installer size budget
+        run: node scripts/check-size.js windows
       - name: Native Rust checks including atomic saves
         run: cargo test --release --locked --manifest-path src-tauri/Cargo.toml --lib
       - name: Native installer, application window and uninstall
@@ -183,8 +194,11 @@ jobs:
         run: npm run android:init -- --ci
       - name: Use stable Android SDK 36 for the debug preview
         run: node scripts/configure-native-android.js
-      - name: Build native debug signed preview APK
-        run: npm run android:build -- --ci --debug --apk --target aarch64 x86_64
+      - name: Build optimized native debug preview APKs per architecture
+        env:
+          CARGO_PROFILE_DEV_OPT_LEVEL: s
+          CARGO_PROFILE_DEV_CODEGEN_UNITS: 1
+        run: npm run android:build -- --ci --debug --apk --split-per-abi --target aarch64 x86_64
       - name: Stop Android build daemons before emulator
         working-directory: src-tauri/gen/android
         run: ./gradlew --stop
@@ -200,6 +214,8 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: bash scripts/test-native-android.sh
+      - name: Check per-architecture APK size budgets
+        run: node scripts/check-size.js android
       - name: Capture Android failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

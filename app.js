@@ -2029,9 +2029,9 @@
     el.editor.setAttribute('lang', lang);
     el.editor.setAttribute('dir', state.dirMode === 'auto' ? Direction.dominantDir(src) : state.dirMode);
 
-    el.editorMeta.textContent = lines.length + ' lines · ' + src.length + ' chars';
+    el.editorMeta.textContent = t('status.sourceMeta', { lines: lines.length, chars: src.length });
     el.previewMeta.textContent = state.anchors.length
-      ? state.anchors.length + ' blocks · ' + state.dirMode
+      ? t('status.previewMeta', { count: state.anchors.length, direction: t('dir.' + state.dirMode) })
       : '';
     updateChrome();
   }
@@ -2207,7 +2207,7 @@
     var showHelp = function (show) {
       el.helpModal.hidden = !show;
       if (show) el.btnHelpDone.focus();
-      else el.btnHelp.focus();
+      else (el.btnHelp.getClientRects().length ? el.btnHelp : $('menuHelp').querySelector('summary')).focus();
     };
 
     el.btnHelp.addEventListener('click', function () { showHelp(true); });
@@ -2233,7 +2233,7 @@
 
     document.addEventListener('keydown', function (e) {
       var key = (e.key || '').toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
+      if (el.confirmModal.hidden && el.helpModal.hidden && (e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
         e.preventDefault(); e.stopPropagation(); undoEdit(key === 'y' || e.shiftKey); return;
       }
       if (e.key === 'Tab') {
@@ -2957,6 +2957,7 @@
 
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
+      if (!el.confirmModal.hidden || !el.helpModal.hidden) return;
       if (e.key === 'Escape' && mobileSidebar) {
         mobileSidebar = false; applySidebar(); el.btnToc.focus(); return;
       }
@@ -2979,7 +2980,9 @@
       if (key === '3') { e.preventDefault(); setMode('preview'); return; }
       if (key === 'f') {
         e.preventDefault();
-        if (!state.sidebar) { state.sidebar = true; applySidebar(); updateChrome(); saveSettings(); }
+        if (window.innerWidth <= 900) mobileSidebar = true;
+        else state.sidebar = true;
+        applySidebar(); updateChrome(); saveSettings();
         el.tocFilter.focus();
         el.tocFilter.select();
       }

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Optimize native Release builds for size with LTO, one codegen unit and symbol stripping; prune disallowed plugin commands and keep full offline Mermaid, ELK, math and fonts.
+- Build optimized debug Android Preview APKs separately for ARM64 and X86_64; enforce frontend and installer size budgets with CI summaries and JSON reports.
+- Keep menus within the viewport in both interface directions, make the mobile Contents shortcut reveal its panel, and prevent modal shortcuts from editing the background document.
+- Fix overlapping view-mode labels on compact toolbars, return Help focus to a visible control, wrap narrow dialog actions and complete Persian pane labels.
+- Add a visual UI smoke matrix covering English/Persian, light/dark, desktop/mobile/landscape and keyboard focus without introducing runtime dependencies.
 - Reuse unchanged preview blocks and sanitized HTML while preserving Markdown counters, source mapping, expanded details, focused controls and rendered diagrams.
 - Stage desktop saves in a temporary sibling file, flush complete contents, then replace the destination; preserve Unix permissions and symlink targets.
 - Detect external file changes before saving and offer Overwrite, Save as or Cancel. Desktop commits compare SHA-256 revisions again after staging.

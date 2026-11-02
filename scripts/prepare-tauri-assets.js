@@ -11,6 +11,8 @@ async function prepare() {
   for (const name of ['app.js', 'styles.css', 'src', 'vendor']) {
     await cp(path.join(root, name), path.join(output, name), { recursive: true });
   }
+  // The bundled bridge replaces its build-only source; runtime assets and licenses stay intact.
+  await rm(path.join(output, 'src/native-entry.js'));
   let html = await readFile(path.join(root, 'index.html'), 'utf8');
   const tag = '<script src="src/native.js"></script>';
   if (!/src\/native\.js/.test(html)) html = html.replace(/<script\s+src="(?:\.\/)?app\.js"/, `${tag}\n<script src="app.js"`);

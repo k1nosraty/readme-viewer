@@ -95,7 +95,7 @@ For the Android debug Preview:
 ```bash
 npm run android:init -- --ci
 npm run android:configure
-npm run android:build -- --ci --debug --apk --target aarch64 x86_64
+CARGO_PROFILE_DEV_OPT_LEVEL=s CARGO_PROFILE_DEV_CODEGEN_UNITS=1 npm run android:build -- --ci --debug --apk --split-per-abi --target aarch64 x86_64
 ```
 
 `android:configure` normalizes the generated project's compile and target SDK to stable Android
@@ -104,6 +104,14 @@ commands build the debug Preview APK; they are not a production Play Store relea
 
 Generated Android outputs are under `src-tauri/gen/android/app/build/outputs/`. The old Java
 project under `android/` is retained for historical 1.0.2 builds.
+
+CI distributes separate **ARM64** (phones/tablets) and **X86_64** (compatible devices/emulators)
+debug APKs. Each includes the same frontend, fonts and full Mermaid features. The debug WebView
+remains inspectable for the emulator checks; Rust optimization reduces package size without
+changing the Preview signing or application ID. In PowerShell, set the two `CARGO_PROFILE_DEV_*`
+environment variables before running the Android build command.
+
+Package size budgets and the UI audit are documented in [size and UI checks](size-and-ui-audit.md).
 
 ## Validation status
 

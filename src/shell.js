@@ -57,6 +57,14 @@
     applyToolbar(false);
   }
   function menus() { return Array.prototype.slice.call(document.querySelectorAll('.app-menu')); }
+  function placeMenu(menu) {
+    var panel = menu.querySelector('.menu-panel'), rect = menu.querySelector('summary').getBoundingClientRect();
+    panel.style.maxHeight = Math.max(0, innerHeight - rect.bottom - 12) + 'px';
+    var width = panel.getBoundingClientRect().width;
+    var left = document.documentElement.dir === 'rtl' ? rect.right - width : rect.left;
+    panel.style.left = Math.max(8, Math.min(left, innerWidth - width - 8)) + 'px';
+    panel.style.top = (rect.bottom + 4) + 'px';
+  }
   function close(except, focus) {
     hideSub();
     menus().forEach(function (menu) {
@@ -94,7 +102,7 @@
       summary.addEventListener('click', function () { close(menu); refresh(); });
       menu.addEventListener('toggle', function () {
         summary.setAttribute('aria-expanded', menu.open ? 'true' : 'false');
-        if (menu.open) refresh();
+        if (menu.open) { refresh(); placeMenu(menu); }
       });
       menu.querySelector('.menu-panel').addEventListener('scroll', function () { hideSub(); });
       summary.setAttribute('aria-expanded', 'false');
@@ -162,7 +170,7 @@
         close(next); next.open = wasOpen; next.querySelector('summary').focus();
         return;
       }
-      menu.open = true; refresh();
+      menu.open = true; refresh(); placeMenu(menu);
       var buttons = items(menu), current = buttons.indexOf(event.target), target;
       if (event.key === 'Home') target = 0;
       else if (event.key === 'End' || (current < 0 && event.key === 'ArrowUp')) target = buttons.length - 1;
