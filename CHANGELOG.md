@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 1.5.1 — 2026-11-02
+
+- Fix native compilation of updater configuration by declaring the existing `serde_json` crate as a direct dependency for `tauri::generate_context!`.
+
 ## 1.5.0 — 2026-11-02
 
 - Add Help → Check for updates, automatic in-app release notices, version-bound signed desktop updates and the native release manifest pipeline. Keep a stable Android Preview signing identity for APK upgrades.

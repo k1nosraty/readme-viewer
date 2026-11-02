@@ -76,7 +76,7 @@ unsigned and keep producing ordinary test artifacts.
    The prepared native/portable HTML version is filled from `package.json` during packaging.
 2. Update main and develop to the same tested release commit and create an annotated version
    tag pointing to that commit. Push the branches and tag together, for example:
-   `git push --atomic origin main develop refs/tags/v1.5.0` (substitute the release version).
+   `git push --atomic origin main develop refs/tags/v1.5.1` (substitute the release version).
    Main CI verifies the pushed tag resolves to its exact commit before building.
    The existing native workflow runs JavaScript/browser tests, native install/save
    checks and size budgets. It signs the Windows installer, AppImage and deb with version-bound
