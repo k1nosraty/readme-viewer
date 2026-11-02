@@ -5,6 +5,7 @@
   var app, current = '', lastTop = 0, restoring = false, sessionTimer = 0, positionTimer = 0;
   var records = read('rv.reading', {}), prefs = read('rv.reading.options', {});
   var refreshing = false, documentKeys = new WeakMap(), tabKeys = Object.create(null);
+  var loadingSession = false, readFailed = false, saving = null, saveAgain = false, generation = 0, lastSnapshot = null, failed = false;
   function read(key, fallback) {
     try { var value = JSON.parse(localStorage.getItem(key)); return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback; }
     catch (e) { return fallback; }
@@ -116,26 +117,92 @@
     });
     byId('bookmarkSection').hidden = !list.children.length;
   }
-  function sessionFailure() {
-    prefs.session = false; byId('restoreSession').checked = false;
-    write('rv.reading.options', prefs);
-    try { localStorage.removeItem('rv.workspace.session'); } catch (e) { void 0; }
-    app.toast(t('reading.storageError'), 'warning');
+  function sessionFailure(key) {
+    var message = t(key || 'reading.storageError');
+    byId('sessionStatus').textContent = message;
+    if (!failed) app.toast(message, 'warning');
+    failed = true;
   }
-  function saveSession() {
-    if (!app || !prefs.session) return;
+  function snapshot() {
     savePosition();
     var tabs = app.listTabs().filter(function (tab) { return tab.hasDocument; });
-    var value = { active: tabs.findIndex(function (tab) { return tab.active; }), documents: tabs.map(function (tab) {
-      return { source: tab.source, name: tab.name, saved: tab.saved, bom: tab.bom, eol: tab.eol, encoding: tab.encoding,
-        reading: records[tabKeys[tab.id]] || {} };
+    return { active: tabs.findIndex(function (tab) { return tab.active; }), documents: tabs.map(function (tab) {
+      // Restored documents are detached copies; retaining a second full source is unnecessary.
+      return { source: tab.source, name: tab.name, bom: tab.bom, eol: tab.eol, encoding: tab.encoding,
+        reading: JSON.parse(JSON.stringify(records[tabKeys[tab.id]] || {})) };
     }) };
-    // Bound local draft storage; the open documents remain untouched on failure.
-    if (JSON.stringify(value).length > 2000000 || !write('rv.workspace.session', value)) sessionFailure();
+  }
+  function sameSnapshot(a, b) {
+    return a && b && a.active === b.active && a.documents.length === b.documents.length &&
+      a.documents.every(function (doc, i) {
+        var other = b.documents[i];
+        return ['source', 'name', 'bom', 'eol', 'encoding'].every(function (key) { return doc[key] === other[key]; }) &&
+          JSON.stringify(doc.reading) === JSON.stringify(other.reading);
+      });
+  }
+  function durableStorage() { return RV.Drafts && RV.Drafts.available(); }
+  function saveSession() {
+    if (!app || !prefs.session || loadingSession || readFailed) return Promise.resolve(false);
+    clearTimeout(sessionTimer); sessionTimer = 0;
+    if (saving) { saveAgain = true; return saving; }
+    var version = generation;
+    function next() {
+      saveAgain = false;
+      if (!prefs.session || version !== generation) return Promise.resolve(false);
+      var value, operation;
+      try {
+        value = snapshot();
+        if (sameSnapshot(value, lastSnapshot)) {
+          failed = false; byId('sessionStatus').textContent = t('reading.saved'); return Promise.resolve(true);
+        }
+        var size = value.documents.reduce(function (sum, doc) { return sum + doc.source.length * 2; }, 0);
+        if (size > 32 * 1024 * 1024) throw new Error('Draft limit exceeded');
+        byId('sessionStatus').textContent = t('reading.saving');
+        if (durableStorage()) operation = RV.Drafts.write(value);
+        else {
+          // shortcut: older WebViews retain the small localStorage fallback until IndexedDB is available.
+          if (JSON.stringify(value).length > 2000000 || !write('rv.workspace.session', value)) throw new Error('Draft storage unavailable');
+          operation = Promise.resolve();
+        }
+      } catch (error) { sessionFailure(); return Promise.resolve(false); }
+      return operation.then(function () {
+        if (version !== generation) return false;
+        lastSnapshot = value; failed = false;
+        if (durableStorage()) { try { localStorage.removeItem('rv.workspace.session'); } catch (_) { void 0; } }
+        byId('sessionStatus').textContent = t('reading.saved');
+        return saveAgain ? next() : true;
+      }).catch(function () { if (version === generation) sessionFailure(); return false; });
+    }
+    saving = next().finally(function () {
+      saving = null;
+      if (version !== generation && prefs.session) workspaceChanged();
+    });
+    return saving;
+  }
+  function clearSession() {
+    prefs.session = false; generation++; lastSnapshot = null;
+    clearTimeout(sessionTimer); sessionTimer = 0;
+    byId('restoreSession').checked = false;
+    var optionsSaved = write('rv.reading.options', prefs);
+    var operation;
+    try {
+      localStorage.removeItem('rv.workspace.session');
+      operation = durableStorage() ? RV.Drafts.clear() : Promise.resolve();
+    } catch (error) { operation = Promise.reject(error); }
+    return operation.then(function () {
+      if (!optionsSaved) throw new Error('Recovery preference could not be cleared');
+      byId('sessionStatus').textContent = ''; failed = false; readFailed = false;
+      app.toast(t('reading.sessionCleared'), 'info'); return true;
+    }).catch(function () {
+      byId('sessionStatus').textContent = t('reading.clearError');
+      app.toast(t('reading.clearError'), 'warning'); return false;
+    });
   }
   function workspaceChanged() {
-    if (!app || !prefs.session) return;
-    clearTimeout(sessionTimer); sessionTimer = setTimeout(saveSession, 250);
+    if (!app || !prefs.session || loadingSession || readFailed || sessionTimer) return;
+    byId('sessionStatus').textContent = t('reading.pending');
+    // A bounded delay also saves during continuous typing, rather than waiting for idle.
+    sessionTimer = setTimeout(function () { sessionTimer = 0; saveSession(); }, 1000);
   }
   function refresh() {
     if (!app || refreshing) return;
@@ -166,20 +233,19 @@
     });
     byId('restoreSession').addEventListener('change', function () {
       prefs.session = byId('restoreSession').checked;
-      if (!write('rv.reading.options', prefs)) { sessionFailure(); return; }
+      if (!prefs.session) { clearSession(); return; }
+      if (!write('rv.reading.options', prefs)) {
+        prefs.session = false; byId('restoreSession').checked = false; sessionFailure(); return;
+      }
       if (prefs.session) saveSession();
-      else { try { localStorage.removeItem('rv.workspace.session'); } catch (e) { void 0; } }
     });
-    byId('clearSession').addEventListener('click', function () {
-      prefs.session = false; byId('restoreSession').checked = false; write('rv.reading.options', prefs);
-      try { localStorage.removeItem('rv.workspace.session'); } catch (e) { void 0; }
-      app.toast(t('reading.sessionCleared'), 'info');
-    });
+    byId('clearSession').addEventListener('click', clearSession);
     app.el.previewScroll.addEventListener('scroll', function () {
       if (restoring) return; lastTop = app.el.previewScroll.scrollTop;
       clearTimeout(positionTimer); positionTimer = setTimeout(savePosition, 180);
     }, { passive: true });
     window.addEventListener('pagehide', function () { savePosition(); saveSession(); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) saveSession(); });
     document.addEventListener('pointerdown', function (event) {
       ['readingOptions'].forEach(function (id) {
         var panel = byId(id); if (panel.open && !panel.contains(event.target)) panel.open = false;
@@ -191,8 +257,8 @@
         if (event.key === 'Escape' && panel.open) { event.preventDefault(); panel.open = false; panel.querySelector('summary').focus(); }
       });
     });
-    if (prefs.session) {
-      var session = read('rv.workspace.session', {}), restored = [];
+    function restore(session) {
+      var restored = [];
       if (Array.isArray(session.documents)) session.documents.forEach(function (item) {
         if (!item || typeof item.source !== 'string' || typeof item.name !== 'string') return;
         var id = app.restoreTab(item);
@@ -214,7 +280,27 @@
         app.toast(t('reading.sessionRestored'), 'info');
       }
     }
-    refresh();
+    var initial = app.state.documentId, version = generation;
+    if (prefs.session && durableStorage()) {
+      loadingSession = true;
+      return RV.Drafts.read().then(function (session) {
+        return app.whenDocumentsReady().then(function () {
+          if (!prefs.session || version !== generation) return;
+          var active = app.listTabs().filter(function (tab) { return tab.active; })[0];
+          var interacted = app.state.documentId !== initial || !!app.el.editor.value;
+          restore(session || read('rv.workspace.session', {}));
+          if (interacted && active) app.switchTab(active.id);
+        });
+      }).catch(function () {
+        if (prefs.session && version === generation) {
+          readFailed = true; sessionFailure('reading.readError'); restore(read('rv.workspace.session', {}));
+        }
+      }).then(function () {
+        loadingSession = false; refresh();
+      });
+    }
+    if (prefs.session) restore(read('rv.workspace.session', {}));
+    refresh(); return Promise.resolve();
   }
   function appearance(value, persist) {
     if (value) {
@@ -225,6 +311,6 @@
     }
     return { width: ['auto', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'full', spacing: prefs.spacing === 'relaxed' ? 'relaxed' : 'normal' };
   }
-  RV.Reading = { appearance: appearance, init: init, refresh: refresh, workspaceChanged: workspaceChanged, saveSession: saveSession,
+  RV.Reading = { appearance: appearance, init: init, refresh: refresh, workspaceChanged: workspaceChanged, saveSession: saveSession, clearSession: clearSession,
     reveal: reveal, clearFindVisibility: clearFindVisibility };
 }());

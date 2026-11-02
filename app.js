@@ -76,6 +76,7 @@
     dirMode: 'auto',
     font: 16,
     mode: 'split',
+    readingFocus: false,
     theme: 'auto',
     editPreview: false,
     sidebar: true,
@@ -752,7 +753,7 @@
     try {
       localStorage.setItem(STORE, JSON.stringify({
         font: state.font, wrap: state.wrap, sync: state.sync, dirMode: state.dirMode,
-        mode: state.mode, theme: state.theme, baseUrl: manualBaseUrl,
+        mode: focusSnapshot ? focusSnapshot.mode : state.mode, theme: state.theme, baseUrl: manualBaseUrl,
         editPreview: state.editPreview, sidebar: state.sidebar, split: state.split,
         locale: I18n.getLocale()
       }));
@@ -814,6 +815,9 @@
   /* ------------------------------------------------------------------ chrome */
 
   function updateChrome() {
+    if (state.readingFocus && !state.hasDocument) { setReadingFocus(false); return; }
+    el.btnReadingFocus.disabled = !state.hasDocument;
+    el.btnReadingFocus.setAttribute('aria-pressed', state.readingFocus ? 'true' : 'false');
     renderTabs();
     refreshComparison();
     var name = state.hasDocument ? state.name : t('app.name');
@@ -2126,6 +2130,8 @@
   /* ------------------------------------------------------------------ wiring */
 
   function wireToolbar() {
+    el.btnReadingFocus.addEventListener('click', function () { setReadingFocus(!state.readingFocus); });
+    el.btnExitReadingFocus.addEventListener('click', function () { setReadingFocus(false); });
     el.btnOpen.addEventListener('click', pickOpen);
     el.btnSave.addEventListener('click', function () { save(false); });
     el.btnSaveAs.addEventListener('click', function () { save(true); });
@@ -2195,7 +2201,30 @@
     });
   }
 
+  var focusSnapshot = null;
+  function setReadingFocus(on) {
+    on = !!on;
+    if (on === state.readingFocus || (on && !state.hasDocument)) return;
+    var target = document.activeElement;
+    if (on) {
+      if (target && target.closest && target.closest('.app-menu')) target = target.closest('.app-menu').querySelector('summary');
+      focusSnapshot = { mode: state.mode, focus: target };
+      if (RV.Shell) RV.Shell.close();
+      $('readingOptions').open = false;
+      state.mode = 'preview';
+    } else {
+      target = focusSnapshot.focus;
+      state.mode = focusSnapshot.mode; focusSnapshot = null;
+    }
+    state.readingFocus = on;
+    document.body.setAttribute('data-reading-focus', on ? '1' : '0');
+    applyMode(); updateChrome();
+    if (on) el.previewScroll.focus({ preventScroll: true });
+    else if (target && target.isConnected) target.focus({ preventScroll: true });
+    requestAnimationFrame(function () { measureParts(); markActiveToc(); });
+  }
   function setMode(mode) {
+    if (state.readingFocus) setReadingFocus(false);
     if (state.mode === mode) return;
     state.mode = mode;
     applyMode();
@@ -2789,6 +2818,7 @@
   }
 
   function openFind() {
+    if (state.readingFocus) setReadingFocus(false);
     if (state.mode === 'write') setMode('split');
     el.findBar.hidden = false;
     var sel = window.getSelection ? String(window.getSelection()) : '';
@@ -2958,6 +2988,12 @@
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
       if (!el.confirmModal.hidden || !el.helpModal.hidden) return;
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === 'F8' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault(); setReadingFocus(!state.readingFocus); return;
+      }
+      if (state.readingFocus && e.key === 'Escape') { e.preventDefault(); setReadingFocus(false); return; }
+      if (state.readingFocus && e.key === 'F10') setReadingFocus(false);
       if (e.key === 'Escape' && mobileSidebar) {
         mobileSidebar = false; applySidebar(); el.btnToc.focus(); return;
       }
@@ -2980,6 +3016,7 @@
       if (key === '3') { e.preventDefault(); setMode('preview'); return; }
       if (key === 'f') {
         e.preventDefault();
+        if (state.readingFocus) setReadingFocus(false);
         if (window.innerWidth <= 900) mobileSidebar = true;
         else state.sidebar = true;
         applySidebar(); updateChrome(); saveSettings();
@@ -3191,7 +3228,7 @@
       'btnFontDown', 'btnHelp', 'btnHelpClose', 'btnHelpDone', 'btnConfirmSave', 'btnBack', 'btnForward',
       'btnConfirmDiscard', 'btnConfirmCancel', 'btnEmptyOpen', 'btnEmptySample', 'fontValue',
       'brandMark', 'findBar', 'findInput', 'findCount', 'findPrev', 'findNext', 'findClose',
-      'statusLink', 'recentList'];
+      'statusLink', 'recentList', 'btnReadingFocus', 'btnExitReadingFocus'];
     for (var i = 0; i < ids.length; i++) el[ids[i]] = $(ids[i]);
   }
 
@@ -3246,8 +3283,7 @@
     if (newButton) newButton.addEventListener('click', function () { newTab(); });
     newTab();
     markGutterCursor();
-    state.ready = true;
-    if (RV.Reading) RV.Reading.init(window.RVApp);
+    var sessionReady = RV.Reading ? RV.Reading.init(window.RVApp) : Promise.resolve();
     if (RV.Shell) RV.Shell.init({
       undo: function () { undoEdit(false); el.editor.focus(); },
       redo: function () { undoEdit(true); el.editor.focus(); },
@@ -3265,18 +3301,23 @@
       },
       save: function () { return saveSettings() && RV.Reading.appearance(RV.Reading.appearance(), true); }
     });
-    if (nativeAvailable()) {
-      Promise.resolve(RV.Native.initialize({
+    Promise.resolve(sessionReady).then(function () {
+      state.ready = true;
+      if (nativeAvailable()) return RV.Native.initialize({
         openPath: function (path) {
           return openNativePath(path, false, true).then(function (ok) {
             if (ok) setMode('preview');
             return ok;
           });
         },
-        confirmClose: confirmAllDirty, onError: reportOpen,
+        confirmClose: function () {
+          return confirmAllDirty().then(function (ok) {
+            return ok && RV.Reading ? RV.Reading.saveSession().then(function () { return true; }) : ok;
+          });
+        }, onError: reportOpen,
         onDrag: function (active) { document.body.classList.toggle('dragover', !!active); }
-      })).catch(function (err) { reportOpen(err); });
-    }
+      });
+    }).catch(function (err) { reportOpen(err); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
@@ -3293,10 +3334,12 @@
     setDoc: setDoc,
     restoreTab: restoreTab, newTab: newTab, switchTab: switchTab, closeTab: closeTab, listTabs: listTabs,
     confirmAllDirty: confirmAllDirty, openFileTab: openFileTab, openHandleTab: openHandleTab,
+    whenDocumentsReady: function () { return Promise.all([pendingSave, pendingDiscard]); },
     showComparison: showComparison, hideComparison: hideComparison,
     setEmpty: setEmpty,
     setEditPreview: setEditPreview,
     setMode: setMode,
+    setReadingFocus: setReadingFocus,
     save: save,
     confirmDiscard: confirmDiscard,
     openNativePath: openNativePath,

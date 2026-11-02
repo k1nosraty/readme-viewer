@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add opt-in transactional recovery for large drafts, bounded autosave during typing, legacy migration, native close flushing and preservation of the last committed copy on storage failure.
+- Add distraction-free reading with F8/Esc, a visible exit control and restoration of the previous workspace without changing saved view preferences.
 - Optimize native Release builds for size with LTO, one codegen unit and symbol stripping; prune disallowed plugin commands and keep full offline Mermaid, ELK, math and fonts.
 - Build optimized debug Android Preview APKs separately for ARM64 and X86_64; enforce frontend and installer size budgets with CI summaries and JSON reports.
 - Keep menus within the viewport in both interface directions, make the mobile Contents shortcut reveal its panel, and prevent modal shortcuts from editing the background document.

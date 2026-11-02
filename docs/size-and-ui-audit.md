@@ -38,6 +38,10 @@ is only a comparison aid; it is not an installer-size measurement. Native builds
 their own artifact budgets before release. No reduced-size installer result is claimed until
 those platform builds run.
 
+Draft recovery and reading focus add 7,806 bytes of prepared frontend assets over audit commit
+`5c57f65`, bringing the total to 6,222,708 bytes. They add no runtime dependencies. All 199 vendor
+assets other than the separately minified GitHub stylesheet remain byte-for-byte identical.
+
 ```bash
 npm run native:prepare
 npm run size:check
@@ -63,12 +67,14 @@ English/Persian, light/dark and viewports 1440×900, 760×400, 390×844 and 320�
 | Warning | View labels overlapped in compact toolbars. | Allow natural button widths; use labelled icons at very narrow widths, with preview editing still available in Edit. |
 | Warning | Help could return focus to a hidden toolbar button. | Return focus to the visible Help menu when its toolbar control is hidden. |
 | Warning | Narrow dialogs could crowd actions; some Persian labels remained English. | Wrap actions, preserve mobile hit heights and translate split/pane metadata. |
-| Opportunity | Long reading sessions and large drafts can benefit from further focused UX work. | Consider a distraction-free reading toggle and stronger opt-in draft recovery in a later version. |
+| Opportunity | Long reading sessions and large drafts can benefit from further focused UX work. | Added F8/Esc reading focus and opt-in transactional recovery with a bounded save interval. |
 
 `npm run test:browser` includes the visual smoke matrix. It checks actual menu hit testing,
 label containment, overflow, modal isolation and focus return, and writes `ui-*.png` screenshots
 to `native-test-results/`. The original diagram smoke checks still exercise offline layouts,
 mathematics, embedded fonts and SVG/HTML export. Screenshots and reports are not packaged.
+The recovery smoke check additionally restores a three-million-character draft after renderer
+termination, aborts a real IndexedDB transaction and checks clearing during an in-flight save.
 
 Chromium viewport emulation does not replace physical Android, Windows/WebView2, Linux/WebKit
 or assistive-technology testing. Full platform builds require their normal SDK/system libraries.

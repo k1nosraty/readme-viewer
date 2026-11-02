@@ -92,6 +92,11 @@ Mermaid diagrams, fonts and the updated sample document are included in the v1.4
   clear message.
 - **Unsaved-changes protection** — a dirty document is never replaced silently, and closing the tab
   warns.
+- **Opt-in recovery for large drafts** — File → Session → Restore open documents keeps transactional
+  recovery copies on this device, including unsaved edits. Failed updates preserve the previous
+  copy; recovered documents ask where to save.
+- **Distraction-free reading** — View → Distraction-free reading, or `F8`, hides the application
+  chrome and centers the document. Press `Esc` or the visible exit button to restore your workspace.
 - **Save conflict protection** — external file changes offer Overwrite, Save as or Cancel; desktop
   native saves stage and flush a sibling file before replacing the destination.
 - **Incremental preview updates** — unchanged blocks retain their DOM, expanded details and diagrams;
@@ -220,6 +225,7 @@ browser from `file://` and in Node under test).
 | `src/direction.js` | per-block and per-document direction, content language detection |
 | `src/highlight.js` | syntax highlighting, result cache, lazy language loading |
 | `src/export.js` | standalone HTML export |
+| `src/drafts.js` | transactional local recovery storage, without a bundled database library |
 | `src/i18n.js` | interface strings (`en` default, `fa` included) |
 | `src/icons.js` | the SVG icon set |
 | `vendor/` | marked, DOMPurify, highlight.js, github-markdown-css — committed on purpose |
@@ -257,6 +263,7 @@ The JavaScript suite covers:
 | `Ctrl/⌘ + Shift + S` | Save as |
 | `Ctrl/⌘ + 1 / 2 / 3` | Source / Split / Preview |
 | `Ctrl/⌘ + E` | Toggle *Edit in preview* |
+| `F8` | Toggle distraction-free reading (`Esc` exits) |
 | `Ctrl/⌘ + F` | Filter the table of contents |
 | `Tab` / `Shift + Tab` | Indent / outdent (never during IME composition) |
 | `Esc` | Close a dialog, or leave the editor |

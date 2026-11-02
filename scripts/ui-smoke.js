@@ -46,6 +46,18 @@ const { chromium } = require('playwright');
         }
         await page.evaluate(() => { document.getElementById('toasts').textContent = ''; });
         await page.screenshot({ path: path.join(output, 'ui-' + state + '.png') });
+        const source = await page.locator('#editor').inputValue();
+        const mode = await page.evaluate(() => RVApp.state.mode);
+        await page.keyboard.press('F8');
+        assert.equal(await page.locator('.topbar').isVisible(), false);
+        assert.equal(await page.locator('.statusbar').isVisible(), false);
+        assert.equal(await page.locator('#btnExitReadingFocus').isVisible(), true);
+        assert.equal(await page.locator('#previewScroll').evaluate(node => node.getBoundingClientRect().height > innerHeight - 4), true);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+        if (width === 1440 || width === 320) await page.screenshot({ path: path.join(output, 'focus-' + state + '.png') });
+        await page.keyboard.press('Escape');
+        assert.equal(await page.evaluate(() => RVApp.state.mode), mode);
+        assert.equal(await page.locator('#editor').inputValue(), source);
       }
     }
     await page.setViewportSize({ width: 390, height: 844 });

@@ -37,6 +37,7 @@
             <summary data-i18n="tools.session">Session</summary>
             <label class="reading-check"><input type="checkbox" id="restoreSession"><span data-i18n="reading.restore">Restore open documents</span></label>
             <p data-i18n="reading.sessionHint">When enabled, document text is saved on this device. Restored copies ask where to save.</p>
+            <p id="sessionStatus" role="status" aria-live="polite"></p>
             <button type="button" class="btn" id="clearSession" data-i18n="reading.clear">Clear saved session</button>
           </details>
           <details class="advanced-settings">
@@ -65,6 +66,7 @@
           <hr class="">
           <button class="menu-command" type="button" data-command="btnToc"><span data-i18n="toggle.toc">Table of contents</span></button>
           <button class="menu-command" type="button" data-command="btnCompare"><span data-i18n="compare.toggle">Two documents</span></button>
+          <button class="menu-command" type="button" id="btnReadingFocus" aria-pressed="false"><span data-i18n="reading.focus">Distraction-free reading</span><kbd>F8</kbd></button>
           <button class="menu-command" type="button" data-command="btnWrap"><span data-i18n="toggle.wrap">Wrap long lines</span></button>
           <button class="menu-command" type="button" data-command="btnSync"><span data-i18n="toggle.sync">Sync scrolling</span></button>
           <hr class="">
@@ -262,6 +264,8 @@
   <span class="sb-item sb-mono" id="statusPerf"></span>
 </footer>
 
+<button type="button" class="btn focus-exit" id="btnExitReadingFocus" data-i18n="reading.exitFocus">Exit reading mode (Esc)</button>
+
 <input type="file" id="fileInput" hidden
        accept=".md,.markdown,.mdown,.mkd,.mdwn,.txt,text/markdown,text/plain">
 
@@ -346,6 +350,7 @@
 <script src="src/export.js"></script>
 <script src="src/android.js"></script>
 <script src="src/native.js"></script>
+<script src="src/drafts.js"></script>
 <script src="src/reading.js"></script>
 <script src="src/shell.js"></script>
 <script src="src/fonts.js"></script>

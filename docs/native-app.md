@@ -44,7 +44,31 @@ package dependencies. AppImage compatibility depends on the distribution and its
 Android requires Android 8.0+ and an updated System WebView. Allow APK installation from your
 downloader when Android asks. This is a development-signed **debug Preview**, outside Play Store.
 Future signing changes may require uninstall/reinstall. Save documents outside the app first;
-unsaved drafts have no crash recovery if Android terminates the process.
+enable **File → Session → Restore open documents** to keep local recovery copies of unsaved
+drafts. Without that opt-in, drafts are not retained when Android terminates the process.
+
+## Draft recovery and reading focus
+
+Opt-in recovery uses the WebView's IndexedDB storage, without an additional native database or
+runtime dependency. Updates use a single transaction and request strict durability where the
+WebView supports it. The previous committed copy survives failed or aborted writes. Autosave
+runs during continuous typing, with a one-second scheduling interval, and native close waits
+for the pending recovery update after the normal save/discard decision.
+
+Draft text is bounded to approximately 32 MiB across the workspace. WebViews without IndexedDB
+retain the small localStorage fallback (up to two million serialized characters). Storage denial,
+quota errors and oversize drafts display a warning without deleting an earlier copy. A failed
+initial read does not overwrite inaccessible drafts; save open files and restart to retry. Old
+sessions migrate only after a successful transactional save. Clearing/disabling recovery removes
+both stores, including pending writes, while leaving open documents unchanged.
+
+Recovered tabs are detached dirty copies: they never inherit a writable file handle. Recovery is
+not a substitute for saving files; changes since the last completed update and browser/app data
+cleared by the user or OS cannot be recovered.
+
+**View → Distraction-free reading** (`F8`) temporarily shows a centered preview with an exit
+button. `Esc` restores the prior mode and comparison panes. Search/Contents or selecting a source
+mode returns to the normal workspace. Reading focus does not change your saved view preference.
 
 ## Build dependencies
 
