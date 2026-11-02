@@ -70,6 +70,13 @@ cleared by the user or OS cannot be recovered.
 button. `Esc` restores the prior mode and comparison panes. Search/Contents or selecting a source
 mode returns to the normal workspace. Reading focus does not change your saved view preference.
 
+## Updates and developer information
+
+Help includes Check for updates and About. Signed native desktop updates preserve the normal
+save/cancel flow; Android downloads the matching APK for system-confirmed installation. Set up
+the release signing secrets as described in [updates.md](updates.md) before publishing the next
+version. That page also documents the stable Android Preview identity and first-upgrade limits.
+
 ## Build dependencies
 
 Install Node.js (the preview workflow uses Node 22), npm and stable Rust through rustup.

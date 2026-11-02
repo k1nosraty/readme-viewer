@@ -1535,3 +1535,19 @@ body[data-reading-focus="1"] #preview { max-inline-size: 76ch !important; margin
 body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 @media print { .focus-exit { display: none !important; } }
 .font-choice > input[aria-invalid="true"] { border-color: var(--danger); }
+
+.service-body { padding-block: 4px 16px; overflow-wrap: anywhere; line-height: 1.65; }
+.service-body p { margin-block: 0 12px; }
+.service-body a { color: var(--accent); }
+.about-name { font-size: 22px; font-weight: 650; }
+.about-developer { border-block-start: 1px solid var(--border); padding-block-start: 16px; margin-block-start: 20px !important; }
+.update-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 16px; }
+.update-notes { white-space: pre-wrap; max-height: 160px; overflow: auto; font: inherit; font-size: 12px; }
+.update-notes:empty { display: none; }
+.update-hint { font-size: 12px; color: var(--fg-muted); }
+#updateProgress { width: 100%; accent-color: var(--accent); }
+.update-banner { position: fixed; z-index: 46; inset-block-end: 32px; inset-inline-end: 16px; max-width: min(440px, calc(100vw - 32px)); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); color: var(--fg); box-shadow: var(--shadow-sm); }
+@media (max-width: 600px) { .service-body { padding-inline: 16px; } .update-actions > .btn { min-height: 44px; } }
+@media print { .update-banner, #serviceModal { display: none !important; } }
+
+#serviceModal:not([hidden]) ~ #toasts { visibility: hidden; }

@@ -78,3 +78,13 @@ termination, aborts a real IndexedDB transaction and checks clearing during an i
 
 Chromium viewport emulation does not replace physical Android, Windows/WebView2, Linux/WebKit
 or assistive-technology testing. Full platform builds require their normal SDK/system libraries.
+
+## Help/update follow-up
+
+Help/About and the signed updater bridge bring prepared frontend assets to 6,239,510 bytes,
+still below the 6 MiB budget. The desktop-only updater uses native TLS and raw installer payloads;
+legacy ZIP/tar support and a separate notification/background service are excluded. Mermaid and
+its layouts/fonts remain unchanged. The installer budgets are retained and must be measured by
+native CI; frontend size does not predict the native updater's compressed installer cost.
+
+See [updates.md](updates.md) for release signing setup and platform installation behavior.

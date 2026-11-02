@@ -275,6 +275,19 @@ mod browser_preview_tests {
     }
 }
 
+#[tauri::command]
+fn update_platform() -> (&'static str, &'static str) {
+    (std::env::consts::OS, std::env::consts::ARCH)
+}
+
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle) {
+    #[cfg(desktop)]
+    app.restart();
+    #[cfg(mobile)]
+    let _ = app;
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -288,12 +301,16 @@ pub fn run() {
         }
         let _ = app.emit_to("main", "native-open", paths);
     }));
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     builder
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(DroppedDirectories::default())
         .invoke_handler(tauri::generate_handler![
+            update_platform,
+            restart_app,
             write_document_atomic,
             startup_paths,
             authorize_document_directory,

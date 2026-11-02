@@ -1,11 +1,12 @@
 /* Bundled for the native shell; browser builds use native.js's no-op adapter. */
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import { onBackButtonPress, exit } from '@tauri-apps/api/app';
+import { onBackButtonPress, exit, getVersion } from '@tauri-apps/api/app';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { readFile, writeFile, stat } from '@tauri-apps/plugin-fs';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { check } from '@tauri-apps/plugin-updater';
 
 const root = window;
 const available = () => !!root.__TAURI_INTERNALS__;
@@ -75,6 +76,12 @@ async function handle(path, name, authorize = true, writable = true) {
 }
 const Native = {
   available,
+  async appInfo() {
+    const [platform, arch] = await invoke('update_platform');
+    return { version: await getVersion(), platform, arch };
+  },
+  checkUpdate() { return check({ timeout: 15000 }); },
+  restart() { return invoke('restart_app'); },
   async pickOpen() {
     const path = await open({ multiple: false, directory: false, filters });
     return path ? handle(path, undefined, true, !/^content:/i.test(path)) : null;

@@ -7,7 +7,7 @@
   "scripts": {
     "test": "node --test",
     "start": "python3 -m http.server 8080 --bind 0.0.0.0",
-    "test:browser": "node scripts/browser-smoke.js && node scripts/diagrams-smoke.js && node scripts/ui-smoke.js && node scripts/recovery-smoke.js",
+    "test:browser": "node scripts/browser-smoke.js && node scripts/diagrams-smoke.js && node scripts/ui-smoke.js && node scripts/recovery-smoke.js && node scripts/updates-smoke.js",
     "size:check": "node scripts/check-size.js frontend",
     "native:prepare": "node scripts/prepare-tauri-assets.js",
     "native:dev": "tauri dev",
@@ -27,6 +27,7 @@
     "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-dialog": "^2.8.1",
     "@tauri-apps/plugin-fs": "^2.6.0",
-    "@tauri-apps/plugin-opener": "^2.7.0"
+    "@tauri-apps/plugin-opener": "^2.7.0",
+    "@tauri-apps/plugin-updater": "^2.14.1"
   }
 }

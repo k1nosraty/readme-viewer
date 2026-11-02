@@ -243,3 +243,16 @@ test('clicked links may climb with ".." but images may not', async () => {
   assert.equal(native.resolveLocalUrl('../logo.png', handle), null);
   assert.equal(native.resolveLocalUrl('/etc/passwd', handle, true), null);
 });
+
+test('native update bridge reads installed platform/version and uses a bounded signed check', async () => {
+  const commands = [], checks = [];
+  const { native } = adapter({
+    getVersion: async () => '1.4.0',
+    invoke: async command => { commands.push(command); return ['linux', 'x86_64']; },
+    check: async options => { checks.push(options); return null; }
+  });
+  const info = await native.appInfo();
+  assert.equal(info.version, '1.4.0'); assert.equal(info.platform, 'linux'); assert.equal(info.arch, 'x86_64');
+  assert.equal(await native.checkUpdate(), null); assert.equal(checks[0].timeout, 15000);
+  await native.restart(); assert.deepEqual(commands, ['update_platform', 'restart_app']);
+});

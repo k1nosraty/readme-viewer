@@ -3301,6 +3301,7 @@
       },
       save: function () { return saveSettings() && RV.Reading.appearance(RV.Reading.appearance(), true); }
     });
+    if (RV.Updates) RV.Updates.init(window.RVApp);
     Promise.resolve(sessionReady).then(function () {
       state.ready = true;
       if (nativeAvailable()) return RV.Native.initialize({

@@ -17,6 +17,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Require update signing for published releases
+        if: github.ref == 'refs/heads/main'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] || [ -z "$ANDROID_DEBUG_KEYSTORE_BASE64" ]; then
+            echo '::error::Configure updater and Android signing secrets before publishing. See docs/updates.md.'
+            exit 1
+          fi
       - run: npm ci
       - run: npm test
       - name: Configure bounded browser-test package downloads
@@ -110,6 +120,11 @@ jobs:
       - name: Build Linux packages
         timeout-minutes: 15
         run: npm run native:build -- --bundles deb,appimage
+      - name: Sign Linux updater packages
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node scripts/sign-updates.js linux
       - name: Check installer size budgets
         run: node scripts/check-size.js linux
       - name: Native Rust checks including atomic saves
@@ -143,6 +158,11 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm run native:build -- --bundles nsis
+      - name: Sign Windows updater package
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node scripts/sign-updates.js windows
       - name: Check installer size budget
         run: node scripts/check-size.js windows
       - name: Native Rust checks including atomic saves
@@ -194,6 +214,25 @@ jobs:
         run: npm run android:init -- --ci
       - name: Use stable Android SDK 36 for the debug preview
         run: node scripts/configure-native-android.js
+      - name: Restore stable Android Preview signing identity
+        env:
+          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+          REQUIRE_ANDROID_KEY: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          python3 - <<'PYTHON'
+          import base64, os
+          from pathlib import Path
+          encoded = os.environ.get('ANDROID_DEBUG_KEYSTORE_BASE64', '')
+          if not encoded:
+              if os.environ.get('REQUIRE_ANDROID_KEY') == 'true':
+                  raise SystemExit('Configure ANDROID_DEBUG_KEYSTORE_BASE64 before publishing. See docs/updates.md.')
+              print('Using a temporary key for this unpublished preview.')
+          else:
+              key = Path.home() / '.android/debug.keystore'
+              key.parent.mkdir(parents=True, exist_ok=True)
+              key.write_bytes(base64.b64decode(encoded, validate=True))
+              key.chmod(0o600)
+          PYTHON
       - name: Build optimized native debug preview APKs per architecture
         env:
           CARGO_PROFILE_DEV_OPT_LEVEL: s
@@ -273,11 +312,18 @@ jobs:
                   raise SystemExit(f'Duplicate release asset: {name}')
               shutil.copy2(asset, dest / name)
               shutil.copy2(checksum, dest / checksum.name)
+              if kind != 'android':
+                  signature = asset.with_name(name + '.sig')
+                  if not signature.is_file():
+                      raise SystemExit(f'Missing update signature: {name}')
+                  shutil.copy2(signature, dest / signature.name)
               counts[kind] += 1
           if not all(counts.values()):
               raise SystemExit(f'Missing native platform assets: {counts}')
           PYTHON
           (cd dist && sha256sum --check --strict *.sha256)
+      - name: Prepare signed updater manifest
+        run: node scripts/updater-manifest.js dist
       - name: Publish native release after every check passes
         env:
           GH_TOKEN: ${{ github.token }}

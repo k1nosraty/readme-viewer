@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add Help → Check for updates, automatic in-app release notices, version-bound signed desktop updates and the native release manifest pipeline. Keep a stable Android Preview signing identity for APK upgrades.
+- Add a localized About dialog with the installed version and developer link to github.com/k1nosraty.
+
 - Add opt-in transactional recovery for large drafts, bounded autosave during typing, legacy migration, native close flushing and preservation of the last committed copy on storage failure.
 - Add distraction-free reading with F8/Esc, a visible exit control and restoration of the previous workspace without changing saved view preferences.
 - Optimize native Release builds for size with LTO, one codegen unit and symbol stripping; prune disallowed plugin commands and keep full offline Mermaid, ELK, math and fonts.

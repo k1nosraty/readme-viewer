@@ -1,0 +1,7 @@
+{
+  "identifier": "updater",
+  "description": "Signed desktop updates from the configured release endpoint.",
+  "windows": ["main"],
+  "platforms": ["linux", "windows", "macOS"],
+  "permissions": ["updater:allow-check", "updater:allow-download", "updater:allow-install"]
+}

@@ -16,6 +16,7 @@ async function prepare() {
   let html = await readFile(path.join(root, 'index.html'), 'utf8');
   const tag = '<script src="src/native.js"></script>';
   if (!/src\/native\.js/.test(html)) html = html.replace(/<script\s+src="(?:\.\/)?app\.js"/, `${tag}\n<script src="app.js"`);
+  html = html.replace(/(<meta name="application-version" content=")[^"]+/, '$1' + require('../package.json').version);
   html = html.replace(/<script[^>]+src="(?:\.\/)?src\/native\.js"[^>]*><\/script>/, tag);
   await writeFile(path.join(output, 'index.html'), html);
   await build({ entryPoints: [path.join(root, 'src/native-entry.js')], outfile: path.join(output, 'src/native.js'), bundle: true, format: 'iife', platform: 'browser', target: 'es2020', minify: true });

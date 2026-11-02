@@ -90,6 +90,9 @@ Mermaid diagrams, fonts and the updated sample document are included in the v1.4
 - **Encoding care** — UTF-8 with or without BOM, UTF-16 LE/BE with or without BOM, legacy
   `windows-1256`/`windows-1252` fallback, CRLF preserved on save, binary files rejected with a
   clear message.
+- **Updates and About** — Help includes release checks, optional automatic update notices,
+  signed desktop download/install, and developer information. Android opens the matching APK
+  for OS-confirmed installation. See [release setup](docs/updates.md).
 - **Unsaved-changes protection** — a dirty document is never replaced silently, and closing the tab
   warns.
 - **Opt-in recovery for large drafts** — File → Session → Restore open documents keeps transactional
@@ -225,6 +228,7 @@ browser from `file://` and in Node under test).
 | `src/direction.js` | per-block and per-document direction, content language detection |
 | `src/highlight.js` | syntax highlighting, result cache, lazy language loading |
 | `src/export.js` | standalone HTML export |
+| `src/updates.js` | release notices, signed update flow and About |
 | `src/drafts.js` | transactional local recovery storage, without a bundled database library |
 | `src/i18n.js` | interface strings (`en` default, `fa` included) |
 | `src/icons.js` | the SVG icon set |

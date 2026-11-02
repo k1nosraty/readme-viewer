@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="application-version" content="1.4.0">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="A local, offline Markdown and README viewer with live preview and interactive task lists.">
 <title>README Viewer</title>
@@ -101,6 +102,9 @@
         <summary data-i18n="menu.help">Help</summary>
         <div class="menu-panel">
           <button class="menu-command" type="button" data-command="btnHelp"><span data-i18n="action.help">Help and shortcuts</span></button>
+          <button class="menu-command" type="button" id="btnCheckUpdates"><span data-i18n="updates.title">Check for updates…</span></button>
+          <hr>
+          <button class="menu-command" type="button" id="btnAbout"><span data-i18n="about.title">About README Viewer</span></button>
         </div>
       </details>
     </nav>
@@ -288,6 +292,40 @@
   </div>
 </div>
 
+<div class="update-banner" id="updateBanner" role="status" hidden>
+  <span id="updateBannerText"></span>
+  <button type="button" class="btn" id="btnUpdateDetails" data-i18n="updates.view">View update</button>
+  <button type="button" class="btn btn-icon" id="btnDismissUpdate" data-i18n-aria="action.close" aria-label="Close">×</button>
+</div>
+<div class="modal" id="serviceModal" hidden>
+  <div class="modal-box modal-box-sm" role="dialog" aria-modal="true" aria-labelledby="serviceTitle">
+    <div class="modal-head">
+      <h2 id="serviceTitle"></h2>
+      <button type="button" class="btn btn-icon" id="btnServiceClose" data-i18n-aria="action.close" aria-label="Close">×</button>
+    </div>
+    <div class="service-body" id="aboutPanel" hidden>
+      <p class="about-name">README Viewer</p>
+      <p><span data-i18n="about.versionLabel">Version</span> <bdi id="aboutVersion"></bdi> · MIT</p>
+      <p data-i18n="about.description">Offline Markdown reading and editing, with full Mermaid diagrams.</p>
+      <p class="about-developer"><span data-i18n="about.developer">Developer</span><br><a id="developerLink" href="https://github.com/k1nosraty" target="_blank" rel="noopener noreferrer" dir="ltr">github.com/k1nosraty</a></p>
+    </div>
+    <div class="service-body" id="updatesPanel">
+      <p id="updateVersion"></p>
+      <p id="updateStatus" role="status" aria-live="polite"></p>
+      <progress id="updateProgress" data-i18n-aria="updates.downloading" hidden></progress>
+      <pre id="updateNotes" class="update-notes" tabindex="0" dir="auto"></pre>
+      <label class="reading-check"><input id="automaticUpdates" type="checkbox"><span data-i18n="updates.automatic">Check automatically</span></label>
+      <p class="update-hint" data-i18n="updates.hint">Checks GitHub while the app is open. Document text is never sent.</p>
+      <a id="releaseLink" href="https://github.com/k1nosraty/readme-viewer/releases/latest" target="_blank" rel="noopener noreferrer" data-i18n="updates.releases">Release history</a>
+      <div class="update-actions">
+        <button type="button" class="btn" id="btnUpdateCheck" data-i18n="updates.check">Check again</button>
+        <button type="button" class="btn btn-primary" id="btnUpdateInstall" hidden></button>
+      </div>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn" id="btnServiceDone" data-i18n="help.close">Close</button></div>
+  </div>
+</div>
+
 <div class="modal" id="confirmModal" hidden>
   <div class="modal-box modal-box-sm" role="alertdialog" aria-modal="true"
        aria-labelledby="confirmTitle" aria-describedby="confirmBody">
@@ -353,6 +391,7 @@
 <script src="src/drafts.js"></script>
 <script src="src/reading.js"></script>
 <script src="src/shell.js"></script>
+<script src="src/updates.js"></script>
 <script src="src/fonts.js"></script>
 <script src="src/appearance.js"></script>
 <script src="app.js"></script>

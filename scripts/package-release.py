@@ -20,7 +20,12 @@ output.mkdir(exist_ok=True)
 archive = output / f'README-Viewer-{version}-Portable.zip'
 with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as bundle:
     for file in files:
-        bundle.write(file, 'README-Viewer/' + file.relative_to(root).as_posix())
+        target = 'README-Viewer/' + file.relative_to(root).as_posix()
+        if file.name == 'index.html':
+            html = re.sub(r'(<meta name="application-version" content=")[^"]+', r'\g<1>' + version, file.read_text())
+            bundle.writestr(target, html)
+        else:
+            bundle.write(file, target)
 with zipfile.ZipFile(archive) as bundle:
     if bundle.testzip():
         raise SystemExit('ZIP validation failed')
