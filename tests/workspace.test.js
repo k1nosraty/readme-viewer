@@ -73,7 +73,7 @@ test('pending saves block switching and preserve edits made while writing', asyn
   const second = api.newTab('two', 'two.md');
   api.switchTab(first); edit(app, 'snapshot');
   const saving = api.save();
-  await Promise.resolve(); await Promise.resolve();
+  await harness.waitFor(() => written, 1000);
   assert.ok(written);
   assert.equal(api.switchTab(second), false);
   assert.equal(api.newTab(), false);
@@ -216,6 +216,26 @@ test('comparison namespaces footnote IDs and navigates only its own fragments', 
   link.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
   assert.equal(visited, true);
   assert.equal(api.state.name, 'other.md');
+});
+
+test('native embedded images survive in both reading panes without filesystem resolution', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, window, document } = app;
+  const resolved = [];
+  window.RV.Native = { available: () => true, assetUrl: (src, handle) => {
+    resolved.push([src, handle.path]); return 'https://assets.test/' + src;
+  } };
+  const data = 'data:image/png;base64,iVBORw0KGgo=';
+  const source = '![embedded](' + data + ')\n\n![local](pic.png)';
+  api.setDoc(source, 'first.md', { path: '/first.md' });
+  api.newTab(source, 'second.md', { path: '/second.md' });
+  api.showComparison();
+  for (const pane of ['preview', 'comparisonPreview']) {
+    assert.equal(document.querySelector('#' + pane + ' img[alt="embedded"]').getAttribute('src'), data);
+    assert.equal(document.querySelector('#' + pane + ' img[alt="local"]').getAttribute('src'), 'https://assets.test/pic.png');
+  }
+  assert.ok(resolved.length > 0);
+  assert.ok(resolved.every(([src]) => src === 'pic.png'));
 });
 
 test('comparison native images resolve against secondary handle and links activate their origin', async t => {

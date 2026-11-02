@@ -24,6 +24,7 @@ function directory(path) {
 async function handle(path, name, authorize = true, writable = true) {
   if (authorize && !/^content:/i.test(path)) await invoke('authorize_document_directory', { path });
   const file = { kind: 'file', path, name: name || fileName(path), baseUrl: directory(path), writable };
+  let expectedHash = null;
   file.getFile = async () => {
     const bytes = await readFile(path);
     return { name: file.name, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
@@ -33,18 +34,37 @@ async function handle(path, name, authorize = true, writable = true) {
     const info = await stat(path);
     return info.mtime ? new Date(info.mtime).getTime() : 0;
   };
-  file.createWritable = async () => {
+  file.createWritable = async (options = {}) => {
+    // The baseline belongs to the accepted document, not to a later read that may be discarded.
+    const revision = options.expectedBytes && !options.overwrite && !/^content:/i.test(path)
+      ? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', options.expectedBytes)))
+        .map(byte => byte.toString(16).padStart(2, '0')).join('') : expectedHash;
     let closed = false;
-    let written = false;
+    let bytes = null;
     return {
       async write(blob) {
         if (closed) throw new Error('File writer is closed.');
-        await writeFile(path, new Uint8Array(await blob.arrayBuffer()));
-        written = true;
+        bytes = new Uint8Array(await blob.arrayBuffer());
       },
       async close() {
+        if (closed) throw new Error('File writer is closed.');
         closed = true;
-        if (written && !authorize && !/^content:/i.test(path)) {
+        if (!bytes) return;
+        if (/^content:/i.test(path)) {
+          // shortcut: document providers cannot rename atomically, desktop paths use staged replacement.
+          await writeFile(path, bytes);
+        } else {
+          try {
+            expectedHash = await invoke('write_document_atomic', { path, bytes: Array.from(bytes),
+              expectedHash: options.overwrite ? null : revision });
+          } catch (error) {
+            if (error === 'RV_FILE_CHANGED') {
+              const conflict = new Error('The file changed on disk.'); conflict.name = 'FileConflictError'; throw conflict;
+            }
+            throw error;
+          }
+        }
+        if (!authorize && !/^content:/i.test(path)) {
           try { await invoke('authorize_document_directory', { path }); }
           catch (error) { console.warn('File saved, but local image access could not be enabled.', error); }
         }

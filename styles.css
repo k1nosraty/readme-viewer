@@ -626,6 +626,8 @@ body.dragover .drop-hint { display: grid; }
 }
 
 .markdown-body {
+  /* Keep positioned document content inside its reading pane. */
+  contain: layout;
   max-inline-size: 860px;
   margin-inline: auto;
   font-size: calc(var(--rv-font) * 1px);

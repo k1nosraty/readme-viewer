@@ -103,4 +103,4 @@ function click(window, node) {
   node.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
 }
 
-module.exports = { hasDom, loadApp, settle, click, ROOT };
+module.exports = { hasDom, loadApp, waitFor, settle, click, ROOT };

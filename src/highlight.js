@@ -34,6 +34,7 @@
   };
 
   var CACHE_LIMIT = 400;
+  var CACHE_BYTES = 4 * 1024 * 1024;
 
   function create(deps) {
     deps = deps || {};
@@ -41,6 +42,7 @@
     var basePath = deps.base || 'vendor/langs/';
     var requested = Object.create(null);
     var cache = new Map();
+    var cacheBytes = 0;
 
     function langOf(node) {
       var m = /(?:^|\s)language-([^\s]+)/.exec(node.className || '');
@@ -56,25 +58,37 @@
     }
 
     function cacheSet(key, value) {
-      if (cache.size >= CACHE_LIMIT) {
-        var oldest = cache.keys().next();
-        if (!oldest.done) cache.delete(oldest.value);
+      // Count both source keys and highlighted HTML as UTF-16 storage.
+      var size = (key.length + (value || '').length) * 2;
+      if (size > CACHE_BYTES) return;
+      while (cache.size && (cache.size >= CACHE_LIMIT || cacheBytes + size > CACHE_BYTES)) {
+        var oldest = cache.keys().next().value;
+        cacheBytes -= (oldest.length + (cache.get(oldest) || '').length) * 2;
+        cache.delete(oldest);
       }
       cache.set(key, value);
+      cacheBytes += size;
     }
 
     function loadLang(name, node) {
-      requested[name] = true;
-      if (typeof document === 'undefined') return;
+      if (requested[name]) {
+        if (requested[name] !== true) requested[name].add(node);
+        return;
+      }
+      if (typeof document === 'undefined') { requested[name] = true; return; }
+      var waiting = new Set([node]);
+      requested[name] = waiting;
       var script = document.createElement('script');
       script.src = basePath + encodeURIComponent(name) + '.min.js';
       script.async = true;
       script.onload = function () {
         script.remove();
-        if (node.isConnected) block(node);
+        requested[name] = true;
+        waiting.forEach(function (pending) { if (pending.isConnected) block(pending); });
+        waiting.clear();
       };
       // Leave it un-highlighted rather than retrying on every keystroke.
-      script.onerror = function () { script.remove(); };
+      script.onerror = function () { script.remove(); requested[name] = true; waiting.clear(); };
       document.head.appendChild(script);
     }
 
@@ -82,7 +96,7 @@
       if (!hljs || !node || langOf(node) === 'mermaid') return;
       var lang = resolve(langOf(node));
       if (!lang || !hljs.getLanguage(lang)) {
-        if (lang && !requested[lang]) loadLang(lang, node);
+        if (lang) loadLang(lang, node);
         return;
       }
       var code = node.textContent || '';
@@ -112,7 +126,7 @@
       block: block,
       all: function (root) { each(root, block); },
       cacheSize: function () { return cache.size; },
-      clear: function () { cache.clear(); },
+      clear: function () { cache.clear(); cacheBytes = 0; },
       resolve: resolve
     };
   }

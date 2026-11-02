@@ -14,6 +14,17 @@ source file unchanged. Later saves update that chosen copy. Desktop packages dec
 system may require choosing README Viewer with **Open with**. Drop a document onto the desktop
 window to open it. Save changes before replacing a document or closing the app.
 
+Desktop saves write a temporary file beside the destination, flush its contents, then replace
+the destination. A failed staging write leaves the original file intact. Unix permissions and
+symbolic links to documents are preserved. A destination directory must therefore be writable.
+The app compares the file's SHA-256 revision with the bytes originally read, and checks again
+after staging. If another app changed or deleted the file, choose **Overwrite**, **Save as** or
+**Cancel**; cancellation keeps your edits. Other editors are not locked, so a write from another
+process after the final revision check can still race with replacement.
+
+Android `content://` providers do not expose atomic rename. They retain the provider write path
+and the first-save copy behavior described above; atomic replacement applies to filesystem paths.
+
 Desktop document links can open sibling and parent-directory Markdown/text files on an explicit
 click, subject to native path checks. Directory links select a README, and fragments navigate to
 the matching heading. Files opened through the system use Preview mode.

@@ -89,6 +89,15 @@ test('binary files are rejected instead of rendered as garbage', function () {
   assert.equal(out.text, '');
 });
 
+test('binary control data is rejected even when UTF-8 or a guessed UTF-16 decode succeeds', function () {
+  for (const input of [utf8('PK\x03\x04abc\x00hello\n'), bytes([0, 0, 0, 0]),
+    utf16le('# Title\n' + '\x00'.repeat(20))]) {
+    const out = Encoding.decode(input);
+    assert.equal(out.binary, true);
+    assert.equal(out.text, '');
+  }
+});
+
 test('an empty file decodes to an empty document', function () {
   const out = Encoding.decode(bytes([]));
   assert.equal(out.text, '');

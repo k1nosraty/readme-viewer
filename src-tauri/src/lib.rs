@@ -3,6 +3,26 @@ use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
+mod atomic_file;
+
+#[tauri::command]
+async fn write_document_atomic(
+    app: tauri::AppHandle,
+    path: String,
+    bytes: Vec<u8>,
+    expected_hash: Option<String>,
+) -> Result<String, String> {
+    let target = atomic_file::resolve_path(Path::new(&path)).map_err(|e| e.to_string())?;
+    if !app.fs_scope().is_allowed(&path) || !app.fs_scope().is_allowed(&target) {
+        return Err("Select a save destination using the file dialog first".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        atomic_file::write(&target, &bytes, expected_hash.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[derive(Default)]
 struct DroppedDirectories(Mutex<Vec<PathBuf>>);
 
@@ -274,6 +294,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(DroppedDirectories::default())
         .invoke_handler(tauri::generate_handler![
+            write_document_atomic,
             startup_paths,
             authorize_document_directory,
             resolve_document_path,

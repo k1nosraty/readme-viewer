@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Reuse unchanged preview blocks and sanitized HTML while preserving Markdown counters, source mapping, expanded details, focused controls and rendered diagrams.
+- Stage desktop saves in a temporary sibling file, flush complete contents, then replace the destination; preserve Unix permissions and symlink targets.
+- Detect external file changes before saving and offer Overwrite, Save as or Cancel. Desktop commits compare SHA-256 revisions again after staging.
+- Prevent document styles and application-like classes from covering the viewer interface.
+- Fix colliding numbered heading anchors, lazy language loading across multiple blocks, native embedded images and binary detection after successful Unicode decoding.
+- Bound syntax-highlight cache storage by both entry count and estimated bytes; run atomic-save Rust tests on Linux and Windows CI, including the `audit` branch.
+
 ## 1.4.0
 
 - Give diagrams the approved 2px frame while retaining the current theme border color; preserve the same frame in standalone HTML.

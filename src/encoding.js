@@ -43,16 +43,18 @@
 
   /**
    * True when the first page of the file does not look like text at all.
-   * Only ever called for input that already failed a strict UTF-8 decode.
+   * Accepts raw bytes after a failed UTF-8 decode, or decoded text after a Unicode decode.
    */
   function looksBinary(bytes) {
+    var text = typeof bytes === 'string';
     var probe = Math.min(bytes.length, 4096);
     if (!probe) return false;
     var nulls = 0;
     var controls = 0;
     for (var i = 0; i < probe; i++) {
-      if (bytes[i] === 0) nulls++;
-      else if (isControlByte(bytes[i])) controls++;
+      var b = text ? bytes.charCodeAt(i) : bytes[i];
+      if (b === 0) nulls++;
+      else if (isControlByte(b)) controls++;
     }
     return nulls / probe > 0.1 || controls / probe > 0.05;
   }
@@ -151,6 +153,9 @@
     }
 
     if (raw === null) raw = decodeWith('utf-8', bytes) || '';
+    if (looksBinary(raw)) {
+      return { text: '', bom: false, eol: '\n', encoding: 'binary', binary: true };
+    }
     var eol = detectEol(raw);
     return {
       text: normalizeNewlines(raw),

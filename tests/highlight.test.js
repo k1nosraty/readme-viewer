@@ -7,6 +7,7 @@ const assert = require('node:assert');
 
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const Highlight = require('../src/highlight.js');
 
@@ -25,6 +26,31 @@ function codeNode(lang, text) {
     classList: { add: function () {} }
   };
 }
+
+test('lazy language loading highlights every waiting block and skips detached ones', function () {
+  const scripts = [], highlighted = [];
+  let loaded = false;
+  const context = { module: { exports: {} }, document: {
+    createElement: () => ({ remove() {} }),
+    head: { appendChild: script => scripts.push(script) }
+  } };
+  vm.runInNewContext(fs.readFileSync(require.resolve('../src/highlight.js'), 'utf8'), context);
+  const h = context.module.exports.create({ hljs: {
+    getLanguage: () => loaded,
+    highlight(code) { highlighted.push(code); return { value: '<span>' + code + '</span>' }; }
+  } });
+  const detached = codeNode('rust', 'old');
+  const first = codeNode('rust', 'first');
+  const second = codeNode('rust', 'second');
+  h.block(detached); detached.isConnected = false;
+  h.block(first); h.block(second); h.block(first);
+  assert.equal(scripts.length, 1, 'one grammar request serves all code blocks');
+  loaded = true; scripts[0].onload();
+  assert.deepEqual(highlighted, ['first', 'second']);
+  assert.equal(first.innerHTML, '<span>first</span>');
+  assert.equal(second.innerHTML, '<span>second</span>');
+  assert.equal(detached.innerHTML, '');
+});
 
 test('every alias resolves to something highlight.js understands', function (t) {
   if (!hljs) { t.skip('highlight.js could not be loaded'); return; }
@@ -78,6 +104,25 @@ test('identical blocks are highlighted once and then served from the cache', fun
   assert.equal(second.innerHTML, first.innerHTML);
   h.block(third);
   assert.equal(h.cacheSize(), 2);
+});
+
+test('large highlighted blocks cannot grow the cache beyond its memory budget', function () {
+  let calls = 0;
+  const h = Highlight.create({ hljs: {
+    getLanguage: () => true,
+    highlight(code) { calls++; return { value: code }; }
+  } });
+  const code = 'a'.repeat(600000);
+  h.block(codeNode('text', code));
+  h.block(codeNode('text', code));
+  assert.equal(calls, 1, 'a fitting block is cached');
+  h.block(codeNode('text', 'b'.repeat(600000)));
+  assert.equal(h.cacheSize(), 1, 'old source and HTML are evicted together');
+  h.block(codeNode('text', 'c'.repeat(1100000)));
+  assert.equal(h.cacheSize(), 1, 'an oversized entry does not displace reusable entries');
+  h.clear();
+  h.block(codeNode('text', code));
+  assert.equal(h.cacheSize(), 1);
 });
 
 test('an unknown language is left as plain text instead of throwing', function (t) {

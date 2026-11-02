@@ -271,6 +271,8 @@ test('hostile Markdown cannot inject scripts or spoof the interface', async func
     '',
     '<button>fake button</button>',
     '',
+    '<div style="position:fixed;inset:0;z-index:999999;background:white">fake app</div>',
+    '',
     '<iframe src="https://evil.example"></iframe>',
     '',
     '<img src="x" onerror="window.__pwned = true">',
@@ -285,6 +287,7 @@ test('hostile Markdown cannot inject scripts or spoof the interface', async func
   assert.equal(doc.querySelectorAll('#preview iframe').length, 0);
   assert.equal(doc.querySelectorAll('#preview [onclick]').length, 0);
   assert.equal(doc.querySelectorAll('#preview [onerror]').length, 0);
+  assert.equal(doc.querySelectorAll('#preview [style]').length, 0, 'document CSS cannot cover the application');
   const badLink = doc.querySelector('#preview a[href]');
   assert.ok(!badLink || !/^javascript:/i.test(badLink.getAttribute('href') || ''));
 });

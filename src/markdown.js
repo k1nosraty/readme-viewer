@@ -61,6 +61,7 @@
       'type', 'loading', 'decoding', 'data-rv-task', 'data-lang', 'data-copy-code'],
     FORBID_TAGS: ['style', 'form', 'base', 'link', 'meta', 'button', 'iframe', 'object',
       'embed', 'audio', 'video'],
+    FORBID_ATTR: ['style'],
     ALLOW_DATA_ATTR: false,
     ALLOW_UNKNOWN_PROTOCOLS: false
   };
@@ -83,6 +84,7 @@
 
     var slugCount = Object.create(null);
     var taskSeq = 0;
+    var blockCache = new Map(), previousCache = new Map(), cacheBytes = 0;
 
     function slugify(text) {
       var base = String(text == null ? '' : text)
@@ -92,9 +94,12 @@
         .replace(/[\u2000-\u206F\u2E00-\u2E7F\\'"!#$%&()*+,./:;<=>?@[\]^`{|}~]/g, '')
         .replace(/\s/g, '-');
       if (!base) base = 'section';
-      var n = slugCount[base] || 0;
-      slugCount[base] = n + 1;
-      return n ? base + '-' + n : base;
+      var slug = base;
+      while (Object.prototype.hasOwnProperty.call(slugCount, slug)) {
+        slug = base + '-' + (++slugCount[base]);
+      }
+      slugCount[slug] = 0;
+      return slug;
     }
 
     var renderer = {
@@ -256,6 +261,7 @@
         slugCount = Object.create(null);
         taskSeq = 0;
         footnotes = Object.create(null);
+        previousCache = blockCache; blockCache = new Map(); cacheBytes = 0;
       },
       /** How many task checkboxes the renderer has produced since the last reset(). */
       taskCount: function () { return taskSeq; },
@@ -278,7 +284,15 @@
       renderBlock: function (token, links) {
         var list = [token];
         list.links = links || {};
-        return sanitize(md.parser(list));
+        // Parse every token to advance heading/task counters; reuse only identical sanitized output.
+        var raw = md.parser(list);
+        var html = blockCache.has(raw) ? blockCache.get(raw) : previousCache.get(raw);
+        if (html === undefined) html = sanitize(raw);
+        var size = (raw.length + html.length) * 2;
+        if (!blockCache.has(raw) && cacheBytes + size <= 4 * 1024 * 1024) {
+          blockCache.set(raw, html); cacheBytes += size;
+        }
+        return html;
       },
       renderAll: function (source) {
         this.reset();

@@ -88,6 +88,10 @@ Mermaid diagrams, fonts and the updated sample document are included in the v1.4
   clear message.
 - **Unsaved-changes protection** — a dirty document is never replaced silently, and closing the tab
   warns.
+- **Save conflict protection** — external file changes offer Overwrite, Save as or Cancel; desktop
+  native saves stage and flush a sibling file before replacing the destination.
+- **Incremental preview updates** — unchanged blocks retain their DOM, expanded details and diagrams;
+  bounded caches avoid repeating sanitization and syntax highlighting for identical output.
 - **Offline Mermaid diagrams** — flowcharts, sequence diagrams, mindmaps and architecture diagrams,
   with source/copy controls, an expandable zoom view, SVG downloads and embedded HTML exports.
 - **Standalone HTML export** — the rendered document as one self-contained file.

@@ -7,9 +7,15 @@ function adapter(overrides = {}) {
   const calls = [];
   const window = { __TAURI_INTERNALS__: {}, RV: {} };
   const mocks = {
-    window, DOMException, Blob, console,
+    window, DOMException, Blob, console, crypto: require('node:crypto').webcrypto,
     convertFileSrc: path => `asset:${path}`,
-    invoke: async () => [],
+    invoke: async (command, args) => {
+      if (command === 'write_document_atomic') {
+        calls.push([args.path, Array.from(args.bytes)]);
+        return require('node:crypto').createHash('sha256').update(Buffer.from(args.bytes)).digest('hex');
+      }
+      return [];
+    },
     readFile: async () => new Uint8Array([239, 187, 191, 97, 13, 10]),
     writeFile: async (path, bytes) => calls.push([path, Array.from(bytes)]),
     stat: async () => ({ isDirectory: false }),
@@ -55,10 +61,10 @@ test('native handles preserve BOM and line-ending bytes on read/write', async ()
   assert.deepEqual(calls, [['/docs/README.md', [239, 187, 191, 97, 13, 10]]]);
   await assert.rejects(writer.write(new Blob(['x'])), /closed/);
 });
-test('native cancellation and failed writes reject without pretending success', async () => {
+test('native cancellation and failed atomic commits reject without pretending success', async () => {
   const cancelled = adapter({ save: async () => null }).native;
   await assert.rejects(cancelled.download('text', 'a.md', 'text/plain'), { name: 'AbortError' });
-  const failed = adapter({ writeFile: async () => { throw new Error('permission denied'); } }).native;
+  const failed = adapter({ invoke: async () => { throw new Error('permission denied'); } }).native;
   await assert.rejects(failed.download('text', 'a.md', 'text/plain'), /permission denied/);
 });
 test('native preview links stay local and external opener only accepts permitted schemes', async () => {
@@ -81,6 +87,8 @@ test('Android content URI paths pass unchanged to filesystem APIs', async () => 
   assert.equal(handle.baseUrl, null);
   const writer = await handle.createWritable();
   await writer.write(new Blob(['ok']));
+  assert.equal(calls.length, 0, 'the provider is written only when the writer closes');
+  await writer.close();
   assert.equal(calls[0][0], path);
 });
 test('startup, native-open, drop and close confirmation share app hooks', async () => {
@@ -125,28 +133,68 @@ test('HTML exports use HTML filters and Save As authorizes images only after wri
   const operations = [];
   const { native } = adapter({
     save: async options => { operations.push(['dialog', options.filters[0].extensions.join(',')]); return '/saved/export.html'; },
-    writeFile: async () => { operations.push(['write']); },
     invoke: async command => { operations.push([command]); }
   });
   await native.download('<p>hello</p>', 'export.html', 'text/html;charset=utf-8');
-  assert.deepEqual(operations, [['dialog', 'html,htm'], ['write'], ['authorize_document_directory']]);
+  assert.deepEqual(operations, [['dialog', 'html,htm'], ['write_document_atomic'], ['authorize_document_directory']]);
 });
 test('SVG diagram exports use the SVG save filter and write through the native adapter', async () => {
   const operations = [];
   const { native } = adapter({
     save: async options => { operations.push(['dialog', options.defaultPath, options.filters[0].extensions.join(',')]); return '/saved/diagram.svg'; },
-    writeFile: async (path, bytes) => { operations.push(['write', path, new TextDecoder().decode(bytes)]); },
-    invoke: async () => {}
+    invoke: async (command, args) => {
+      if (command === 'write_document_atomic') operations.push(['write', args.path, new TextDecoder().decode(new Uint8Array(args.bytes))]);
+    }
   });
   await native.download('<svg/>', 'diagram.svg', 'image/svg+xml;charset=utf-8');
   assert.deepEqual(operations, [['dialog', 'diagram.svg', 'svg'], ['write', '/saved/diagram.svg', '<svg/>']]);
 });
 test('a saved file remains successful when image scope authorization fails', async () => {
   const { native } = adapter({
-    invoke: async () => { throw new Error('scope unavailable'); },
+    invoke: async command => { if (command === 'authorize_document_directory') throw new Error('scope unavailable'); },
     console: { warn() {}, error() {} }
   });
   assert.equal(await native.download('hello', 'README.md', 'text/markdown'), true);
+});
+
+test('desktop writes stage bytes until close, use read revisions, and expose conflicts for an explicit overwrite', async () => {
+  const commits = [];
+  let fail = true;
+  const { native } = adapter({ invoke: async (command, args) => {
+    if (command !== 'write_document_atomic') return;
+    commits.push(args);
+    if (fail) throw 'RV_FILE_CHANGED';
+    return 'saved-revision';
+  } });
+  const handle = await native.pickOpen();
+  const file = await handle.getFile();
+  const writer = await handle.createWritable({ expectedBytes: new Uint8Array(await file.arrayBuffer()) });
+  await writer.write(new Blob(['edited']));
+  assert.equal(commits.length, 0);
+  await assert.rejects(writer.close(), { name: 'FileConflictError' });
+  assert.equal(commits[0].expectedHash, require('node:crypto').createHash('sha256').update(Buffer.from([239, 187, 191, 97, 13, 10])).digest('hex'));
+  fail = false;
+  const overwrite = await handle.createWritable({ overwrite: true });
+  await overwrite.write(new Blob(['edited'])); await overwrite.close();
+  assert.equal(commits[1].expectedHash, null);
+  const subsequent = await handle.createWritable();
+  await subsequent.write(new Blob(['again'])); await subsequent.close();
+  assert.equal(commits[2].expectedHash, 'saved-revision');
+});
+
+test('a later unaccepted disk read cannot advance the document revision used for saving', async () => {
+  let contents = new Uint8Array(Buffer.from('original')), expected;
+  const { native } = adapter({
+    readFile: async () => contents,
+    invoke: async (command, args) => { if (command === 'write_document_atomic') expected = args.expectedHash; }
+  });
+  const handle = await native.pickOpen(), accepted = await handle.getFile();
+  const baseline = new Uint8Array(await accepted.arrayBuffer());
+  contents = new Uint8Array(Buffer.from('external edit'));
+  await handle.getFile();
+  const writer = await handle.createWritable({ expectedBytes: baseline });
+  await writer.write(new Blob(['ours'])); await writer.close();
+  assert.equal(expected, require('node:crypto').createHash('sha256').update('original').digest('hex'));
 });
 test('Android Back waits for close/save decision and serializes repeated presses', async () => {
   let back, finishDecision, exited = 0, decisions = 0;

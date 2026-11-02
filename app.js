@@ -62,6 +62,7 @@
     bom: false,
     eol: '\n',
     encoding: '',
+    diskBytes: null,
     baseUrl: '',
     autoBase: false,
     folder: null,
@@ -93,7 +94,7 @@
   var manualBaseUrl = '';
   var mobileSidebar = false;
   var documentFields = ['handle', 'name', 'saved', 'dirty', 'needsSave', 'hasDocument', 'bom', 'eol',
-    'encoding', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'curLine'];
+    'encoding', 'diskBytes', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'curLine'];
 
   function tabText(key, fallback) { var value = t(key); return value === key ? fallback : value; }
   function captureTab() {
@@ -269,7 +270,9 @@
   function openFileTab(file, handle) {
     if (!file) return Promise.resolve(false);
     return file.arrayBuffer().then(function (buffer) {
-      var decoded = Encoding.decode(new Uint8Array(buffer));
+      var bytes = new Uint8Array(buffer);
+      var decoded = Encoding.decode(bytes);
+      decoded.bytes = bytes;
       if (decoded.binary) { toast(t('error.binary', { name: file.name || '' }), 'error'); return false; }
       if (pendingSave || pendingDiscard) return false;
       var existing = handle && handle.path && tabs.filter(function (tab) {
@@ -398,7 +401,7 @@
     eachNode('img[src]', function (img) {
       var src = img.getAttribute('src') || '';
       if (nativeAvailable()) {
-        var asset = /^https?:/i.test(src) ? src : RV.Native.assetUrl(src, tab.handle);
+        var asset = /^(?:https?:|data:image\/)/i.test(src) ? src : RV.Native.assetUrl(src, tab.handle);
         if (asset) img.setAttribute('src', asset); else img.removeAttribute('src');
       } else if (tab.folder) {
         var path = comparisonFolderPath(tab.folder, src);
@@ -900,6 +903,7 @@
     state.bom = !!(meta && meta.bom);
     state.eol = (meta && meta.eol) || '\n';
     state.encoding = (meta && meta.encoding) || 'utf-8';
+    state.diskBytes = meta && meta.bytes || null;
     state.lines = text ? text.split('\n').length : 1;
     setDirty(false);
     el.editor.scrollTop = 0;
@@ -925,6 +929,7 @@
     state.bom = false;
     state.eol = '\n';
     state.encoding = '';
+    state.diskBytes = null;
     state.tasks = [];
     state.tasksOk = true;
     state.taskReason = '';
@@ -1017,7 +1022,9 @@
     var source = el.editor.value;
     return file.arrayBuffer().then(function (buf) {
       if (state.documentId !== documentId || el.editor.value !== source) return false;
-      var decoded = Encoding.decode(new Uint8Array(buf));
+      var bytes = new Uint8Array(buf);
+      var decoded = Encoding.decode(bytes);
+      decoded.bytes = bytes;
       if (decoded.binary) {
         toast(t('error.binary', { name: file.name || '' }), 'error');
         return false;
@@ -1112,12 +1119,15 @@
     var documentId = state.documentId;
     var name = state.name;
     var payload = Encoding.encode(text, { bom: state.bom, eol: state.eol });
+    var payloadBlob = new Blob([payload], { type: 'text/markdown;charset=utf-8' });
+    var originalHandle = state.handle, diskBytes = state.diskBytes;
 
-    var finish = function (handle) {
+    var finish = function (handle, bytes) {
       if (state.documentId !== documentId) return true;
       state.saved = text;
       state.needsSave = false;
       state.handle = handle || null;
+      state.diskBytes = bytes || null;
       state.name = handle ? handle.name : name;
       applyHandleBase(handle);
       if (handle && handle.baseUrl) render({ immediate: true });
@@ -1138,11 +1148,44 @@
         });
     }
 
-    var writeTo = function (h) {
-      return h.createWritable().then(function (w) {
-        return w.write(new Blob([payload], { type: 'text/markdown;charset=utf-8' }))
-          .then(function () { return w.close(); });
-      }).then(function () { return finish(h); }).catch(function (err) {
+    function conflict() { var error = new Error('The file changed on disk.'); error.name = 'FileConflictError'; return error; }
+    function checkDisk(h, overwrite) {
+      // Native desktop commits check a SHA-256 revision in Rust as well as after staging.
+      if (overwrite || h !== originalHandle || !diskBytes || !h.getFile ||
+          (nativeAvailable() && h.path && !/^content:/i.test(h.path))) return Promise.resolve();
+      return h.getFile().then(function (file) { return file.arrayBuffer(); }).then(function (buffer) {
+        var current = new Uint8Array(buffer);
+        if (current.length !== diskBytes.length) throw conflict();
+        for (var i = 0; i < current.length; i++) if (current[i] !== diskBytes[i]) throw conflict();
+      }).catch(function (error) {
+        if (error && error.name === 'NotFoundError') throw conflict();
+        throw error;
+      });
+    }
+    function savedBytes() {
+      if (payloadBlob.arrayBuffer) return payloadBlob.arrayBuffer().then(function (buffer) { return new Uint8Array(buffer); });
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(new Uint8Array(reader.result)); };
+        reader.onerror = function () { reject(reader.error); };
+        reader.readAsArrayBuffer(payloadBlob);
+      });
+    }
+    var writeTo = function (h, overwrite) {
+      return checkDisk(h, overwrite).then(function () {
+        return h.createWritable({ overwrite: !!overwrite, expectedBytes: h === originalHandle ? diskBytes : null });
+      }).then(function (w) {
+        return w.write(payloadBlob)
+          .then(savedBytes).then(function (bytes) { return w.close().then(function () { return bytes; }); });
+      }).then(function (bytes) { return finish(h, bytes); }).catch(function (err) {
+        if (err && err.name === 'FileConflictError') {
+          if (state.documentId !== documentId) return false;
+          return askConfirm({ title: t('conflict.title'), body: t('conflict.body', { name: name }),
+            saveLabel: t('action.saveAs'), discardLabel: t('conflict.overwrite') }).then(function (choice) {
+            if (choice === 'discard') return writeTo(h, true);
+            return choice === 'save' ? chooseSave() : false;
+          });
+        }
         // Permission lost (e.g. the file moved): fall back to a download instead of failing.
         if (!nativeAvailable() && err && (err.name === 'NotAllowedError' || err.name === 'NotFoundError')) {
           return fallback();
@@ -1159,30 +1202,32 @@
       return writeTo(state.handle);
     }
 
-    if (nativeAvailable()) {
-      return RV.Native.pickSave(name || 'README.md').then(function (h) {
-        return h ? writeTo(h) : false;
-      }).catch(function (err) {
-        if (err && err.name === 'AbortError') return false;
-        toast(t('error.save', { name: name, reason: (err && err.message) || String(err) }), 'error');
-        return false;
-      });
-    }
+    return chooseSave();
+    function chooseSave() {
+      if (nativeAvailable()) {
+        return RV.Native.pickSave(name || 'README.md').then(function (h) {
+          return h ? writeTo(h) : false;
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') return false;
+          toast(t('error.save', { name: name, reason: (err && err.message) || String(err) }), 'error');
+          return false;
+        });
+      }
 
-    if (typeof window.showSaveFilePicker === 'function') {
-      return window.showSaveFilePicker({
-        suggestedName: state.name || 'README.md',
-        types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown', '.txt'] } }]
-      }).then(function (h) {
-        if (!h) return false;
-        return writeTo(h);
-      }).catch(function (err) {
-        if (err && err.name === 'AbortError') return false;
-        return fallback();
-      });
-    }
+      if (typeof window.showSaveFilePicker === 'function') {
+        return window.showSaveFilePicker({
+          suggestedName: name || 'README.md',
+          types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown', '.txt'] } }]
+        }).then(function (h) {
+          return h ? writeTo(h) : false;
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') return false;
+          return fallback();
+        });
+      }
 
-    return fallback();
+      return fallback();
+    }
   }
 
   async function exportHtml() {
@@ -1232,6 +1277,8 @@
       $('confirmBody').textContent = opts.body;
       $('confirmIcon').innerHTML = Icons.svg(opts.icon || 'alert', 18);
       el.btnConfirmSave.hidden = opts.hideSave === true;
+      el.btnConfirmSave.textContent = opts.saveLabel || t('action.save');
+      el.btnConfirmDiscard.textContent = opts.discardLabel || t('action.discard');
       el.confirmModal.hidden = false;
       (opts.hideSave ? el.btnConfirmDiscard : el.btnConfirmSave).focus();
     });
@@ -1310,12 +1357,14 @@
         ? Direction.dominantDir(text)
         : Direction.blockDir(text);
       if (dir) node.setAttribute('dir', dir);
+      else node.removeAttribute('dir');
     }
   }
 
-  function enhanceLinks() {
+  function enhanceLinks(root) {
+    root = root || el.preview;
     var base = state.baseUrl;
-    var links = el.preview.querySelectorAll('a[href]');
+    var links = root.querySelectorAll('a[href]');
     for (var i = 0; i < links.length; i++) {
       var a = links[i];
       var href = a.getAttribute('href') || '';
@@ -1341,13 +1390,13 @@
         a.setAttribute('data-external', '1');
       }
     }
-    if (state.folder && !nativeAvailable()) { loadFolderImages(); return; }
+    if (state.folder && !nativeAvailable()) { loadFolderImages(root); return; }
     if (!base && !nativeAvailable()) return;
-    var imgs = el.preview.querySelectorAll('img[src]');
+    var imgs = root.querySelectorAll('img[src]');
     for (var j = 0; j < imgs.length; j++) {
       var src = imgs[j].getAttribute('src') || '';
       var r = nativeAvailable()
-        ? (/^https?:/i.test(src) ? src : RV.Native.assetUrl(src, state.handle))
+        ? (/^(?:https?:|data:image\/)/i.test(src) ? src : RV.Native.assetUrl(src, state.handle))
         : resolveUrl(src, base);
       if (nativeAvailable() && !r) imgs[j].removeAttribute('src');
       if (r) imgs[j].setAttribute('src', r);
@@ -1420,10 +1469,32 @@
       : '';
   }
 
+  var previewBlocks = [], previewContext = '', previewFolder = null;
+  function reconcileBlocks(blocks) {
+    var retained = new Set();
+    blocks.forEach(function (block) { block.nodes.forEach(function (node) { retained.add(node); }); });
+    Array.prototype.slice.call(el.preview.childNodes).forEach(function (node) {
+      if (!retained.has(node)) el.preview.removeChild(node);
+    });
+    var focused = el.preview.contains(document.activeElement) ? document.activeElement : null;
+    var cursor = el.preview.firstChild;
+    blocks.forEach(function (block) {
+      block.nodes.forEach(function (node) {
+        if (node !== cursor) el.preview.insertBefore(node, cursor);
+        cursor = node.nextSibling;
+      });
+    });
+    if (focused && focused.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
+    folderUrls = folderUrls.filter(function (item) {
+      if (item.img.isConnected) return true;
+      URL.revokeObjectURL(item.url); return false;
+    });
+  }
+
   function render(opts) {
     opts = opts || {};
     if (!state.hasDocument && !el.editor.value) {
-      el.preview.textContent = '';
+      reconcileBlocks([]); previewBlocks = [];
       state.anchors = [];
       state.toc = [];
       state.tasks = [];
@@ -1447,6 +1518,7 @@
     } catch (err) {
       var reason = (err && err.message) || String(err);
       el.preview.textContent = t('error.parse', { reason: reason });
+      previewBlocks = [];
       state.anchors = [];
       state.toc = [];
       state.tasks = [];
@@ -1461,7 +1533,15 @@
     }
 
     var located = locateTokens(tokens, src);
-    var frag = document.createDocumentFragment();
+    var context = JSON.stringify([state.documentId, state.baseUrl, I18n.getLocale(), nativeAvailable()]);
+    var reusable = new Map();
+    if (context === previewContext && previewFolder === state.folder && !find.hits.length) {
+      previewBlocks.forEach(function (block) {
+        if (!reusable.has(block.html)) reusable.set(block.html, []);
+        reusable.get(block.html).push(block);
+      });
+    }
+    var blocks = [];
     var parts = [];
     var toc = [];
 
@@ -1475,11 +1555,17 @@
       }
       if (!html) continue;
 
-      var holder = document.createElement('div');
-      holder.innerHTML = html;
-      var first = holder.firstElementChild;
-      if (!first) continue;
-      while (holder.firstChild) frag.appendChild(holder.firstChild);
+      var matches = reusable.get(html);
+      var block = matches && matches.length ? matches.shift() : null;
+      if (!block) {
+        var holder = document.createElement('div');
+        holder.innerHTML = html;
+        if (!holder.firstElementChild) continue;
+        block = { html: html, first: holder.firstElementChild, nodes: Array.prototype.slice.call(holder.childNodes) };
+        enhanceLinks(holder); hl.all(holder);
+      }
+      var first = block.first;
+      blocks.push(block);
 
       var line = located[i].line + 1;
       var part = {
@@ -1502,12 +1588,10 @@
       }
     }
 
-    el.preview.textContent = '';
-    el.preview.appendChild(frag);
+    reconcileBlocks(blocks);
+    previewBlocks = blocks; previewContext = context; previewFolder = state.folder;
 
     applyDirection(parts, src);
-    enhanceLinks();
-    hl.all(el.preview);
     if (!el.findBar.hidden && el.findInput.value) runFind(true);
 
     state.anchors = parts;
@@ -2651,6 +2735,7 @@
   var find = { hits: [], index: -1 };
 
   function clearFindMarks() {
+    if (find.hits.length) previewBlocks = [];
     if (RV.Reading) RV.Reading.clearFindVisibility();
     eachNode('mark.rv-find', function (m) {
       var parent = m.parentNode;
@@ -2810,21 +2895,19 @@
     return true;
   }
 
-  function loadFolderImages() {
-    folderUrls.forEach(function (u) { URL.revokeObjectURL(u); });
-    folderUrls = [];
+  function loadFolderImages(root) {
     var folder = state.folder;
     eachNode('img[src]', function (img) {
       var path = folderPath(img.getAttribute('src') || '');
       if (path === null) return;
       img.removeAttribute('src');
       folderGet(path, false).then(openEntry).then(function (file) {
-        if (state.folder !== folder) return;
+        if (state.folder !== folder || !img.isConnected) return;
         var url = URL.createObjectURL(file);
-        folderUrls.push(url);
+        folderUrls.push({ img: img, url: url });
         img.setAttribute('src', url);
       }).catch(function () { void 0; });
-    }, el.preview);
+    }, root);
   }
 
   function wireResizer() {

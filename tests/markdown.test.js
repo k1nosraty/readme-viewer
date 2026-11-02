@@ -79,6 +79,14 @@ test('headings get unique, GitHub style anchors', function () {
   assert.equal((out.match(/class="heading-anchor"/g) || []).length, 3);
 });
 
+test('heading suffixes cannot collide with literal numbered headings', function () {
+  const out = render('# A\n\n# A\n\n# A-1\n\n# A\n\n# A-1\n\n# A-1-1\n').html;
+  const ids = Array.from(out.matchAll(/ id="([^"]+)"/g), match => match[1]);
+  assert.deepEqual(ids, ['user-content-a', 'user-content-a-1', 'user-content-a-1-1',
+    'user-content-a-2', 'user-content-a-1-2', 'user-content-a-1-1-1']);
+  assert.match(render('# A').html, /id="user-content-a"/, 'a fresh render resets used slugs');
+});
+
 test('images are lazy and keep their alt text', function () {
   const out = render('![Alt text](pic.png "Title")\n').html;
   assert.match(out, /<img src="pic\.png" alt="Alt text" title="Title" loading="lazy" decoding="async">/);

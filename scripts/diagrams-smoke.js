@@ -30,6 +30,11 @@ const { chromium } = require('playwright');
     const firstSvg = decodeURIComponent(firstUrl.slice(firstUrl.indexOf(',') + 1));
     assert.match(firstSvg.replace(/<[^>]+>/g, ''), /Telegram bot/);
     assert.match(firstSvg.replace(/<[^>]+>/g, '').replace(/\s/g, ''), /ledgerandencryptedcards/);
+    assert.equal(await page.evaluate(() => {
+      const image = document.querySelector('#preview .diagram-figure img');
+      RVApp.el.editor.value += '\n\nAn unrelated paragraph'; RVApp.render();
+      return image === document.querySelector('#preview .diagram-figure img');
+    }), true, 'editing another block preserves the rendered diagram image');
     const overlay = page.locator('#preview .diagram-tools').first();
     assert.equal(await overlay.locator('button').first().textContent(), '');
     await page.mouse.move(0, 0);

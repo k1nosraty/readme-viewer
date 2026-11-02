@@ -13,6 +13,24 @@ const { chromium } = require('playwright');
     page.on('pageerror', error => { errors.push(error.message); console.error('Browser error:', error.message); });
     await page.goto(pathToFileURL(path.resolve(__dirname, '../index.html')).href);
     await page.waitForFunction(() => window.RVApp && window.RVApp.state.ready);
+    // Untrusted HTML must stay inside the reading pane, including app-like class names.
+    await page.evaluate(() => {
+      RVApp.setMode('preview');
+      RVApp.setDoc('<div class="modal"><div class="modal-box">Document overlay</div></div>\n\n' +
+        '<p style="position:fixed;inset:0;z-index:999999">Inline overlay</p>', 'untrusted.md');
+    });
+    assert.equal(await page.locator('#preview [style]').count(), 0);
+    assert.equal(await page.locator('#btnOpen').evaluate(button => {
+      const box = button.getBoundingClientRect();
+      return button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    }), true, 'document classes cannot cover the application toolbar');
+    await page.evaluate(() => RVApp.setDoc('# A\n\n# A\n\n# A-1', 'anchors.md'));
+    assert.deepEqual(await page.locator('#preview h1').evaluateAll(nodes => nodes.map(node => node.id)),
+      ['user-content-a', 'user-content-a-1', 'user-content-a-1-1']);
+    await page.evaluate(() => RVApp.setDoc('```cmake\nproject(First)\n```\n\n```cmake\nproject(Second)\n```', 'code.md'));
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('#preview pre > code'))
+      .every(code => code.querySelector('.hljs-keyword')));
+    assert.equal(await page.locator('#preview pre > code').count(), 2);
     await page.locator('#fileInput').setInputFiles({
       name: 'persian.md', mimeType: 'text/markdown',
       buffer: Buffer.from('# Test\r\n\r\n- [ ] یادگیری PostgreSQL\r\n')

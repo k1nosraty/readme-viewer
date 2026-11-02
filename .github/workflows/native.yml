@@ -1,7 +1,7 @@
 name: Native test and release
 on:
   push:
-    branches: [feature/tauri-native-app, feature/document-workspace, feature/mermaid-diagrams, fix/linked-files, main, develop]
+    branches: [audit, feature/tauri-native-app, feature/document-workspace, feature/mermaid-diagrams, fix/linked-files, main, develop]
   workflow_dispatch:
 permissions:
   contents: read
@@ -103,8 +103,8 @@ jobs:
       - name: Build Linux packages
         timeout-minutes: 15
         run: npm run native:build -- --bundles deb,appimage
-      - name: Native browser preview cache checks
-        run: cargo test --release --manifest-path src-tauri/Cargo.toml --lib browser_preview_tests
+      - name: Native Rust checks including atomic saves
+        run: cargo test --release --locked --manifest-path src-tauri/Cargo.toml --lib
       - name: Installed native WebView open, edit and save
         timeout-minutes: 5
         run: dbus-run-session -- xvfb-run -a bash scripts/test-native-linux.sh
@@ -134,6 +134,8 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm run native:build -- --bundles nsis
+      - name: Native Rust checks including atomic saves
+        run: cargo test --release --locked --manifest-path src-tauri/Cargo.toml --lib
       - name: Native installer, application window and uninstall
         shell: pwsh
         run: ./scripts/test-native-windows.ps1
