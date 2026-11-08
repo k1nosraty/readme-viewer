@@ -3,7 +3,7 @@
   'use strict';
   var RV = window.RV = window.RV || {}, actions = null, openSub = null;
   var toolbarPrefs = { show: true, hidden: [] };
-  var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'direction', 'font', 'theme', 'wrap', 'sync', 'contents', 'export', 'help'];
+  var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'direction', 'font', 'appearance', 'theme', 'wrap', 'sync', 'contents', 'export', 'help'];
   function hideSub(focus) {
     if (!openSub) return;
     var trigger = openSub; openSub = null;

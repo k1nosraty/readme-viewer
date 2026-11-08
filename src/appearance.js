@@ -87,9 +87,31 @@
     var preset = Array.prototype.some.call(choice.options, function (option) { return option.value !== '__custom__' && option.value === input.value; });
     choice.value = preset ? input.value : '__custom__'; input.hidden = preset;
   }
+  var fontSuggestions;
+  function loadFontSuggestions() {
+    if (fontSuggestions) return;
+    fontSuggestions = RV.Fonts.installedFamilies().catch(function () { return []; }).then(function (names) {
+      if (names.length) return names;
+      var presets = Array.from(document.querySelectorAll('.font-choice option'), function (option) { return option.value; });
+      presets = Array.from(new Set(presets.filter(function (name) { return name && name !== '__custom__'; })));
+      return Promise.all(presets.map(function (name) {
+        return RV.Fonts.available(name).then(function (installed) { return installed ? name : ''; });
+      }));
+    }).then(function (names) {
+      var list = byId('installedFontNames');
+      Array.from(new Set(names)).filter(function (name) { return name && RV.Fonts.valid(name); })
+        .sort(function (a, b) { return a.localeCompare(b); }).forEach(function (name) {
+          var option = document.createElement('option');
+          option.value = name;
+          list.appendChild(option);
+        });
+    }).catch(function () { fontSuggestions = null; });
+  }
   function wireFontChoices() {
     ['fontLatin', 'fontPersian', 'fontUi'].forEach(function (id) {
       var input = byId(id), choice = byId(id + 'Choice');
+      input.setAttribute('list', 'installedFontNames');
+      input.addEventListener('focus', loadFontSuggestions);
       function change(event) {
         if (choice.value === '__custom__') {
           if (input.hidden) input.value = '';
@@ -172,6 +194,7 @@
       button.addEventListener('click', function () { prefs.accent = preset[1]; sync(); apply(); });
     });
     byId('btnAppearance').addEventListener('click', open);
+    byId('btnAppearanceToolbar').addEventListener('click', open);
     byId('appearancePanel').addEventListener('input', preview);
     byId('appearancePanel').addEventListener('change', preview);
     ['appearanceClose', 'appearanceCancel', 'appearanceScrim'].forEach(function (id) { byId(id).addEventListener('click', function () { close(true); }); });

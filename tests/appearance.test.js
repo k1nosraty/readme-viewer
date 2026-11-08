@@ -45,6 +45,24 @@ test('appearance preview, cancel, reset and focus preserve the document and save
   assert.deepEqual(a.errors, []);
 });
 
+test('the appearance shortcut offers installed font suggestions in each custom field', async t => {
+  const a = await load(t); if (!a) return;
+  a.window.queryLocalFonts = async () => [{ family: 'Zulu Sans' }, { family: 'Alpha Serif' },
+    { family: 'Alpha Serif' }, { family: 'Invalid" name' }];
+  a.click('btnAppearanceToolbar');
+  assert.equal(a.document.getElementById('appearancePanel').hidden, false);
+  a.set('fontLatinChoice', '__custom__');
+  a.document.getElementById('fontLatin').focus();
+  const list = a.document.getElementById('installedFontNames');
+  await harness.waitFor(() => list.options.length === 2, 1000);
+  assert.deepEqual(Array.from(list.options, option => option.value), ['Alpha Serif', 'Zulu Sans']);
+  for (const id of ['fontLatin', 'fontPersian', 'fontUi']) assert.equal(a.document.getElementById(id).list, list);
+  a.set('fontLatin', 'Alpha Serif');
+  assert.equal(a.window.RV.Fonts.snapshot().latin, 'Alpha Serif');
+  a.click('appearanceCancel');
+  assert.equal(a.document.activeElement.id, 'btnAppearanceToolbar');
+});
+
 test('appearance applies persistently, validates HEX and keeps standard links independent', async t => {
   const storage = new Map(); const a = await load(t, storage); if (!a) return;
   a.open(); a.set('accentHex', '#nope');

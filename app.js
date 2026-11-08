@@ -155,6 +155,11 @@
     saveSettings();
     scheduleRender(null, 0);
   }
+  function syncNativeTabShortcut() {
+    if (document.documentElement.hasAttribute('data-windows-titlebar') && RV.Native.syncTabShortcut) {
+      RV.Native.syncTabShortcut(tabs.length > 1).catch(reportOpen);
+    }
+  }
   function renderTabs(scrollId) {
     var bar = $('documentTabs');
     if (!bar) return;
@@ -217,6 +222,7 @@
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
       if (replacement) replacement.focus();
     }
+    syncNativeTabShortcut();
   }
   function moveTab(from, to) {
     if (pendingSave || pendingDiscard || from === to || from < 0 || to < 0 || to >= tabs.length) return;
@@ -2186,15 +2192,13 @@
 
   /** The theme button doubles as an indicator: its glyph and tooltip name the active mode. */
   function updateThemeButton() {
-    var themeKey = state.theme === 'auto' ? 'system' : state.theme;
-    var label = t('theme.label') + ': ' + t('theme.' + themeKey);
-    el.btnTheme.innerHTML = Icons.svg(state.theme === 'auto' ? 'monitor' : (isDark() ? 'moon' : 'sun'), 16);
-    el.btnTheme.setAttribute('title', label);
-    el.btnTheme.setAttribute('aria-label', label);
+    var dark = isDark();
+    el.btnTheme.setAttribute('aria-checked', String(dark));
+    el.btnTheme.title = t(dark ? 'theme.switchLight' : 'theme.switchDark');
   }
 
-  function cycleTheme() {
-    setTheme(state.theme === 'auto' ? 'light' : (state.theme === 'light' ? 'dark' : 'auto'));
+  function toggleTheme() {
+    setTheme(isDark() ? 'light' : 'dark');
   }
 
   function setTheme(theme, preview) {
@@ -2266,7 +2270,7 @@
     el.btnBack.addEventListener('click', function () { goHistory(-1); });
     el.btnForward.addEventListener('click', function () { goHistory(1); });
     el.btnExport.addEventListener('click', exportHtml);
-    el.btnTheme.addEventListener('click', cycleTheme);
+    el.btnTheme.addEventListener('click', toggleTheme);
     el.btnEmptyOpen.addEventListener('click', pickOpen);
     el.btnEmptySample.addEventListener('click', function () {
       confirmDiscard().then(function (proceed) { if (proceed) loadSample(); });
@@ -2388,7 +2392,7 @@
     });
 
     document.addEventListener('keydown', function (e) {
-      var key = (e.key || '').toLowerCase();
+      var key = shortcutKey(e);
       if (el.confirmModal.hidden && el.helpModal.hidden && (e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
         e.preventDefault(); e.stopPropagation(); undoEdit(key === 'y' || e.shiftKey); return;
       }
@@ -2450,7 +2454,7 @@
 
     el.editor.addEventListener('keydown', function (e) {
       if (composing || e.isComposing || e.keyCode === 229) return;
-      var key = (e.key || '').toLowerCase();
+      var key = shortcutKey(e);
       if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
         e.preventDefault(); e.stopPropagation(); undoEdit(key === 'y' || e.shiftKey); return;
       }
@@ -3112,19 +3116,31 @@
     });
   }
 
+  function shortcutKey(event) {
+    var key = (event.key || '').toLowerCase();
+    // Keep Latin-layout shortcuts and use the physical letter for non-Latin layouts.
+    if (/^[a-z]$/.test(key) || !/^Key[A-Z]$/.test(event.code)) return key;
+    return event.code.slice(3).toLowerCase();
+  }
+
+  function cycleDocumentTabs(backward) {
+    if (tabs.length < 2 || !el.confirmModal.hidden || !el.helpModal.hidden ||
+        !$('appearancePanel').hidden || !$('serviceModal').hidden) return;
+    var bar = $('documentTabs'), focus = document.activeElement;
+    var fromEditor = focus === el.editor, fromTabs = bar.contains(focus);
+    var next = (tabs.indexOf(activeTab) + (backward ? -1 : 1) + tabs.length) % tabs.length;
+    if (!switchTab(tabs[next].id)) return;
+    if (fromEditor) el.editor.focus({ preventScroll: true });
+    else if (fromTabs) bar.querySelector('[aria-selected="true"]').focus({ preventScroll: true });
+  }
+
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
       if (!el.confirmModal.hidden || !el.helpModal.hidden) return;
       if (e.isComposing || e.keyCode === 229) return;
-      if (e.key === 'Tab' && e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === 'Tab' && e.altKey && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
-        if (tabs.length < 2) return;
-        var bar = $('documentTabs'), focus = document.activeElement;
-        var fromEditor = focus === el.editor, fromTabs = bar.contains(focus);
-        var next = (tabs.indexOf(activeTab) + (e.shiftKey ? -1 : 1) + tabs.length) % tabs.length;
-        if (!switchTab(tabs[next].id)) return;
-        if (fromEditor) el.editor.focus({ preventScroll: true });
-        else if (fromTabs) bar.querySelector('[aria-selected="true"]').focus({ preventScroll: true });
+        cycleDocumentTabs(e.shiftKey);
         return;
       }
       if (e.key === 'F8' && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -3144,7 +3160,7 @@
       }
       var mod = e.ctrlKey || e.metaKey;
       if (!mod || e.altKey) return;
-      var key = (e.key || '').toLowerCase();
+      var key = shortcutKey(e);
       if (key === 's') { e.preventDefault(); save(e.shiftKey); return; }
       if (key === 'o') { e.preventDefault(); pickOpen(); return; }
       if (key === 'f' && e.shiftKey) { e.preventDefault(); openFind(); return; }
@@ -3447,7 +3463,8 @@
     Promise.resolve(sessionReady).then(function () {
       state.ready = true;
       if (nativeAvailable()) return RV.Native.initialize({
-        onTitlebar: applyTabLayout,
+        onTitlebar: function () { applyTabLayout(); syncNativeTabShortcut(); },
+        cycleTab: cycleDocumentTabs,
         openPath: function (path) {
           return openNativePath(path, false, true).then(function (ok) {
             if (ok) setMode('preview');

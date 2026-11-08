@@ -4,6 +4,8 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
 mod atomic_file;
+#[cfg(target_os = "windows")]
+mod windows_native;
 
 #[tauri::command]
 async fn write_document_atomic(
@@ -288,6 +290,35 @@ fn restart_app(app: tauri::AppHandle) {
     let _ = app;
 }
 
+#[tauri::command]
+fn set_window_backdrop(window: tauri::WebviewWindow, dark: bool) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        windows_native::apply_backdrop(&window, dark)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (window, dark);
+        false
+    }
+}
+
+#[tauri::command]
+async fn installed_font_families() -> Result<Vec<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        tauri::async_runtime::spawn_blocking(|| {
+            windows_native::installed_font_families().map_err(|error| error.to_string())
+        })
+        .await
+        .map_err(|error| error.to_string())?
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(Vec::new())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -306,9 +337,7 @@ pub fn run() {
     #[cfg(target_os = "windows")]
     let builder = builder.setup(|app| {
         if let Some(window) = app.get_webview_window("main") {
-            // Mica is available on Windows 11. Acrylic covers supported Windows 10 builds.
-            let _ = window_vibrancy::apply_mica(&window, None)
-                .or_else(|_| window_vibrancy::apply_acrylic(&window, None));
+            windows_native::prepare_tab_shortcut(&window);
         }
         Ok(())
     });
@@ -320,6 +349,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             update_platform,
             restart_app,
+            set_window_backdrop,
+            installed_font_families,
             write_document_atomic,
             startup_paths,
             authorize_document_directory,

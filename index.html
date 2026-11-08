@@ -121,6 +121,7 @@
       <button type="button" id="btnWindowClose" data-i18n-aria="window.close" data-i18n-title="window.close" aria-label="Close window"><i data-icon="close" data-size="15"></i></button>
     </div>
   </div>
+  <div class="tools-island">
   <div class="toolbar" role="toolbar" aria-label="Tools" id="toolbar">
     <div class="tgroup file-tools" data-toolbar-item="files">
       <button type="button" class="btn" id="btnOpen" data-i18n-title="action.open"><i data-icon="open" data-size="16"></i><span class="btn-label" data-i18n="action.open">Open</span></button>
@@ -151,7 +152,8 @@
       <button type="button" class="btn btn-icon" id="btnFontUp" data-i18n-title="font.increase"><i data-icon="plus" data-size="16"></i></button>
     </div>
     <div class="tgroup display-tools" data-toolbar-group="">
-      <button type="button" class="btn btn-icon" id="btnTheme" data-i18n-title="theme.label" data-toolbar-item="theme"><i data-icon="monitor" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnAppearanceToolbar" data-i18n-aria="appearance.heading" data-i18n-title="appearance.title" data-toolbar-item="appearance"><i data-icon="appearance" data-size="18"></i></button>
+      <button type="button" class="btn theme-switch" id="btnTheme" role="switch" aria-checked="false" aria-label="Dark mode" data-i18n-aria="theme.darkMode" data-toolbar-item="theme"><i class="theme-sun" data-icon="sun" data-size="15"></i><i class="theme-moon" data-icon="moon" data-size="15"></i></button>
       <button type="button" class="btn btn-icon" id="btnWrap" aria-pressed="false" data-i18n-title="toggle.wrap" data-toolbar-item="wrap"><i data-icon="wrap" data-size="16"></i></button>
       <button type="button" class="btn btn-icon" id="btnSync" aria-pressed="true" data-i18n-title="toggle.sync" data-toolbar-item="sync"><i data-icon="sync" data-size="16"></i></button>
       <button type="button" class="btn btn-icon" id="btnToc" aria-pressed="true" data-i18n-title="toggle.toc" data-toolbar-item="contents"><i data-icon="toc" data-size="16"></i></button>
@@ -175,6 +177,7 @@
       </div>
     </details>
     <button type="button" class="btn workspace-compare" id="btnCompare" aria-pressed="false" data-i18n-title="compare.toggle"><i data-icon="documents" data-size="16"></i><span data-i18n="compare.toggle">Two documents</span></button>
+  </div>
   </div>
 </header>
 
@@ -368,7 +371,8 @@
       <div class="appearance-field"><label id="fontLatinLabel" for="fontLatinChoice" data-i18n="fonts.latin">Latin / other scripts</label><div class="font-choice"><select id="fontLatinChoice" aria-describedby="fontHint fontError"><option value="" data-i18n="fonts.default">System default</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe UI</option><option value="Calibri">Calibri</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Noto Sans">Noto Sans</option><option value="Noto Serif">Noto Serif</option><option value="Vazirmatn">Vazirmatn</option><option value="__custom__" data-i18n="fonts.custom">Other installed font…</option></select><input id="fontLatin" type="text" maxlength="80" spellcheck="false" autocomplete="off" dir="ltr" data-i18n-placeholder="fonts.localName" placeholder="Installed family name" aria-labelledby="fontLatinLabel" aria-describedby="fontHint fontError" hidden></div></div>
       <div class="appearance-field"><label id="fontPersianLabel" for="fontPersianChoice" data-i18n="fonts.persian">Persian / Arabic</label><div class="font-choice"><select id="fontPersianChoice" aria-describedby="fontHint fontError"><option value="" data-i18n="fonts.default">System default</option><option value="Vazirmatn">Vazirmatn</option><option value="Tahoma">Tahoma</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe UI</option><option value="Noto Sans Arabic">Noto Sans Arabic</option><option value="Noto Naskh Arabic">Noto Naskh Arabic</option><option value="Amiri">Amiri</option><option value="__custom__" data-i18n="fonts.custom">Other installed font…</option></select><input id="fontPersian" type="text" maxlength="80" spellcheck="false" autocomplete="off" dir="ltr" data-i18n-placeholder="fonts.localName" placeholder="Installed family name" aria-labelledby="fontPersianLabel" aria-describedby="fontHint fontError" hidden></div></div>
       <div class="appearance-field"><label id="fontUiLabel" for="fontUiChoice" data-i18n="fonts.ui">Interface</label><div class="font-choice"><select id="fontUiChoice" aria-describedby="fontHint fontError"><option value="" data-i18n="fonts.default">System default</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe UI</option><option value="Calibri">Calibri</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Noto Sans">Noto Sans</option><option value="Noto Serif">Noto Serif</option><option value="Vazirmatn">Vazirmatn</option><option value="__custom__" data-i18n="fonts.custom">Other installed font…</option></select><input id="fontUi" type="text" maxlength="80" spellcheck="false" autocomplete="off" dir="ltr" data-i18n-placeholder="fonts.localName" placeholder="Installed family name" aria-labelledby="fontUiLabel" aria-describedby="fontHint fontError" hidden></div></div>
-      <p id="fontHint" data-i18n="fonts.hint">Vazirmatn is included (SIL OFL). Other families must be installed on your device. Enter any local family name, or clear the field for the default.</p>
+      <datalist id="installedFontNames"></datalist>
+      <p id="fontHint" data-i18n="fonts.hint">Vazirmatn is included (SIL OFL). Type to find an installed font, or clear the field for the default.</p>
       <p id="fontStatus" aria-live="polite"></p><p class="appearance-error" id="fontError" hidden data-i18n="fonts.invalid">Enter a font family name without quotes or file paths.</p>
       <div class="font-sample"><p lang="en">The quick brown fox — README Viewer 123</p><p lang="fa" dir="rtl">خواندن راحت متن فارسی؛ سلام دنیا ۱۲۳</p></div>
     </fieldset>

@@ -2,7 +2,7 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { onBackButtonPress, exit, getVersion } from '@tauri-apps/api/app';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { readFile, writeFile, stat } from '@tauri-apps/plugin-fs';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
@@ -12,6 +12,7 @@ const root = window;
 const available = () => !!root.__TAURI_INTERNALS__;
 const abort = () => new DOMException('Save cancelled.', 'AbortError');
 const filters = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mdwn', 'mkd', 'txt'] }];
+let tabShortcutEnabled;
 
 async function setupWindowsTitlebar(window, report, onTitlebar) {
   const byId = id => document.getElementById(id);
@@ -33,8 +34,17 @@ async function setupWindowsTitlebar(window, report, onTitlebar) {
 
   byId('titlebarDrag').hidden = false;
   byId('captionButtons').hidden = false;
-  document.documentElement.dataset.windowsTitlebar = '';
+  const documentRoot = document.documentElement;
+  documentRoot.dataset.windowsTitlebar = '';
   onTitlebar?.();
+  let backdropRevision = 0;
+  const syncBackdrop = async () => {
+    const revision = ++backdropRevision;
+    const glass = await invoke('set_window_backdrop', { dark: documentRoot.dataset.theme === 'dark' });
+    if (revision === backdropRevision) documentRoot.toggleAttribute('data-window-glass', glass === true);
+  };
+  new MutationObserver(() => syncBackdrop().catch(report)).observe(documentRoot, { attributeFilter: ['data-theme'] });
+  await syncBackdrop().catch(report);
   await window.onResized(() => syncMaximized().catch(report));
   await syncMaximized();
 }
@@ -103,6 +113,13 @@ async function handle(path, name, authorize = true, writable = true) {
 }
 const Native = {
   available,
+  installedFontFamilies() { return invoke('installed_font_families'); },
+  async syncTabShortcut(enabled) {
+    if (tabShortcutEnabled === enabled) return;
+    tabShortcutEnabled = enabled;
+    try { await emit('viewer-tab-shortcut', enabled); }
+    catch (error) { tabShortcutEnabled = undefined; throw error; }
+  },
   async appInfo() {
     const [platform, arch] = await invoke('update_platform');
     return { version: await getVersion(), platform, arch };
@@ -200,6 +217,7 @@ const Native = {
     });
     const userAgent = root.navigator?.userAgent || '';
     if (/Windows NT/i.test(userAgent)) {
+      await listen('native-cycle-tab', event => hooks.cycleTab?.(event.payload));
       await setupWindowsTitlebar(window, report, hooks.onTitlebar).catch(report);
     }
     if (/Android/i.test(userAgent)) {

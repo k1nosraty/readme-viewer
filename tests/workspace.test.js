@@ -163,7 +163,7 @@ test('tab keyboard navigation uses a roving focus target and first open reuses e
   assert.equal(document.activeElement.getAttribute('aria-selected'), 'true');
 });
 
-test('Ctrl+Tab cycles documents from the editor without indenting their source', async t => {
+test('Alt+Tab cycles documents from the editor without indenting their source', async t => {
   const app = await workspace(t); if (!app) return;
   const { api, window, document } = app;
   api.setDoc('first', 'one.md');
@@ -171,7 +171,7 @@ test('Ctrl+Tab cycles documents from the editor without indenting their source',
   edit(app, 'second edited');
   api.el.editor.focus();
   const cycle = (shiftKey = false) => {
-    const event = new window.KeyboardEvent('keydown', { key: 'Tab', ctrlKey: true, shiftKey, bubbles: true, cancelable: true });
+    const event = new window.KeyboardEvent('keydown', { key: 'Tab', altKey: true, shiftKey, bubbles: true, cancelable: true });
     document.activeElement.dispatchEvent(event);
     assert.equal(event.defaultPrevented, true);
   };
@@ -183,6 +183,27 @@ test('Ctrl+Tab cycles documents from the editor without indenting their source',
   assert.equal(api.state.name, 'two.md');
   assert.equal(api.el.editor.value, 'second edited');
   assert.equal(api.state.dirty, true);
+});
+
+test('Ctrl+S saves when the keyboard reports a Persian letter', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, window } = app;
+  let writes = 0;
+  const handle = { name: 'one.md', createWritable: async () => ({
+    write: async () => { writes++; }, close: async () => {}
+  }) };
+  api.setDoc('one', 'one.md', handle);
+  edit(app, 'ویرایش');
+  api.el.editor.focus();
+  const event = new window.KeyboardEvent('keydown', {
+    key: 'س', code: 'KeyS', ctrlKey: true, bubbles: true, cancelable: true
+  });
+  api.el.editor.dispatchEvent(event);
+  await api.whenDocumentsReady();
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(writes, 1);
+  assert.equal(api.state.saved, 'ویرایش');
+  assert.equal(api.state.dirty, false);
 });
 
 test('vertical tabs reuse document controls and navigate with up and down arrows', async t => {

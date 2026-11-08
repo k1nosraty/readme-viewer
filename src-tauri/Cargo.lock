@@ -2844,6 +2844,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tempfile",
  "window-vibrancy",
+ "windows",
 ]
 
 [[package]]
