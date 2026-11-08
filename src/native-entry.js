@@ -13,31 +13,28 @@ const available = () => !!root.__TAURI_INTERNALS__;
 const abort = () => new DOMException('Save cancelled.', 'AbortError');
 const filters = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mdwn', 'mkd', 'txt'] }];
 
-async function setupWindowsTitlebar(window, report) {
+async function setupWindowsTitlebar(window, report, onTitlebar) {
   const byId = id => document.getElementById(id);
-  const tabs = byId('titlebarTabs');
   const maximize = byId('btnWindowMaximize');
-  const [maximizeIcon, restoreIcon] = maximize.children;
   const syncMaximized = async () => {
     const maximized = await window.isMaximized();
     const key = maximized ? 'window.restore' : 'window.maximize';
+    if (maximize.dataset.i18nAria === key) return;
     const label = root.RV.I18n.t(key);
     maximize.dataset.i18nAria = key;
     maximize.dataset.i18nTitle = key;
     maximize.setAttribute('aria-label', label);
     maximize.title = label;
-    maximizeIcon.hidden = maximized;
-    restoreIcon.hidden = !maximized;
+    maximize.innerHTML = root.RV.Icons.svg(maximized ? 'copy' : 'windowMaximize', 15);
   };
   byId('btnWindowMinimize').addEventListener('click', () => window.minimize().catch(report));
   maximize.addEventListener('click', () => window.toggleMaximize().catch(report));
   byId('btnWindowClose').addEventListener('click', () => window.close().catch(report));
 
-  tabs.append(byId('documentTabs'), byId('btnNewTab'));
-  tabs.hidden = false;
   byId('titlebarDrag').hidden = false;
   byId('captionButtons').hidden = false;
   document.documentElement.dataset.windowsTitlebar = '';
+  onTitlebar?.();
   await window.onResized(() => syncMaximized().catch(report));
   await syncMaximized();
 }
@@ -203,7 +200,7 @@ const Native = {
     });
     const userAgent = root.navigator?.userAgent || '';
     if (/Windows NT/i.test(userAgent)) {
-      await setupWindowsTitlebar(window, report).catch(report);
+      await setupWindowsTitlebar(window, report, hooks.onTitlebar).catch(report);
     }
     if (/Android/i.test(userAgent)) {
       // Registering takes over Android's default Back navigation and exit.

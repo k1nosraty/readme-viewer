@@ -177,6 +177,7 @@
       'tabs.label': 'Documents',
       'tabs.new': 'New tab',
       'tabs.close': 'Close tab',
+      'tabs.vertical': 'Vertical tabs',
       'tabs.untitled': 'Untitled',
       'heading.anchor': 'Link to this section: {title}',
 
@@ -308,6 +309,7 @@
       'help.items': [
         '<b>Ctrl/⌘+O</b> open a file · <b>Ctrl/⌘+S</b> save · <b>Ctrl/⌘+Shift+S</b> save as',
         '<b>Ctrl/⌘+1 / 2 / 3</b> source, split and preview modes',
+        '<b>Ctrl+Tab</b> next tab · <b>Ctrl+Shift+Tab</b> previous tab',
         '<b>Ctrl/⌘+E</b> toggle “Edit in preview”',
         '<b>F8</b> distraction-free reading · <b>Esc</b> return to the workspace',
         '<b>Ctrl/⌘+Shift+F</b> find in document · <b>Alt+← / →</b> back and forward between linked files',
@@ -488,6 +490,7 @@
       'tabs.label': 'سندها',
       'tabs.new': 'تب جدید',
       'tabs.close': 'بستن تب',
+      'tabs.vertical': 'تب‌های عمودی',
       'tabs.untitled': 'بدون نام',
       'app.name': 'نمایشگر README',
       'heading.anchor': 'پیوند به این بخش: {title}',
@@ -620,6 +623,7 @@
       'help.items': [
         '<b>Ctrl/⌘+O</b> باز کردن فایل · <b>Ctrl/⌘+S</b> ذخیره · <b>Ctrl/⌘+Shift+S</b> ذخیره به‌نام',
         '<b>Ctrl/⌘+1 / 2 / 3</b> حالت نوشتن، دوتایی و پیش‌نمایش',
+        '<b>Ctrl+Tab</b> تب بعدی · <b>Ctrl+Shift+Tab</b> تب قبلی',
         '<b>Ctrl/⌘+E</b> روشن و خاموش کردن «ویرایش در پیش‌نمایش»',
         '<b>F8</b> مطالعهٔ بدون حواس‌پرتی · <b>Esc</b> بازگشت به محیط کار',
         '<b>Ctrl/⌘+Shift+F</b> جست‌وجو در سند · <b>Alt+← / →</b> برگشت و جلو بین فایل‌های لینک‌شده',

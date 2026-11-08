@@ -66,6 +66,7 @@
           <button class="menu-command" type="button" data-mode-btn="preview"><span data-i18n="mode.preview">Preview</span><kbd>Ctrl+3</kbd></button>
           <hr class="">
           <button class="menu-command" type="button" data-command="btnToc"><span data-i18n="toggle.toc">Table of contents</span></button>
+          <button class="menu-command" type="button" id="btnVerticalTabs" data-shell-action="verticalTabs" aria-pressed="false"><span data-i18n="tabs.vertical">Vertical tabs</span></button>
           <button class="menu-command" type="button" data-command="btnCompare"><span data-i18n="compare.toggle">Two documents</span></button>
           <button class="menu-command" type="button" id="btnReadingFocus" aria-pressed="false"><span data-i18n="reading.focus">Distraction-free reading</span><kbd>F8</kbd></button>
           <button class="menu-command" type="button" data-command="btnWrap"><span data-i18n="toggle.wrap">Wrap long lines</span></button>
@@ -114,9 +115,9 @@
     <div class="titlebar-tabs" id="titlebarTabs" hidden></div>
     <div class="titlebar-drag" id="titlebarDrag" data-tauri-drag-region hidden></div>
     <div class="caption-buttons" id="captionButtons" hidden>
-      <button type="button" id="btnWindowMinimize" data-i18n-aria="window.minimize" data-i18n-title="window.minimize" aria-label="Minimize"><i data-icon="minus" data-size="16"></i></button>
-      <button type="button" id="btnWindowMaximize" data-i18n-aria="window.maximize" data-i18n-title="window.maximize" aria-label="Maximize"><i data-icon="windowMaximize" data-size="14"></i><i data-icon="copy" data-size="14" hidden></i></button>
-      <button type="button" id="btnWindowClose" data-i18n-aria="window.close" data-i18n-title="window.close" aria-label="Close window"><i data-icon="close" data-size="16"></i></button>
+      <button type="button" id="btnWindowMinimize" data-i18n-aria="window.minimize" data-i18n-title="window.minimize" aria-label="Minimize"><i data-icon="minus" data-size="15"></i></button>
+      <button type="button" id="btnWindowMaximize" data-i18n-aria="window.maximize" data-i18n-title="window.maximize" aria-label="Maximize"><i data-icon="windowMaximize" data-size="15"></i></button>
+      <button type="button" id="btnWindowClose" data-i18n-aria="window.close" data-i18n-title="window.close" aria-label="Close window"><i data-icon="close" data-size="15"></i></button>
     </div>
   </div>
   <div class="toolbar" role="toolbar" aria-label="Tools" id="toolbar">
@@ -177,6 +178,10 @@
 </header>
 
 <div class="layout" id="layout" data-sidebar="on">
+
+  <aside class="vertical-tabs" id="verticalTabs" aria-labelledby="verticalTabsLabel" hidden>
+    <h2 id="verticalTabsLabel" data-i18n="tabs.label">Documents</h2>
+  </aside>
 
     <aside class="sidebar" id="sidebar"><div class="sidebar-head"><div class="toc-heading"><span class="sidebar-title" data-i18n="toc.title">Contents</span><div class="toc-actions"><button type="button" class="btn btn-icon" id="tocExpandAll" data-i18n-title="toc.expandAll" data-i18n-aria="toc.expandAll"><i data-icon="expandAll" data-size="15"></i></button><button type="button" class="btn btn-icon" id="tocCollapseAll" data-i18n-title="toc.collapseAll" data-i18n-aria="toc.collapseAll"><i data-icon="collapseAll" data-size="15"></i></button></div></div><div class="toc-filter"><i data-icon="search" data-size="14"></i><input type="search" id="tocFilter" spellcheck="false" autocomplete="off" data-i18n-placeholder="toc.filter" data-i18n-aria="toc.filter" placeholder="Filter headings"><button type="button" class="toc-clear" id="tocClear" hidden="" data-i18n-title="action.close"><i data-icon="close" data-size="12"></i></button></div></div><div class="toc-scroll"><nav class="toc" id="toc" aria-label="Table of contents"></nav><p class="toc-empty" id="tocEmpty" hidden="">No matching headings</p><section class="bookmark-section" id="bookmarkSection" hidden=""><h2 data-i18n="reading.bookmarks">Bookmarks</h2><div id="bookmarkList"></div></section></div></aside>
 

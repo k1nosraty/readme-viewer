@@ -163,6 +163,53 @@ test('tab keyboard navigation uses a roving focus target and first open reuses e
   assert.equal(document.activeElement.getAttribute('aria-selected'), 'true');
 });
 
+test('Ctrl+Tab cycles documents from the editor without indenting their source', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, window, document } = app;
+  api.setDoc('first', 'one.md');
+  api.newTab('second', 'two.md');
+  edit(app, 'second edited');
+  api.el.editor.focus();
+  const cycle = (shiftKey = false) => {
+    const event = new window.KeyboardEvent('keydown', { key: 'Tab', ctrlKey: true, shiftKey, bubbles: true, cancelable: true });
+    document.activeElement.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+  };
+  cycle();
+  assert.equal(api.state.name, 'one.md');
+  assert.equal(api.el.editor.value, 'first');
+  assert.equal(document.activeElement, api.el.editor);
+  cycle(true);
+  assert.equal(api.state.name, 'two.md');
+  assert.equal(api.el.editor.value, 'second edited');
+  assert.equal(api.state.dirty, true);
+});
+
+test('vertical tabs reuse document controls and navigate with up and down arrows', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, window, document } = app;
+  const list = document.getElementById('documentTabs');
+  const toggle = document.getElementById('btnVerticalTabs');
+  api.setDoc('first', 'one.md');
+  api.newTab('second', 'two.md');
+
+  harness.click(window, toggle);
+  assert.equal(toggle.getAttribute('aria-pressed'), 'true');
+  assert.equal(list.getAttribute('aria-orientation'), 'vertical');
+  assert.equal(list.parentElement.id, 'verticalTabs');
+  const selected = list.querySelector('[aria-selected="true"]');
+  selected.focus();
+  selected.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+  assert.equal(api.state.name, 'one.md');
+  assert.equal(document.activeElement.getAttribute('aria-selected'), 'true');
+
+  harness.click(window, toggle);
+  assert.equal(list.getAttribute('aria-orientation'), 'horizontal');
+  assert.equal(list.parentElement.className, 'workspacebar');
+  assert.equal(api.state.name, 'one.md');
+  assert.equal(api.listTabs().length, 2);
+});
+
 test('new documents inherit the configured manual base without copying native auto bases', async t => {
   const app = await workspace(t); if (!app) return;
   const { api, window } = app;

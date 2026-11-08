@@ -80,6 +80,7 @@
     theme: 'auto',
     editPreview: false,
     sidebar: true,
+    verticalTabs: false,
     split: 50,
     locale: 'en',
     taskSource: '',
@@ -120,6 +121,28 @@
     var path = tabLocation(tab).replace(/\\/g, '/').split('/').filter(Boolean);
     return name + ' — ' + (path.length > 1 ? path[path.length - 2] : '#' + (tabs.indexOf(tab) + 1));
   }
+  function scrollSelectedTab(bar) {
+    var selected = bar.querySelector('[aria-selected="true"]');
+    if (selected && selected.scrollIntoView) selected.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+  function applyTabLayout() {
+    var bar = $('documentTabs'), add = $('btnNewTab');
+    var titlebar = $('titlebarTabs'), side = $('verticalTabs'), reading = $('readingOptions');
+    var inTitlebar = !state.verticalTabs && document.documentElement.hasAttribute('data-windows-titlebar');
+    var destination = state.verticalTabs ? side : inTitlebar ? titlebar : reading.parentNode;
+    var focus = document.activeElement;
+    if (bar.parentNode !== destination) {
+      var before = destination === reading.parentNode ? reading : null;
+      destination.insertBefore(bar, before);
+      destination.insertBefore(add, state.verticalTabs ? bar : before);
+    }
+    side.hidden = !state.verticalTabs;
+    titlebar.hidden = !inTitlebar;
+    bar.setAttribute('aria-orientation', state.verticalTabs ? 'vertical' : 'horizontal');
+    $('btnVerticalTabs').setAttribute('aria-pressed', String(state.verticalTabs));
+    if (bar.contains(focus) || focus === add) focus.focus({ preventScroll: true });
+    scrollSelectedTab(bar);
+  }
   function renderTabs() {
     var bar = $('documentTabs');
     if (!bar) return;
@@ -148,8 +171,10 @@
       button.addEventListener('keydown', function (event) {
         var index = tabs.indexOf(tab), next = index;
         var rtl = document.documentElement.getAttribute('dir') === 'rtl';
-        if (event.key === 'ArrowRight') next = (index + (rtl ? -1 : 1) + tabs.length) % tabs.length;
-        else if (event.key === 'ArrowLeft') next = (index + (rtl ? 1 : -1) + tabs.length) % tabs.length;
+        var forward = state.verticalTabs ? 'ArrowDown' : (rtl ? 'ArrowLeft' : 'ArrowRight');
+        var backward = state.verticalTabs ? 'ArrowUp' : (rtl ? 'ArrowRight' : 'ArrowLeft');
+        if (event.key === forward) next = (index + 1) % tabs.length;
+        else if (event.key === backward) next = (index - 1 + tabs.length) % tabs.length;
         else if (event.key === 'Home') next = 0;
         else if (event.key === 'End') next = tabs.length - 1;
         else return;
@@ -170,8 +195,7 @@
       close.addEventListener('click', function () { closeTab(tab.id); });
       item.appendChild(button); item.appendChild(close); bar.appendChild(item);
     });
-    var selectedTab = bar.querySelector('[aria-selected="true"]');
-    if (selectedTab && selectedTab.scrollIntoView) selectedTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    scrollSelectedTab(bar);
     if (focusId) {
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
       if (replacement) replacement.focus();
@@ -745,6 +769,7 @@
     manualBaseUrl = state.baseUrl;
     state.editPreview = !!s.editPreview;
     state.sidebar = s.sidebar !== false;
+    state.verticalTabs = s.verticalTabs === true;
     state.split = clamp(parseFloat(s.split) || 50, 15, 85);
     state.locale = I18n.setLocale(s.locale) ? s.locale : 'en';
   }
@@ -754,7 +779,7 @@
       localStorage.setItem(STORE, JSON.stringify({
         font: state.font, wrap: state.wrap, sync: state.sync, dirMode: state.dirMode,
         mode: focusSnapshot ? focusSnapshot.mode : state.mode, theme: state.theme, baseUrl: manualBaseUrl,
-        editPreview: state.editPreview, sidebar: state.sidebar, split: state.split,
+        editPreview: state.editPreview, sidebar: state.sidebar, verticalTabs: state.verticalTabs, split: state.split,
         locale: I18n.getLocale()
       }));
       return true;
@@ -2327,7 +2352,7 @@
       if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
         e.preventDefault(); e.stopPropagation(); undoEdit(key === 'y' || e.shiftKey); return;
       }
-      if (e.key === 'Tab') {
+      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         indentSelection(e.shiftKey);
       }
@@ -2989,6 +3014,17 @@
     document.addEventListener('keydown', function (e) {
       if (!el.confirmModal.hidden || !el.helpModal.hidden) return;
       if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === 'Tab' && e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        if (tabs.length < 2) return;
+        var bar = $('documentTabs'), focus = document.activeElement;
+        var fromEditor = focus === el.editor, fromTabs = bar.contains(focus);
+        var next = (tabs.indexOf(activeTab) + (e.shiftKey ? -1 : 1) + tabs.length) % tabs.length;
+        if (!switchTab(tabs[next].id)) return;
+        if (fromEditor) el.editor.focus({ preventScroll: true });
+        else if (fromTabs) bar.querySelector('[aria-selected="true"]').focus({ preventScroll: true });
+        return;
+      }
       if (e.key === 'F8' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault(); setReadingFocus(!state.readingFocus); return;
       }
@@ -3281,6 +3317,7 @@
     tabbar.setAttribute('role', 'tablist');
     var newButton = $('btnNewTab');
     if (newButton) newButton.addEventListener('click', function () { newTab(); });
+    applyTabLayout();
     newTab();
     markGutterCursor();
     var sessionReady = RV.Reading ? RV.Reading.init(window.RVApp) : Promise.resolve();
@@ -3289,6 +3326,12 @@
       redo: function () { undoEdit(true); el.editor.focus(); },
       getTheme: function () { return state.theme; }, setTheme: setTheme,
       find: openFind, close: function () { closeTab(activeTab.id); },
+      verticalTabs: function () {
+        state.verticalTabs = !state.verticalTabs;
+        applyTabLayout();
+        saveSettings();
+        scheduleRender(null, 0);
+      },
       canUndo: function () { return !!(activeTab && activeTab.undo.length); },
       canRedo: function () { return !!(activeTab && activeTab.redo.length); }
     });
@@ -3305,6 +3348,7 @@
     Promise.resolve(sessionReady).then(function () {
       state.ready = true;
       if (nativeAvailable()) return RV.Native.initialize({
+        onTitlebar: applyTabLayout,
         openPath: function (path) {
           return openNativePath(path, false, true).then(function (ok) {
             if (ok) setMode('preview');
