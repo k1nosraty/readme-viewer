@@ -111,6 +111,13 @@
     <div class="brand" hidden="">
       <span class="brand-text"><span class="brand-name" id="fileName" title="">README Viewer</span><span class="brand-sub" id="fileState" data-state="empty"></span></span>
     </div>
+    <div class="titlebar-tabs" id="titlebarTabs" hidden></div>
+    <div class="titlebar-drag" id="titlebarDrag" data-tauri-drag-region hidden></div>
+    <div class="caption-buttons" id="captionButtons" hidden>
+      <button type="button" id="btnWindowMinimize" data-i18n-aria="window.minimize" data-i18n-title="window.minimize" aria-label="Minimize"><i data-icon="minus" data-size="16"></i></button>
+      <button type="button" id="btnWindowMaximize" data-i18n-aria="window.maximize" data-i18n-title="window.maximize" aria-label="Maximize"><i data-icon="windowMaximize" data-size="14"></i><i data-icon="copy" data-size="14" hidden></i></button>
+      <button type="button" id="btnWindowClose" data-i18n-aria="window.close" data-i18n-title="window.close" aria-label="Close window"><i data-icon="close" data-size="16"></i></button>
+    </div>
   </div>
   <div class="toolbar" role="toolbar" aria-label="Tools" id="toolbar">
     <div class="tgroup file-tools" data-toolbar-item="files">

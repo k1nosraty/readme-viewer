@@ -303,6 +303,15 @@ pub fn run() {
     }));
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    #[cfg(target_os = "windows")]
+    let builder = builder.setup(|app| {
+        if let Some(window) = app.get_webview_window("main") {
+            // Mica is available on Windows 11. Acrylic covers supported Windows 10 builds.
+            let _ = window_vibrancy::apply_mica(&window, None)
+                .or_else(|_| window_vibrancy::apply_acrylic(&window, None));
+        }
+        Ok(())
+    });
     builder
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())

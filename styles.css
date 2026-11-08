@@ -1527,12 +1527,78 @@ html[data-theme="light"] { color-scheme: light; }
 /* Reading focus is temporary; the normal workspace and its preferences stay intact. */
 .focus-exit { display: none; position: fixed; z-index: 45; inset-block-start: 12px; inset-inline-end: 16px; max-width: calc(100vw - 32px); min-height: 44px; padding-inline: 14px; background: var(--bg); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
 body[data-reading-focus="1"] { grid-template-rows: minmax(0, 1fr); }
-body[data-reading-focus="1"] :is(.topbar, .statusbar, .sidebar, .comparison-pane, .compare-divider, .pane-head) { display: none !important; }
+body[data-reading-focus="1"] :is(.statusbar, .sidebar, .comparison-pane, .compare-divider, .pane-head),
+:root:not([data-windows-titlebar]) body[data-reading-focus="1"] .topbar { display: none !important; }
 body[data-reading-focus="1"] .layout { grid-template-columns: minmax(0, 1fr); }
 body[data-reading-focus="1"] .workspace-views { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 body[data-reading-focus="1"] #previewScroll { padding-block-start: 76px; }
 body[data-reading-focus="1"] #preview { max-inline-size: 76ch !important; margin-inline: auto; }
 body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
+
+/* Only the Windows title bar reveals the native backdrop. */
+[data-windows-titlebar] body, [data-windows-titlebar] .topbar { background: transparent; }
+[data-windows-titlebar] .layout { background: var(--bg); }
+[data-windows-titlebar] .topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+[data-windows-titlebar] .menu-line {
+  --titlebar-tint: color-mix(in srgb, var(--bg-subtle) 76%, transparent);
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template: "brand menus tabs drag caption" auto / auto auto minmax(0, max-content) minmax(36px, 1fr) auto;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 0 0 8px;
+  direction: ltr;
+  background: linear-gradient(105deg, color-mix(in srgb, var(--accent) 9%, var(--titlebar-tint)), var(--titlebar-tint) 60%);
+  border-block-end: 1px solid var(--border-muted);
+}
+[data-windows-titlebar] .brand-mark { grid-area: brand; }
+[data-windows-titlebar] .app-menubar { grid-area: menus; }
+[data-windows-titlebar][dir="rtl"] :is(.app-menubar, .titlebar-tabs) { direction: rtl; }
+.titlebar-tabs { grid-area: tabs; display: flex; align-items: center; gap: 3px; min-width: 0; }
+.titlebar-tabs .document-tabs { max-width: none; }
+.titlebar-tabs .document-tab { min-width: min(96px, 100%); max-width: min(232px, 100%); gap: 4px; padding-inline: 7px; border-radius: 5px; }
+.titlebar-tabs .new-tab { margin: 0; }
+.titlebar-tabs :focus-visible { outline-offset: -2px; }
+.titlebar-drag { grid-area: drag; align-self: stretch; user-select: none; }
+.caption-buttons { grid-area: caption; display: flex; align-self: stretch; }
+.caption-buttons button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.caption-buttons button:focus-visible { outline-offset: -3px; }
+.caption-buttons button:hover { background: var(--bg-hover); }
+.caption-buttons #btnWindowClose:hover { background: #c42b1c; color: #fff; }
+[data-windows-titlebar] :is(.toolbar, .workspacebar) { background: var(--bg-subtle); }
+[data-windows-titlebar] .toolbar { border-block: 0; }
+[data-windows-titlebar] .workspacebar { align-items: center; justify-content: flex-end; }
+[data-windows-titlebar] .workspacebar .reading-options { margin-inline-start: 0; }
+[data-windows-titlebar] .toolbar[hidden] + .workspacebar { grid-column: 1 / -1; min-height: 36px; }
+[data-windows-titlebar] body[data-reading-focus="1"] { grid-template-rows: auto minmax(0, 1fr); }
+[data-windows-titlebar] body[data-reading-focus="1"] :is(.app-menubar, .titlebar-tabs, .toolbar, .workspacebar) { display: none; }
+[data-windows-titlebar] body[data-reading-focus="1"] .menu-line {
+  grid-template: "brand drag caption" auto / auto minmax(0, 1fr) auto;
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-windows-titlebar] .menu-line { --titlebar-tint: var(--bg-subtle); }
+}
+@media (max-width: 640px) {
+  [data-windows-titlebar] .topbar { grid-template-columns: minmax(0, 1fr); }
+  [data-windows-titlebar] .menu-line {
+    grid-template: "menus drag caption" auto "tabs tabs tabs" auto / auto minmax(20px, 1fr) auto;
+    gap: 2px 4px;
+    padding-left: 6px;
+  }
+  .caption-buttons button { width: 40px; }
+}
 @media print { .focus-exit { display: none !important; } }
 .font-choice > input[aria-invalid="true"] { border-color: var(--danger); }
 

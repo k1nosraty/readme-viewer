@@ -122,6 +122,10 @@
       'toc.collapseAll': 'Collapse all headings',
 
       'menu.label': 'Application menus',
+      'window.minimize': 'Minimize',
+      'window.maximize': 'Maximize',
+      'window.restore': 'Restore down',
+      'window.close': 'Close window',
       'menu.file': 'File',
       'menu.edit': 'Edit',
       'menu.view': 'View',
@@ -430,6 +434,10 @@
       'toc.collapseAll': 'بستن همهٔ تیترها',
 
       'menu.label': 'منوهای برنامه',
+      'window.minimize': 'کمینه کردن',
+      'window.maximize': 'بیشینه کردن',
+      'window.restore': 'بازگرداندن اندازه',
+      'window.close': 'بستن پنجره',
       'menu.file': 'فایل',
       'menu.edit': 'ویرایش',
       'menu.view': 'نمایش',

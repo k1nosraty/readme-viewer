@@ -2843,6 +2843,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "tempfile",
+ "window-vibrancy",
 ]
 
 [[package]]

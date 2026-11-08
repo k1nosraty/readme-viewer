@@ -12,6 +12,36 @@ const root = window;
 const available = () => !!root.__TAURI_INTERNALS__;
 const abort = () => new DOMException('Save cancelled.', 'AbortError');
 const filters = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mdwn', 'mkd', 'txt'] }];
+
+async function setupWindowsTitlebar(window, report) {
+  const byId = id => document.getElementById(id);
+  const tabs = byId('titlebarTabs');
+  const maximize = byId('btnWindowMaximize');
+  const [maximizeIcon, restoreIcon] = maximize.children;
+  const syncMaximized = async () => {
+    const maximized = await window.isMaximized();
+    const key = maximized ? 'window.restore' : 'window.maximize';
+    const label = root.RV.I18n.t(key);
+    maximize.dataset.i18nAria = key;
+    maximize.dataset.i18nTitle = key;
+    maximize.setAttribute('aria-label', label);
+    maximize.title = label;
+    maximizeIcon.hidden = maximized;
+    restoreIcon.hidden = !maximized;
+  };
+  byId('btnWindowMinimize').addEventListener('click', () => window.minimize().catch(report));
+  maximize.addEventListener('click', () => window.toggleMaximize().catch(report));
+  byId('btnWindowClose').addEventListener('click', () => window.close().catch(report));
+
+  tabs.append(byId('documentTabs'), byId('btnNewTab'));
+  tabs.hidden = false;
+  byId('titlebarDrag').hidden = false;
+  byId('captionButtons').hidden = false;
+  document.documentElement.dataset.windowsTitlebar = '';
+  await window.onResized(() => syncMaximized().catch(report));
+  await syncMaximized();
+}
+
 function fileName(path) {
   let text = path;
   try { text = decodeURIComponent(text); } catch (_) { /* retain literal filename */ }
@@ -171,7 +201,11 @@ const Native = {
       event.preventDefault();
       return requestClose(() => window.destroy());
     });
-    if (/Android/i.test(root.navigator && root.navigator.userAgent || '')) {
+    const userAgent = root.navigator?.userAgent || '';
+    if (/Windows NT/i.test(userAgent)) {
+      await setupWindowsTitlebar(window, report).catch(report);
+    }
+    if (/Android/i.test(userAgent)) {
       // Registering takes over Android's default Back navigation and exit.
       await onBackButtonPress(() => requestClose(() => exit(0)));
     }
