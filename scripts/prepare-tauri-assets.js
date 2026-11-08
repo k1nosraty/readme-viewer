@@ -18,7 +18,6 @@ async function prepare() {
   if (!/src\/native\.js/.test(html)) html = html.replace(/<script\s+src="(?:\.\/)?app\.js"/, `${tag}\n<script src="app.js"`);
   html = html.replace(/(<meta name="application-version" content=")[^"]+/, '$1' + require('../package.json').version);
   html = html.replace(/<script[^>]+src="(?:\.\/)?src\/native\.js"[^>]*><\/script>/, tag);
-  await writeFile(path.join(output, 'index.html'), html);
   await build({ entryPoints: [path.join(root, 'src/native-entry.js')], outfile: path.join(output, 'src/native.js'), bundle: true, format: 'iife', platform: 'browser', target: 'es2020', minify: true });
   // Minify the shipped scripts and stylesheet in place; the remaining vendor files are already minified.
   const { transform } = require('esbuild');
@@ -29,6 +28,18 @@ async function prepare() {
     const out = await transform(code, { loader: rel.endsWith('.css') ? 'css' : 'js', minify: true, target: 'es2017', charset: 'utf8' });
     await writeFile(file, out.code);
   }
-  console.log('Prepared native-dist with bundled native bridge and offline assets.');
+
+  // Keep classic scripts in HTML order and under src/ for relative lazy-load URLs.
+  const startupBlock = html.match(/(?:<script src="[^"\r\n]+"><\/script>\s*)+(?=<\/body>)/);
+  if (!startupBlock) throw new Error('Expected startup scripts at the end of index.html');
+  const scripts = Array.from(startupBlock[0].matchAll(/<script src="([^"]+)"><\/script>/g), ([, src]) => path.join(output, src));
+  const bundle = 'src/startup.js';
+  const sources = await Promise.all(scripts.map(file => readFile(file, 'utf8')));
+  await writeFile(path.join(output, bundle), sources.join('\n;\n'));
+  await Promise.all(scripts.map(file => rm(file)));
+  html = html.replace(startupBlock[0], `<script src="${bundle}"></script>\n`);
+  html = html.replace('</head>', `<link rel="preload" href="${bundle}" as="script">\n</head>`);
+  await writeFile(path.join(output, 'index.html'), html);
+  console.log('Prepared native-dist with one startup script and offline assets.');
 }
 prepare().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -334,17 +334,17 @@ pub fn run() {
     #[cfg(target_os = "windows")]
     let builder = builder
         .manage(PendingActivations(Mutex::new(Some(Vec::new()))))
-        .setup(|app| {
-            if let Some(window) = app.get_webview_window("main") {
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main" && payload.event() == tauri::webview::PageLoadEvent::Finished {
+                let window = webview.window();
                 std::thread::spawn(move || {
-                    // Leave a visible window even if WebView startup or its bridge fails.
-                    std::thread::sleep(std::time::Duration::from_secs(10));
+                    // Recover from a failed frontend bridge after navigation, even on a slow launch.
+                    std::thread::sleep(std::time::Duration::from_secs(2));
                     if matches!(window.is_visible(), Ok(false)) {
                         let _ = window.show();
                     }
                 });
             }
-            Ok(())
         });
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
