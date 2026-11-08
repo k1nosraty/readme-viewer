@@ -128,6 +128,7 @@
 
       'menu.label': 'Application menus',
       'window.minimize': 'Minimize',
+      'window.actions': 'File and edit shortcuts',
       'window.maximize': 'Maximize',
       'window.restore': 'Restore down',
       'window.close': 'Close window',
@@ -183,6 +184,7 @@
       'tabs.new': 'New tab',
       'tabs.close': 'Close tab',
       'tabs.vertical': 'Vertical tabs',
+      'tabs.resize': 'Resize vertical tabs',
       'tabs.switchVertical': 'Switch to vertical tabs',
       'tabs.switchHorizontal': 'Switch to horizontal tabs',
       'tabs.untitled': 'Untitled',
@@ -453,6 +455,7 @@
 
       'menu.label': 'منوهای برنامه',
       'window.minimize': 'کمینه کردن',
+      'window.actions': 'میان‌برهای فایل و ویرایش',
       'window.maximize': 'بیشینه کردن',
       'window.restore': 'بازگرداندن اندازه',
       'window.close': 'بستن پنجره',
@@ -507,6 +510,7 @@
       'tabs.new': 'تب جدید',
       'tabs.close': 'بستن تب',
       'tabs.vertical': 'تب‌های عمودی',
+      'tabs.resize': 'تنظیم عرض تب‌های عمودی',
       'tabs.switchVertical': 'تغییر به تب‌های عمودی',
       'tabs.switchHorizontal': 'تغییر به تب‌های افقی',
       'tabs.untitled': 'بدون نام',

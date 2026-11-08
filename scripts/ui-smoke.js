@@ -144,9 +144,11 @@ async function assertToolbarFits(page, state) {
     assert.equal(await toggle.getAttribute('aria-pressed'), 'false');
     await page.locator('.workspacebar [role="tablist"]').waitFor();
 
-    // Exercise the Windows island, where Reading and Compare share the toolbar row.
-    await page.evaluate(() => {
-      RVApp.newTab('# Long document name', 'a-document-name-that-needs-truncating.md');
+    // Start with one empty tab and exercise the real New Tab button in the Windows layout.
+    await page.evaluate(async () => {
+      RVApp.setDoc(RVApp.el.editor.value, RVApp.state.name);
+      for (const tab of RVApp.listTabs().slice(1)) await RVApp.closeTab(tab.id);
+      RVApp.setEmpty();
       document.documentElement.dataset.windowsTitlebar = '';
       document.documentElement.dataset.windowGlass = '';
       document.getElementById('captionButtons').hidden = false;
@@ -154,11 +156,25 @@ async function assertToolbarFits(page, state) {
     });
     await toggle.click(); await toggle.click();
     await page.locator('#titlebarTabs [role="tablist"]').waitFor();
-    for (const width of [1440, 860, 641, 360]) {
+    await page.locator('#titlebarTabs #btnNewTab').click();
+    for (const width of [1440, 1200, 860, 760, 641, 360]) {
       await page.setViewportSize({ width, height: 720 });
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await assertToolbarFits(page, 'Windows ' + width);
+      assert.equal(await page.locator('#titlebarTabs #documentTabs').evaluate(rail => {
+        const r = rail.getBoundingClientRect();
+        return rail.children.length === 2 && rail.scrollWidth <= rail.clientWidth + 1 && Array.from(rail.children).every(tab => {
+          const bounds = tab.getBoundingClientRect();
+          return bounds.left >= r.left - 1 && bounds.right <= r.right + 1;
+        });
+      }), true, 'both tabs fit with their close buttons at ' + width);
+      assert.equal(await page.locator('#btnOpen').evaluate(button => button.closest('#titlebarActions, #toolbar').id),
+        width >= 760 ? 'titlebarActions' : 'toolbar');
     }
+    await page.evaluate(() => {
+      RVApp.newTab('# Long document name', 'a-document-name-that-needs-truncating.md');
+      RVApp.newTab('# Another long name', 'another-long-document-name.md');
+    });
     assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
       const bounds = tab.getBoundingClientRect(), rail = tab.parentElement.getBoundingClientRect();
       return bounds.left >= rail.left - 1 && bounds.right <= rail.right + 1 &&
@@ -171,17 +187,15 @@ async function assertToolbarFits(page, state) {
       return tab.contains(document.activeElement) && bounds.left >= rail.left - 1 && bounds.right <= rail.right + 1;
     }), true, 'Ctrl+Tab from the title-bar tab list reveals and focuses the next complete tab');
     await page.locator('#titlebarTabs .document-tabs').evaluate(rail => { rail.scrollLeft = 12; });
-    await page.waitForFunction(() => document.querySelector('#titlebarTabs [data-tab-clipped]'));
     assert.equal(await page.locator('#titlebarTabs .document-tabs').evaluate(rail => {
       const toggle = document.getElementById('btnTabLayout'), add = document.getElementById('btnNewTab');
       const r = rail.getBoundingClientRect();
-      return r.left > toggle.getBoundingClientRect().right && r.right < add.getBoundingClientRect().left &&
-        Array.from(rail.querySelectorAll('[data-tab-clipped]')).every(tab => getComputedStyle(tab).opacity === '0');
+      return rail.scrollLeft > 0 && r.left > toggle.getBoundingClientRect().right && r.right < add.getBoundingClientRect().left;
     }), true, 'scrolled tabs stay clear of the title-bar controls');
     assert.equal(await page.evaluate(() => {
-      const fill = selector => getComputedStyle(document.querySelector(selector)).backgroundImage;
-      return fill('.menu-line') === fill('.statusbar') && fill('.menu-line') !== fill('.tools-island');
-    }), true, 'title and status bars use their own lighter acrylic tint');
+      const title = getComputedStyle(document.querySelector('.menu-line'));
+      return title.backgroundColor === getComputedStyle(document.body).backgroundColor && title.backgroundImage === 'none';
+    }), true, 'title bar exposes the same backdrop as the gaps between islands');
     const more = page.locator('#btnToolbarMore');
     await more.click();
     const wrap = page.locator('#toolbarOverflow #btnWrap');
@@ -194,7 +208,38 @@ async function assertToolbarFits(page, state) {
     await page.locator('#toolbar > .display-tools #btnWrap').waitFor();
     assert.notEqual(await page.locator('#btnWrap').getAttribute('aria-pressed'), beforeWrap);
 
+    const titleTools = page.locator('#titlebarActions');
+    for (const id of ['btnOpen', 'btnSave', 'btnSaveAs', 'btnReload']) await titleTools.locator('#' + id).waitFor();
+    await page.evaluate(() => RVApp.setDoc('# Before undo', 'undo.md'));
+    await page.locator('#editor').fill('# Edited');
+    await titleTools.locator('#btnTitlebarUndo').click();
+    assert.equal(await page.locator('#editor').inputValue(), '# Before undo');
+    await toggle.click();
+    const rail = page.locator('#verticalTabs');
+    assert.equal(await rail.evaluate(node => getComputedStyle(node).backgroundImage),
+      await page.locator('.tools-island').evaluate(node => getComputedStyle(node).backgroundImage));
+    const beforeCount = (await order()).length;
+    await titleTools.locator('[data-command="btnNewTab"]').click();
+    assert.equal((await order()).length, beforeCount + 1);
+    const handle = page.locator('#tabRailResizer');
+    const width = () => rail.evaluate(node => node.offsetWidth);
+    const initialWidth = await width();
+    const r = await handle.boundingBox();
+    await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(r.x + r.width / 2 + 64, r.y + r.height / 2, { steps: 4 });
+    await page.mouse.up();
+    assert.equal(await width(), initialWidth + 64);
+    await page.evaluate(() => { RV.I18n.setLocale('fa'); RVApp.applyLocale(); });
+    await handle.press('ArrowLeft');
+    const savedWidth = await width();
+    assert.equal(savedWidth, initialWidth + 76, 'RTL ArrowLeft widens the vertical tab sidebar');
+    assert.equal(await handle.getAttribute('aria-valuenow'), String(savedWidth));
+    await page.reload();
+    await rail.waitFor();
+    assert.equal(await width(), savedWidth, 'vertical tab width survives reload');
+
     assert.deepEqual(errors, []);
-    console.log('UI smoke passed: English/Persian, light/dark, responsive menus, keyboard focus, and tab reordering.');
+    console.log('UI smoke passed: responsive menus, font suggestions, title-bar tools, horizontal tabs, and persistent vertical tab width.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

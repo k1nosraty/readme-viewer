@@ -1279,7 +1279,7 @@ body { grid-template-columns: minmax(0, 1fr); }
 .menu-line { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 32px; padding: 0 12px; }
 .menu-line > .brand-mark { width: 32px; height: 32px; border-radius: var(--r-md); }
 .brand-mark:is(:hover, [aria-expanded="true"]) { background: var(--bg-hover); }
-.menu-line > .tab-layout-toggle { grid-area: toggle; flex: none; width: 30px; min-height: 30px; }
+.menu-line > .tab-layout-toggle { flex: none; width: 30px; min-height: 30px; }
 .brand { display: flex; flex: 0 1 auto; min-width: 0; max-width: 40%; margin-inline-start: auto; }
 .brand-text { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .brand-name { font-size: 12px; font-weight: 500; }
@@ -1582,6 +1582,7 @@ body[data-reading-focus="1"] #preview { max-inline-size: 76ch !important; margin
 body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 
 .vertical-tabs {
+  position: relative;
   display: grid;
   grid-template: "label add" auto "list list" minmax(0, 1fr) / minmax(0, 1fr) auto;
   gap: 6px;
@@ -1608,9 +1609,30 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 }
 .vertical-tabs .document-tab > [role="tab"] { max-width: none; }
 .vertical-tabs .document-tabs :focus-visible { outline-offset: -2px; }
+.tab-rail-resizer {
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.tab-rail-resizer::before {
+  content: '';
+  position: absolute;
+  inset-block-start: calc(50% - 18px);
+  inset-inline-end: 2px;
+  inline-size: 2px;
+  block-size: 36px;
+  border-radius: var(--r-pill);
+  background: var(--border-strong);
+}
+.tab-rail-resizer:is(:hover, :focus-visible, [data-dragging])::before { background: var(--accent); }
+.tab-rail-resizer:focus-visible { outline-offset: -2px; }
 @media screen {
   body:not([data-reading-focus="1"]) .layout:has(> .vertical-tabs:not([hidden])) {
-    --tab-rail-width: clamp(9rem, 17vw, 13rem);
+    --tab-rail-width: clamp(132px, var(--tab-rail-size, clamp(9rem, 17vw, 13rem)), min(384px, 42%));
     grid-template-columns: var(--tab-rail-width) minmax(0, 1fr);
   }
 }
@@ -1624,10 +1646,11 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
     grid-template: auto minmax(0, 1fr) / minmax(0, 1fr);
   }
   .vertical-tabs { max-block-size: min(32vh, 160px); border-inline-end: 0; border-block-end: 1px solid var(--border); }
+  .tab-rail-resizer { display: none; }
 }
 @media print { .vertical-tabs { display: none !important; } }
 
-/* The frame shows more of the acrylic backdrop than the toolbar island. */
+/* The title bar shows the native backdrop through the gaps between its controls. */
 [data-windows-titlebar] {
   --shell-inset: 10px;
   --titlebar-drag-min: 36px;
@@ -1636,14 +1659,14 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   --glass-tint: var(--bg-subtle);
   --glass-border: var(--border-muted);
   --glass-surface: linear-gradient(125deg, var(--glass-highlight), var(--glass-tint));
-  --glass-frame: var(--glass-surface);
+  --status-glass: var(--glass-surface);
 }
 [data-windows-titlebar][data-window-glass] {
   --window-base: transparent;
   --glass-highlight: color-mix(in srgb, var(--bg) 62%, transparent);
   --glass-tint: color-mix(in srgb, var(--bg-subtle) 36%, transparent);
   --glass-border: color-mix(in srgb, var(--border-strong) 48%, transparent);
-  --glass-frame: linear-gradient(125deg, color-mix(in srgb, var(--glass-highlight) 42%, transparent), color-mix(in srgb, var(--glass-tint) 36%, transparent));
+  --status-glass: linear-gradient(125deg, color-mix(in srgb, var(--glass-highlight) 42%, transparent), color-mix(in srgb, var(--glass-tint) 36%, transparent));
 }
 [data-windows-titlebar][data-window-glass][data-theme="dark"] {
   --glass-highlight: color-mix(in srgb, #101f34 60%, transparent);
@@ -1656,22 +1679,16 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   border: 0;
 }
 [data-windows-titlebar] .menu-line {
-  display: grid;
-  grid-template: "brand toggle tabs drag caption" auto / auto auto minmax(0, max-content) minmax(var(--titlebar-drag-min), 1fr) auto;
   gap: 6px;
   min-height: 40px;
   padding: 0 0 0 var(--shell-inset);
   direction: ltr;
-  background: var(--glass-frame);
+  background: var(--window-base);
 }
-[data-windows-titlebar] .brand-mark { grid-area: brand; }
 [data-windows-titlebar][dir="rtl"] :is(.app-menubar, .titlebar-tabs) { direction: rtl; }
-[data-windows-titlebar] .menu-line:has(> :where(.titlebar-tabs[hidden])) {
-  grid-template: "brand toggle drag caption" auto / auto auto minmax(var(--titlebar-drag-min), 1fr) auto;
-}
 .titlebar-tabs {
-  grid-area: tabs;
   display: flex;
+  flex: 0 1 auto;
   align-self: center;
   align-items: center;
   gap: 6px;
@@ -1680,18 +1697,22 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   margin-left: 4px;
   overflow: clip;
 }
-.titlebar-tabs .document-tabs { gap: 4px; max-width: none; overflow-y: hidden; overscroll-behavior-inline: contain; scrollbar-width: none; }
-.titlebar-tabs .document-tabs:not([data-reordering]) .document-tab[data-tab-clipped] { opacity: 0; pointer-events: none; }
+.titlebar-tabs .document-tabs { flex: 1 1 auto; gap: 4px; max-width: none; overflow-y: hidden; overscroll-behavior-inline: contain; }
 .titlebar-tabs .document-tab {
-  min-width: min(96px, 100%);
-  max-width: min(232px, 100%);
+  flex: 0 1 auto;
+  min-width: 96px;
+  max-width: 232px;
   gap: 4px;
   padding-inline: 8px;
 }
 .titlebar-tabs .new-tab { margin: 0; }
 .titlebar-tabs :focus-visible { outline-offset: -2px; }
-.titlebar-drag { grid-area: drag; align-self: stretch; user-select: none; }
-.caption-buttons { grid-area: caption; display: flex; align-self: stretch; }
+.titlebar-drag { flex: 1 0 var(--titlebar-drag-min); align-self: stretch; user-select: none; }
+.titlebar-actions { display: flex; flex: none; align-items: center; gap: 3px; }
+.titlebar-actions .tgroup { gap: 2px; padding: 0; border: 0; }
+.titlebar-actions .btn { width: 30px; padding: 0; }
+.titlebar-actions .btn-label, .menu-line:has(> .titlebar-tabs:not([hidden])) .titlebar-create { display: none; }
+.caption-buttons { display: flex; flex: none; align-self: stretch; }
 .caption-buttons button {
   display: grid;
   place-items: center;
@@ -1730,12 +1751,12 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   }
   [data-windows-titlebar] .workspace-views { background: var(--bg); }
   [data-windows-titlebar] .vertical-tabs {
-    background: var(--glass-frame);
+    background: var(--glass-surface);
     border-color: var(--glass-border);
   }
   [data-windows-titlebar] .statusbar {
     margin: 6px var(--shell-inset) 7px;
-    background: var(--glass-frame);
+    background: var(--status-glass);
     color: var(--fg);
     border: 1px solid var(--glass-border);
     border-radius: var(--r-pill);
@@ -1748,19 +1769,16 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   [data-windows-titlebar] .statusbar :is(.sb-link, #statusFile, #statusCount, #statusTasks, #statusPerf) { flex-shrink: 1; }
 }
 [data-windows-titlebar] body[data-reading-focus="1"] { grid-template-rows: auto minmax(0, 1fr); }
-[data-windows-titlebar] body[data-reading-focus="1"] :is(.brand-mark, .app-menubar, .tab-layout-toggle, .titlebar-tabs, .tools-island) { display: none; }
+[data-windows-titlebar] body[data-reading-focus="1"] :is(.brand-mark, .app-menubar, .tab-layout-toggle, .titlebar-tabs, .titlebar-actions, .tools-island) { display: none; }
 [data-windows-titlebar] body[data-reading-focus="1"] .layout { margin-block: 8px; }
 [data-windows-titlebar] .focus-exit { inset-block-start: 52px; }
-[data-windows-titlebar] body[data-reading-focus="1"] .menu-line {
-  grid-template: "drag caption" auto / minmax(0, 1fr) auto;
-}
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   [data-windows-titlebar][data-window-glass], [data-windows-titlebar][data-window-glass][data-theme="dark"] {
     --window-base: var(--bg-inset);
     --glass-highlight: var(--bg);
     --glass-tint: var(--bg-subtle);
     --glass-border: var(--border-muted);
-    --glass-frame: var(--glass-surface);
+    --status-glass: var(--glass-surface);
   }
 }
 @media (641px <= width <= 1340px) {
@@ -1781,13 +1799,22 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   .caption-buttons button { width: 40px; }
 }
 @media (max-width: 640px) and (pointer: fine) {
-  [data-windows-titlebar] .titlebar-tabs .document-tab { min-width: min(90px, 100%); height: 34px; min-height: 34px; }
+  [data-windows-titlebar] .titlebar-tabs .document-tab { min-width: 76px; height: 34px; min-height: 34px; }
   [data-windows-titlebar] .titlebar-tabs .document-tab > [role="tab"] { height: 32px; min-height: 32px; }
   [data-windows-titlebar] .titlebar-tabs .document-tab-close { width: 24px; min-width: 24px; height: 28px; }
   [data-windows-titlebar] .titlebar-tabs .new-tab { width: 30px; min-width: 30px; height: 32px; min-height: 32px; }
 }
 @media (max-width: 420px) {
   .caption-buttons button { width: 38px; }
+}
+@media (max-width: 520px) and (pointer: fine) {
+  [data-windows-titlebar] .menu-line { gap: 3px; }
+  [data-windows-titlebar] .menu-line > :is(.brand-mark, .tab-layout-toggle) { width: 28px; }
+  [data-windows-titlebar] .titlebar-tabs { gap: 4px; margin-left: 3px; }
+  [data-windows-titlebar] .titlebar-tabs .document-tab { min-width: 60px; padding-inline: 5px; }
+  [data-windows-titlebar] .titlebar-tabs .document-tab-close { width: 20px; min-width: 20px; }
+  [data-windows-titlebar] .titlebar-tabs .new-tab { width: 26px; min-width: 26px; }
+  [data-windows-titlebar] .caption-buttons button { width: 34px; }
 }
 @media print { .focus-exit { display: none !important; } }
 .font-choice > input[aria-invalid="true"] { border-color: var(--danger); }

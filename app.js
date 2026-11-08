@@ -50,6 +50,8 @@
   var RENDER_DELAY = 90;
   var FONT_MIN = 12;
   var FONT_MAX = 26;
+  var TAB_RAIL_MIN = 132;
+  var TAB_RAIL_MAX = 384;
 
   var state = {
     ready: false,
@@ -81,6 +83,7 @@
     editPreview: false,
     sidebar: true,
     verticalTabs: false,
+    verticalTabWidth: null,
     split: 50,
     locale: 'en',
     taskSource: '',
@@ -132,17 +135,6 @@
     var rail = bar.getBoundingClientRect(), bounds = tab.getBoundingClientRect();
     if (bounds.left < rail.left) bar.scrollLeft += bounds.left - rail.left;
     else if (bounds.right > rail.right) bar.scrollLeft += bounds.right - rail.right;
-    updateTitlebarTabEdges(bar);
-  }
-  function updateTitlebarTabEdges(bar) {
-    if (bar.parentElement.id !== 'titlebarTabs') return;
-    var rail = bar.getBoundingClientRect();
-    Array.prototype.forEach.call(bar.children, function (tab) {
-      var bounds = tab.getBoundingClientRect();
-      var visible = bounds.right > rail.left && bounds.left < rail.right;
-      var clipped = bounds.left < rail.left - 1 || bounds.right > rail.right + 1;
-      tab.toggleAttribute('data-tab-clipped', visible && clipped);
-    });
   }
   function applyTabLayout() {
     var bar = $('documentTabs'), add = $('btnNewTab');
@@ -173,6 +165,58 @@
     applyTabLayout();
     saveSettings();
     scheduleRender(null, 0);
+  }
+  function wireTabRailResizer() {
+    var rail = $('verticalTabs'), handle = $('tabRailResizer'), drag = null;
+    function maximum() {
+      var width = el.layout.clientWidth || window.innerWidth;
+      return clamp(Math.floor(width * .42), TAB_RAIL_MIN, TAB_RAIL_MAX);
+    }
+    function updateRange() {
+      if (rail.hidden) return;
+      var max = maximum();
+      handle.setAttribute('aria-valuemax', String(max));
+      handle.setAttribute('aria-valuenow', String(clamp(rail.offsetWidth || state.verticalTabWidth || 208, TAB_RAIL_MIN, max)));
+    }
+    function applyWidth() {
+      if (state.verticalTabWidth !== null) el.layout.style.setProperty('--tab-rail-size', state.verticalTabWidth + 'px');
+    }
+    function resize(width) {
+      state.verticalTabWidth = clamp(Math.round(width), TAB_RAIL_MIN, maximum());
+      applyWidth();
+      handle.setAttribute('aria-valuenow', String(state.verticalTabWidth));
+    }
+    function saveWidth() { saveSettings(); scheduleRender(null, 0); }
+    function direction() { return document.documentElement.dir === 'rtl' ? -1 : 1; }
+    applyWidth();
+    if (typeof ResizeObserver === 'function') new ResizeObserver(updateRange).observe(rail);
+    else window.addEventListener('resize', updateRange);
+    handle.addEventListener('pointerdown', function (event) {
+      if (event.button !== 0 || drag) return;
+      drag = { id: event.pointerId, start: event.clientX, width: rail.offsetWidth, direction: direction() };
+      handle.setAttribute('data-dragging', '');
+      if (handle.setPointerCapture) handle.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    handle.addEventListener('pointermove', function (event) {
+      if (drag && event.pointerId === drag.id) resize(drag.width + (event.clientX - drag.start) * drag.direction);
+    });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (type) {
+      handle.addEventListener(type, function (event) {
+        if (!drag || event.pointerId !== drag.id) return;
+        drag = null; handle.removeAttribute('data-dragging');
+        saveWidth();
+      });
+    });
+    handle.addEventListener('keydown', function (event) {
+      var width = rail.offsetWidth || state.verticalTabWidth || 208;
+      if (event.key === 'Home') width = TAB_RAIL_MIN;
+      else if (event.key === 'End') width = maximum();
+      else if (event.key === 'ArrowLeft') width -= 12 * direction();
+      else if (event.key === 'ArrowRight') width += 12 * direction();
+      else return;
+      event.preventDefault(); resize(width); saveWidth();
+    });
   }
   function renderTabs(scrollId) {
     var bar = $('documentTabs');
@@ -891,6 +935,7 @@
     state.editPreview = !!s.editPreview;
     state.sidebar = s.sidebar !== false;
     state.verticalTabs = s.verticalTabs === true;
+    if (Number.isFinite(s.verticalTabWidth)) state.verticalTabWidth = clamp(s.verticalTabWidth, TAB_RAIL_MIN, TAB_RAIL_MAX);
     state.split = clamp(parseFloat(s.split) || 50, 15, 85);
     state.locale = I18n.setLocale(s.locale) ? s.locale : 'en';
   }
@@ -900,7 +945,8 @@
       localStorage.setItem(STORE, JSON.stringify({
         font: state.font, wrap: state.wrap, sync: state.sync, dirMode: state.dirMode,
         mode: focusSnapshot ? focusSnapshot.mode : state.mode, theme: state.theme, baseUrl: manualBaseUrl,
-        editPreview: state.editPreview, sidebar: state.sidebar, verticalTabs: state.verticalTabs, split: state.split,
+        editPreview: state.editPreview, sidebar: state.sidebar, verticalTabs: state.verticalTabs,
+        verticalTabWidth: state.verticalTabWidth, split: state.split,
         locale: I18n.getLocale()
       }));
       return true;
@@ -3452,7 +3498,7 @@
     }
     tabbar.setAttribute('role', 'tablist');
     wireTabReordering(tabbar);
-    tabbar.addEventListener('scroll', function () { updateTitlebarTabEdges(tabbar); }, { passive: true });
+    wireTabRailResizer();
     function revealActiveTab() { scrollTabIntoView(tabbar); }
     if (typeof ResizeObserver === 'function') new ResizeObserver(revealActiveTab).observe(tabbar);
     else window.addEventListener('resize', revealActiveTab);

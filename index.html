@@ -115,6 +115,10 @@
     </div>
     <div class="titlebar-tabs" id="titlebarTabs" hidden></div>
     <div class="titlebar-drag" id="titlebarDrag" data-tauri-drag-region hidden></div>
+    <div class="titlebar-actions" id="titlebarActions" role="group" data-i18n-aria="window.actions" aria-label="File and edit shortcuts" hidden>
+      <button type="button" class="btn btn-icon titlebar-create" data-command="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnTitlebarUndo" data-shell-action="undo" data-i18n-title="menu.undo" data-i18n-aria="menu.undo" disabled><i data-icon="undo" data-size="16"></i></button>
+    </div>
     <div class="caption-buttons" id="captionButtons" hidden>
       <button type="button" id="btnWindowMinimize" data-i18n-aria="window.minimize" data-i18n-title="window.minimize" aria-label="Minimize"><i data-icon="minus" data-size="15"></i></button>
       <button type="button" id="btnWindowMaximize" data-i18n-aria="window.maximize" data-i18n-title="window.maximize" aria-label="Maximize"><i data-icon="windowMaximize" data-size="15"></i></button>
@@ -191,6 +195,7 @@
 
   <aside class="vertical-tabs" id="verticalTabs" aria-labelledby="verticalTabsLabel" hidden>
     <h2 id="verticalTabsLabel" data-i18n="tabs.label">Documents</h2>
+    <div class="tab-rail-resizer" id="tabRailResizer" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="verticalTabs" aria-valuemin="132" aria-valuemax="384" aria-valuenow="208" data-i18n-aria="tabs.resize" data-i18n-title="tabs.resize" aria-label="Resize vertical tabs"></div>
   </aside>
 
     <aside class="sidebar" id="sidebar"><div class="sidebar-head"><div class="toc-heading"><span class="sidebar-title" data-i18n="toc.title">Contents</span><div class="toc-actions"><button type="button" class="btn btn-icon" id="tocExpandAll" data-i18n-title="toc.expandAll" data-i18n-aria="toc.expandAll"><i data-icon="expandAll" data-size="15"></i></button><button type="button" class="btn btn-icon" id="tocCollapseAll" data-i18n-title="toc.collapseAll" data-i18n-aria="toc.collapseAll"><i data-icon="collapseAll" data-size="15"></i></button></div></div><div class="toc-filter"><i data-icon="search" data-size="14"></i><input type="search" id="tocFilter" spellcheck="false" autocomplete="off" data-i18n-placeholder="toc.filter" data-i18n-aria="toc.filter" placeholder="Filter headings"><button type="button" class="toc-clear" id="tocClear" hidden="" data-i18n-title="action.close"><i data-icon="close" data-size="12"></i></button></div></div><div class="toc-scroll"><nav class="toc" id="toc" aria-label="Table of contents"></nav><p class="toc-empty" id="tocEmpty" hidden="">No matching headings</p><section class="bookmark-section" id="bookmarkSection" hidden=""><h2 data-i18n="reading.bookmarks">Bookmarks</h2><div id="bookmarkList"></div></section></div></aside>
