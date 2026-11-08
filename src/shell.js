@@ -2,10 +2,10 @@
 (function () {
   'use strict';
   var RV = window.RV = window.RV || {}, actions = null, openSub = null;
-  var menuButton, nav, toolbar, overflowButton, overflowPanel, toolbarGroups, rankedGroups;
+  var menuButton, nav, toolbar, tocButton, overflowButton, overflowPanel, toolbarGroups, rankedGroups;
   var titlebarActions, titlebarUndo;
   var toolbarPrefs = { show: true, hidden: [] };
-  var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'direction', 'font', 'appearance', 'theme', 'wrap', 'sync', 'contents', 'export', 'help'];
+  var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'direction', 'font', 'appearance', 'theme', 'wrap', 'sync', 'export', 'help'];
   function hideSub(focus) {
     if (!openSub) return;
     var trigger = openSub; openSub = null;
@@ -70,18 +70,15 @@
       if (group.nextElementSibling !== next) toolbar.insertBefore(group, next);
       next = group;
     }
-    updateToolbarVisibility();
     if (!toolbar.hidden && toolbar.clientWidth) fitToolbar();
     if (!toolbar.contains(focus) && !titlebarActions.contains(focus)) return;
     if (overflowPanel.hidden && overflowPanel.contains(focus)) focus = overflowButton;
-    if (focus.closest('[hidden]')) {
-      focus = (!toolbar.hidden && toolbar.querySelector(':scope > .tgroup:not([hidden]) button:not([hidden]):not(:disabled)')) || menuButton;
-    }
+    if (focus.closest('[hidden]')) focus = toolbar.hidden ? menuButton : tocButton;
     if (focus !== document.activeElement) focus.focus({ preventScroll: true });
   }
   function fitToolbar() {
     var style = getComputedStyle(toolbar), gap = parseFloat(style.columnGap) || 0;
-    var available = toolbar.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) + gap;
+    var available = toolbar.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - tocButton.getBoundingClientRect().width;
     var visible = toolbarGroups.filter(function (item) { return !item.hidden && item.parentElement === toolbar; });
     var widths = new Map(visible.map(function (item) { return [item, item.getBoundingClientRect().width + gap]; }));
     var needed = visible.reduce(function (total, item) { return total + widths.get(item); }, 0);
@@ -108,10 +105,6 @@
     if (toolbarFrame) return;
     toolbarFrame = requestAnimationFrame(function () { toolbarFrame = 0; layoutToolbar(); });
   }
-  function updateToolbarVisibility() {
-    toolbar.hidden = !toolbarPrefs.show || !toolbarGroups.some(function (group) { return !group.hidden && group.parentElement !== titlebarActions; });
-    if (toolbar.hidden) closeOverflow();
-  }
   function applyToolbar(save) {
     document.querySelectorAll('[data-toolbar-item]').forEach(function (item) {
       item.hidden = toolbarPrefs.hidden.indexOf(item.getAttribute('data-toolbar-item')) >= 0;
@@ -119,7 +112,8 @@
     toolbar.querySelectorAll('[data-toolbar-group]').forEach(function (group) {
       group.hidden = !group.querySelector('[data-toolbar-item]:not([hidden])');
     });
-    updateToolbarVisibility();
+    toolbar.hidden = !toolbarPrefs.show;
+    if (toolbar.hidden) closeOverflow();
     scheduleToolbarLayout();
     document.querySelector('[data-toolbar-show]').checked = toolbarPrefs.show;
     document.querySelectorAll('[data-toolbar-option]').forEach(function (input) {
@@ -129,6 +123,7 @@
   }
   function initToolbar() {
     toolbar = document.getElementById('toolbar');
+    tocButton = document.getElementById('btnToc');
     titlebarActions = document.getElementById('titlebarActions');
     titlebarUndo = document.getElementById('btnTitlebarUndo');
     overflowButton = document.getElementById('btnToolbarMore');
@@ -204,11 +199,8 @@
     menuButton = document.getElementById('brandMark');
     nav = document.getElementById('appMenuPanel');
     initToolbar();
-    titlebarActions.addEventListener('click', function (event) {
-      var button = event.target.closest('button');
-      if (!button || button.disabled) return;
-      if (button === titlebarUndo) actions.undo();
-      else if (button.dataset.command) document.getElementById(button.dataset.command).click();
+    titlebarUndo.addEventListener('click', function () {
+      if (!titlebarUndo.disabled) actions.undo();
     });
     function openAppMenu(focus) {
       closeOverflow();

@@ -201,7 +201,7 @@ const { chromium } = require('playwright');
     await page.evaluate(() => window.RVApp.setDoc('- [x] یادگیری PostgreSQL', 'persian.md', null, {}));
     await page.setViewportSize({ width: 390, height: 900 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    if (!(await page.locator('#btnToc').isVisible())) await page.locator('#btnToolbarMore').click();
+    assert.equal(await page.locator('#toolbar > #btnToc').isVisible(), true, 'Contents stays visible on narrow screens');
     await page.locator('#btnToc').click();
     await page.locator('#brandMark').click();
     await page.locator('#menuFile > summary').click();

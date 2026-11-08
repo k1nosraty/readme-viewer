@@ -25,6 +25,12 @@ async function assertToolbarFits(page, state) {
         item.left >= row.left - 1 && item.right <= row.right + 1 &&
         Math.abs(item.top + item.height / 2 - row.top - row.height / 2) <= 1);
   }), true, 'toolbar fits one row: ' + state);
+  assert.equal(await page.locator('#btnToc').evaluate(button => {
+    const row = button.parentElement, b = button.getBoundingClientRect(), r = row.getBoundingClientRect();
+    const left = r.left + row.clientLeft + parseFloat(getComputedStyle(row).paddingLeft);
+    return row.id === 'toolbar' && b.width > 0 && Math.abs(b.left - left) <= 1 &&
+      button.contains(document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2));
+  }), true, 'Contents stays on the far left: ' + state);
 }
 
 async function assertTabsCentered(page, state) {
@@ -185,22 +191,22 @@ async function assertTabsCentered(page, state) {
     for (const theme of ['light', 'dark']) {
       await page.evaluate(theme => document.querySelector('[data-theme-choice="' + theme + '"]').click(), theme);
       assert.equal(await page.evaluate(() => {
-        const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
-        const rgba = color => {
-          ctx.clearRect(0, 0, 1, 1);
-          ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
-          return [...ctx.getImageData(0, 0, 1, 1).data];
-        };
-        const luminance = ([r, g, b]) => [r, g, b].map(v => v / 255)
-          .map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4)
-          .reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
-        return ['#btnNewTab', '#titlebarTabs .document-tab:not(.is-active)'].every(selector => {
-          const style = getComputedStyle(document.querySelector(selector));
-          const background = rgba(style.backgroundColor), text = rgba(style.color);
-          const [a, b] = [luminance(background), luminance(text)];
-          return background[3] === 255 && (Math.max(a, b) + .05) / (Math.min(a, b) + .05) >= 4.5;
+        const glass = getComputedStyle(document.querySelector('.tools-island')).backgroundImage;
+        const selectors = ['#btnNewTab', '#titlebarTabs .document-tab:not(.is-active)', '#titlebarActions', '.statusbar'];
+        return glass !== 'none' && selectors.every(selector => getComputedStyle(document.querySelector(selector)).backgroundImage === glass);
+      }), true, 'inactive tabs, New Tab, title controls and status share the toolbar material in ' + theme);
+      assert.equal(await page.locator('#btnNewTab').evaluate(button => {
+        const box = button.getBoundingClientRect();
+        return box.width === box.height && getComputedStyle(button).borderTopLeftRadius === '50%';
+      }), true, 'New Tab is circular in ' + theme);
+      assert.equal(await page.locator('#toolbar').evaluate(toolbar => {
+        const controls = toolbar.querySelectorAll(':scope > .tgroup, .btn, .seg');
+        return [...controls].every(node => {
+          const style = getComputedStyle(node);
+          return style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.backgroundImage === 'none' &&
+            parseFloat(style.borderTopLeftRadius) >= 100;
         });
-      }), true, 'New Tab and inactive labels have readable colors in ' + theme);
+      }), true, 'toolbar groups and controls have round outlines and transparent fills in ' + theme);
     }
     await page.evaluate(() => {
       RVApp.newTab('# Long document name', 'a-document-name-that-needs-truncating.md');
@@ -208,12 +214,12 @@ async function assertTabsCentered(page, state) {
     });
     assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
       const bounds = tab.getBoundingClientRect(), rail = tab.parentElement.getBoundingClientRect();
-      const marker = getComputedStyle(tab, '::before');
-      const markerTop = bounds.top + tab.clientTop + parseFloat(marker.top);
+      const style = getComputedStyle(tab);
+      const inactive = getComputedStyle(tab.parentElement.querySelector('.document-tab:not(.is-active)'));
       return bounds.left >= rail.left - 1 && bounds.right <= rail.right + 1 &&
-        parseFloat(getComputedStyle(tab).borderBottomRightRadius) >= 6 &&
-        markerTop >= rail.top && markerTop + parseFloat(marker.height) < bounds.top;
-    }), true, 'the selected tab, close button, and exterior top marker fit at minimum width');
+        parseFloat(style.borderBottomRightRadius) >= 6 && getComputedStyle(tab, '::before').content === 'none' &&
+        style.backgroundImage === 'none' && Number(style.fontWeight) > Number(inactive.fontWeight);
+    }), true, 'the selected tab fits at minimum width and stands out without an accent marker');
     await assertTabsCentered(page, 'scrolling tab strip');
     await page.locator('#titlebarTabs [aria-selected="true"]').press('Control+Tab');
     assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
@@ -253,7 +259,8 @@ async function assertTabsCentered(page, state) {
     assert.equal(await rail.evaluate(node => getComputedStyle(node).backgroundImage),
       await page.locator('.tools-island').evaluate(node => getComputedStyle(node).backgroundImage));
     const beforeCount = (await order()).length;
-    await titleTools.locator('[data-command="btnNewTab"]').click();
+    assert.equal(await page.locator('.menu-line .new-tab').count(), 0);
+    await rail.locator('#btnNewTab').click();
     assert.equal((await order()).length, beforeCount + 1);
     const handle = page.locator('#tabRailResizer');
     const width = () => rail.evaluate(node => node.offsetWidth);
@@ -265,12 +272,8 @@ async function assertTabsCentered(page, state) {
     await page.mouse.up();
     assert.equal(await width(), initialWidth + 64);
     await page.evaluate(() => { RV.I18n.setLocale('fa'); RVApp.applyLocale(); });
-    assert.equal(await rail.locator('.document-tab.is-active').evaluate(tab => {
-      const x = tab.getBoundingClientRect().left;
-      const marker = getComputedStyle(tab, '::before');
-      const left = x + tab.clientLeft + parseFloat(marker.left);
-      return left >= tab.parentElement.getBoundingClientRect().left && left + parseFloat(marker.width) < x;
-    }), true, 'the vertical selection marker stays outside the left edge in RTL');
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await assertToolbarFits(page, 'Windows RTL');
     await handle.press('ArrowLeft');
     const savedWidth = await width();
     assert.equal(savedWidth, initialWidth + 76, 'RTL ArrowLeft widens the vertical tab sidebar');

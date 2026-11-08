@@ -114,7 +114,6 @@
       <span class="brand-text"><span class="brand-name" id="fileName" title="">README Viewer</span><span class="brand-sub" id="fileState" data-state="empty"></span></span>
     </div>
     <div class="titlebar-actions" id="titlebarActions" role="group" data-i18n-aria="window.actions" aria-label="File and edit shortcuts" hidden>
-      <button type="button" class="btn btn-icon new-tab titlebar-create" data-command="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="18"></i></button>
       <button type="button" class="btn btn-icon" id="btnTitlebarUndo" data-shell-action="undo" data-i18n-title="menu.undo" data-i18n-aria="menu.undo" disabled><i data-icon="undo" data-size="16"></i></button>
     </div>
     <div class="titlebar-tabs" id="titlebarTabs" hidden></div>
@@ -127,6 +126,7 @@
   </div>
   <div class="tools-island">
   <div class="toolbar" role="toolbar" aria-label="Tools" id="toolbar">
+    <button type="button" class="btn btn-icon" id="btnToc" aria-pressed="true" data-i18n-title="toggle.toc" data-i18n-aria="toggle.toc"><i data-icon="toc" data-size="16"></i></button>
     <div class="tgroup file-tools" data-toolbar-item="files" data-toolbar-priority="1">
       <button type="button" class="btn" id="btnOpen" data-i18n-title="action.open"><i data-icon="open" data-size="16"></i><span class="btn-label" data-i18n="action.open">Open</span></button>
       <button type="button" class="btn" id="btnSave" data-i18n-title="action.save" disabled=""><i data-icon="save" data-size="16"></i><span class="btn-label" data-i18n="action.save">Save</span></button>
@@ -164,7 +164,6 @@
     <div class="tgroup display-tools" data-toolbar-group="display">
       <button type="button" class="btn btn-icon" id="btnWrap" aria-pressed="false" data-i18n-title="toggle.wrap" data-toolbar-item="wrap"><i data-icon="wrap" data-size="16"></i></button>
       <button type="button" class="btn btn-icon" id="btnSync" aria-pressed="true" data-i18n-title="toggle.sync" data-toolbar-item="sync"><i data-icon="sync" data-size="16"></i></button>
-      <button type="button" class="btn btn-icon" id="btnToc" aria-pressed="true" data-i18n-title="toggle.toc" data-toolbar-item="contents"><i data-icon="toc" data-size="16"></i></button>
     </div>
     <div class="tgroup export-tools" data-toolbar-group="exportHelp">
       <button type="button" class="btn btn-icon" id="btnExport" data-i18n-title="action.export" data-toolbar-item="export"><i data-icon="download" data-size="16"></i></button>

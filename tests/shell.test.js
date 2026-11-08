@@ -90,7 +90,7 @@ test('Theme flyout selects an explicit theme and Escape returns to its trigger',
 });
 
 test('toolbar choices survive reload and hidden commands remain available in menus', async t => {
-  const storage = new Map();
+  const storage = new Map([['rv.toolbar', JSON.stringify({ show: true, hidden: ['contents'] })]]);
   async function open() {
     const app = await harness.loadApp({ beforeParse(window) {
       window.TextDecoder = TextDecoder;
@@ -102,6 +102,7 @@ test('toolbar choices survive reload and hidden commands remain available in men
     t.after(() => app.window.close()); return app;
   }
   const first = await open();
+  assert.equal(first.document.getElementById('btnToc').hidden, false, 'old preferences cannot hide the pinned Contents button');
   first.document.querySelector('[data-toolbar-option="sync"]').click();
   assert.equal(first.document.getElementById('btnSync').hidden, true);
   const second = await open();
