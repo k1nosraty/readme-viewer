@@ -122,7 +122,7 @@
     return name + ' — ' + (path.length > 1 ? path[path.length - 2] : '#' + (tabs.indexOf(tab) + 1));
   }
   function scrollTabIntoView(bar, id) {
-    var tab = bar.querySelector(id ? '[data-tab-id="' + id + '"]' : '[aria-selected="true"]');
+    var tab = bar.querySelector(id ? '[data-tab-id="' + id + '"]' : '.document-tab.is-active');
     if (tab && tab.scrollIntoView) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
   function applyTabLayout() {
@@ -154,11 +154,6 @@
     applyTabLayout();
     saveSettings();
     scheduleRender(null, 0);
-  }
-  function syncNativeTabShortcut() {
-    if (document.documentElement.hasAttribute('data-windows-titlebar') && RV.Native.syncTabShortcut) {
-      RV.Native.syncTabShortcut(tabs.length > 1).catch(reportOpen);
-    }
   }
   function renderTabs(scrollId) {
     var bar = $('documentTabs');
@@ -222,7 +217,6 @@
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
       if (replacement) replacement.focus();
     }
-    syncNativeTabShortcut();
   }
   function moveTab(from, to) {
     if (pendingSave || pendingDiscard || from === to || from < 0 || to < 0 || to >= tabs.length) return;
@@ -2338,7 +2332,7 @@
     if (on === state.readingFocus || (on && !state.hasDocument)) return;
     var target = document.activeElement;
     if (on) {
-      if (target && target.closest && target.closest('.app-menu')) target = target.closest('.app-menu').querySelector('summary');
+      if (RV.Shell) target = RV.Shell.popupFocusTarget(target);
       focusSnapshot = { mode: state.mode, focus: target };
       if (RV.Shell) RV.Shell.close();
       $('readingOptions').open = false;
@@ -2351,7 +2345,7 @@
     document.body.setAttribute('data-reading-focus', on ? '1' : '0');
     applyMode(); updateChrome();
     if (on) el.previewScroll.focus({ preventScroll: true });
-    else if (target && target.isConnected) target.focus({ preventScroll: true });
+    else if (target && target.isConnected) (target.closest('[hidden]') ? $('brandMark') : target).focus({ preventScroll: true });
     requestAnimationFrame(function () { measureParts(); markActiveToc(); });
   }
   function setMode(mode) {
@@ -2364,10 +2358,16 @@
   }
 
   function wireModals() {
+    var helpFocus;
     var showHelp = function (show) {
       el.helpModal.hidden = !show;
-      if (show) el.btnHelpDone.focus();
-      else (el.btnHelp.getClientRects().length ? el.btnHelp : $('menuHelp').querySelector('summary')).focus();
+      if (show) {
+        helpFocus = document.activeElement;
+        if (RV.Shell) { helpFocus = RV.Shell.popupFocusTarget(helpFocus); RV.Shell.close(); }
+        el.btnHelpDone.focus();
+      } else {
+        (helpFocus && helpFocus.getClientRects().length ? helpFocus : $('brandMark')).focus();
+      }
     };
 
     el.btnHelp.addEventListener('click', function () { showHelp(true); });
@@ -3138,7 +3138,7 @@
     document.addEventListener('keydown', function (e) {
       if (!el.confirmModal.hidden || !el.helpModal.hidden) return;
       if (e.isComposing || e.keyCode === 229) return;
-      if (e.key === 'Tab' && e.altKey && !e.ctrlKey && !e.metaKey) {
+      if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         cycleDocumentTabs(e.shiftKey);
         return;
@@ -3381,7 +3381,7 @@
       'btnExport', 'btnTheme', 'btnWrap', 'btnSync', 'btnToc', 'btnEdit', 'btnFontUp',
       'btnFontDown', 'btnHelp', 'btnHelpClose', 'btnHelpDone', 'btnConfirmSave', 'btnBack', 'btnForward',
       'btnConfirmDiscard', 'btnConfirmCancel', 'btnEmptyOpen', 'btnEmptySample', 'fontValue',
-      'brandMark', 'findBar', 'findInput', 'findCount', 'findPrev', 'findNext', 'findClose',
+      'findBar', 'findInput', 'findCount', 'findPrev', 'findNext', 'findClose',
       'statusLink', 'recentList', 'btnReadingFocus', 'btnExitReadingFocus'];
     for (var i = 0; i < ids.length; i++) el[ids[i]] = $(ids[i]);
   }
@@ -3399,7 +3399,6 @@
     if (RV.Diagrams) RV.Diagrams.download = download;
     loadSettings();
     Icons.inject(document.body);
-    el.brandMark.innerHTML = Icons.svg('logo', 18);
 
     applyTheme();
     applyFont();
@@ -3463,8 +3462,7 @@
     Promise.resolve(sessionReady).then(function () {
       state.ready = true;
       if (nativeAvailable()) return RV.Native.initialize({
-        onTitlebar: function () { applyTabLayout(); syncNativeTabShortcut(); },
-        cycleTab: cycleDocumentTabs,
+        onTitlebar: applyTabLayout,
         openPath: function (path) {
           return openNativePath(path, false, true).then(function (ok) {
             if (ok) setMode('preview');

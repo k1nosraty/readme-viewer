@@ -163,7 +163,7 @@ test('tab keyboard navigation uses a roving focus target and first open reuses e
   assert.equal(document.activeElement.getAttribute('aria-selected'), 'true');
 });
 
-test('Alt+Tab cycles documents from the editor without indenting their source', async t => {
+test('Ctrl+Tab cycles documents from the editor without indenting their source', async t => {
   const app = await workspace(t); if (!app) return;
   const { api, window, document } = app;
   api.setDoc('first', 'one.md');
@@ -171,7 +171,7 @@ test('Alt+Tab cycles documents from the editor without indenting their source', 
   edit(app, 'second edited');
   api.el.editor.focus();
   const cycle = (shiftKey = false) => {
-    const event = new window.KeyboardEvent('keydown', { key: 'Tab', altKey: true, shiftKey, bubbles: true, cancelable: true });
+    const event = new window.KeyboardEvent('keydown', { key: 'Tab', ctrlKey: true, shiftKey, bubbles: true, cancelable: true });
     document.activeElement.dispatchEvent(event);
     assert.equal(event.defaultPrevented, true);
   };
@@ -183,6 +183,10 @@ test('Alt+Tab cycles documents from the editor without indenting their source', 
   assert.equal(api.state.name, 'two.md');
   assert.equal(api.el.editor.value, 'second edited');
   assert.equal(api.state.dirty, true);
+  const altTab = new window.KeyboardEvent('keydown', { key: 'Tab', altKey: true, bubbles: true, cancelable: true });
+  document.activeElement.dispatchEvent(altTab);
+  assert.equal(altTab.defaultPrevented, false);
+  assert.equal(api.state.name, 'two.md');
 });
 
 test('Ctrl+S saves when the keyboard reports a Persian letter', async t => {
@@ -469,8 +473,9 @@ test('same-name tabs expose locations and settings menus close with Escape', asy
   assert.ok(document.querySelector('#menuFile #restoreSession'));
   assert.ok(document.querySelector('#menuFile #baseUrl'));
   assert.equal(document.querySelector('#readingOptions #restoreSession'), null);
+  const launcher = document.getElementById('brandMark'); launcher.click();
   const menu = document.getElementById('menuFile'); menu.open = true;
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(menu.open, false);
-  assert.equal(document.activeElement, menu.querySelector('summary'));
+  assert.equal(document.activeElement, launcher);
 });

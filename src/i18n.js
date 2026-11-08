@@ -104,6 +104,9 @@
       'appearance.copper': 'Copper',
 
       'toolbar.customize': 'Customize toolbar',
+      'toolbar.more': 'More tools',
+      'toolbar.display': 'Display',
+      'toolbar.exportHelp': 'Export and help',
       'toolbar.show': 'Show toolbar',
       'toolbar.reset': 'Restore defaults',
       'toolbar.files': 'File actions',
@@ -315,7 +318,7 @@
       'help.items': [
         '<b>Ctrl/⌘+O</b> open a file · <b>Ctrl/⌘+S</b> save · <b>Ctrl/⌘+Shift+S</b> save as',
         '<b>Ctrl/⌘+1 / 2 / 3</b> source, split and preview modes',
-        '<b>Alt+Tab</b> next document tab · <b>Alt+Shift+Tab</b> previous tab in the Windows app',
+        '<b>Ctrl+Tab</b> next document tab · <b>Ctrl+Shift+Tab</b> previous tab',
         'Drag tabs to reorder them · <b>Ctrl+Shift+arrow</b> moves the focused tab',
         '<b>Ctrl/⌘+E</b> toggle “Edit in preview”',
         '<b>F8</b> distraction-free reading · <b>Esc</b> return to the workspace',
@@ -425,6 +428,9 @@
       'appearance.copper': 'مسی',
 
       'toolbar.customize': 'شخصی‌سازی نوار ابزار',
+      'toolbar.more': 'ابزارهای بیشتر',
+      'toolbar.display': 'نمایش',
+      'toolbar.exportHelp': 'خروجی و راهنما',
       'toolbar.show': 'نمایش نوار ابزار',
       'toolbar.reset': 'بازگردانی پیش‌فرض‌ها',
       'toolbar.files': 'ابزارهای فایل',
@@ -636,7 +642,7 @@
       'help.items': [
         '<b>Ctrl/⌘+O</b> باز کردن فایل · <b>Ctrl/⌘+S</b> ذخیره · <b>Ctrl/⌘+Shift+S</b> ذخیره به‌نام',
         '<b>Ctrl/⌘+1 / 2 / 3</b> حالت نوشتن، دوتایی و پیش‌نمایش',
-        '<b>Alt+Tab</b> تب بعدی سند · <b>Alt+Shift+Tab</b> تب قبلی در برنامهٔ ویندوز',
+        '<b>Ctrl+Tab</b> تب بعدی سند · <b>Ctrl+Shift+Tab</b> تب قبلی',
         'تب‌ها را برای جابه‌جایی بکشید · <b>Ctrl+Shift+جهت</b> تب دارای تمرکز را جابه‌جا می‌کند',
         '<b>Ctrl/⌘+E</b> روشن و خاموش کردن «ویرایش در پیش‌نمایش»',
         '<b>F8</b> مطالعهٔ بدون حواس‌پرتی · <b>Esc</b> بازگشت به محیط کار',

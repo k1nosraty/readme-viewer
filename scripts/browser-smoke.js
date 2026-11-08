@@ -138,6 +138,7 @@ const { chromium } = require('playwright');
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       for (const panelId of ['themeMenu', 'toolbarMenu']) {
+        await page.locator('#brandMark').click();
         await page.locator('#menuView > summary').click();
         await page.locator('[data-submenu="' + panelId + '"]').click();
         assert.ok(await page.locator('#' + panelId).evaluate(panel => {
@@ -184,6 +185,7 @@ const { chromium } = require('playwright');
     const beforeAppearance = await page.evaluate(() => ({ theme: RVApp.state.theme, font: RVApp.state.font, source: RVApp.el.editor.value }));
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 900 });
+      await page.locator('#brandMark').click();
       await page.locator('#menuView > summary').click();
       await page.locator('#btnAppearance').click();
       await page.locator('#appearanceSurface').selectOption('warm');
@@ -199,7 +201,9 @@ const { chromium } = require('playwright');
     await page.evaluate(() => window.RVApp.setDoc('- [x] یادگیری PostgreSQL', 'persian.md', null, {}));
     await page.setViewportSize({ width: 390, height: 900 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    if (!(await page.locator('#btnToc').isVisible())) await page.locator('#btnToolbarMore').click();
     await page.locator('#btnToc').click();
+    await page.locator('#brandMark').click();
     await page.locator('#menuFile > summary').click();
     assert.ok(await page.evaluate(() => { const button = document.querySelector('#menuFile [data-command="btnExport"]'); const rect = button.getBoundingClientRect(); return button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); }), 'mobile sidebar must never cover the toolbar');
     const downloading = page.waitForEvent('download');

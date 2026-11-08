@@ -16,6 +16,17 @@ async function dragTab(page, source, target, vertical) {
   await page.mouse.up();
 }
 
+async function assertToolbarFits(page, state) {
+  assert.equal(await page.locator('#toolbar').evaluate(toolbar => {
+    const row = toolbar.getBoundingClientRect();
+    return getComputedStyle(toolbar).flexWrap === 'nowrap' && Array.from(toolbar.children)
+      .filter(item => !item.hidden && item.id !== 'toolbarOverflow')
+      .map(item => item.getBoundingClientRect()).every(item =>
+        item.left >= row.left - 1 && item.right <= row.right + 1 &&
+        Math.abs(item.top + item.height / 2 - row.top - row.height / 2) <= 1);
+  }), true, 'toolbar fits one row: ' + state);
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
   const output = path.resolve(__dirname, '../native-test-results');
@@ -37,19 +48,17 @@ async function dragTab(page, source, target, vertical) {
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         const state = `${locale}-${theme}-${width}`;
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, state);
+        await assertToolbarFits(page, state);
         assert.equal(await page.locator('#toolbar .mode-tools button').evaluateAll(buttons => buttons.every(button => {
           const label = button.querySelector('.seg-label'), r = button.getBoundingClientRect(), text = label.getBoundingClientRect();
           return !text.width || (text.left >= r.left && text.right <= r.right);
         })), true, 'mode labels do not overlap: ' + state);
         for (const id of ['menuFile', 'menuEdit', 'menuView', 'menuHelp']) {
+          await page.locator('#brandMark').click();
           await page.locator('#' + id + ' > summary').click();
-          await page.waitForFunction(id => {
-            const menu = document.getElementById(id), panel = menu.querySelector('.menu-panel'), r = panel.getBoundingClientRect();
-            return menu.open && panel.style.left !== '' && r.left >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight;
-          }, id);
-          assert.equal(await page.locator('#' + id + ' > .menu-panel').evaluate(panel => {
-            const r = panel.getBoundingClientRect();
-            const button = panel.querySelector('button:not(:disabled)'), b = button.getBoundingClientRect();
+          assert.equal(await page.locator('#' + id + ' > .menu-commands').evaluate(commands => {
+            const r = commands.closest('.app-menubar').getBoundingClientRect();
+            const button = commands.querySelector('button:not(:disabled)'), b = button.getBoundingClientRect();
             return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight &&
               button.contains(document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2));
           }), true, id + ' stays reachable: ' + state);
@@ -76,6 +85,7 @@ async function dragTab(page, source, target, vertical) {
     assert.equal(await page.locator('#sidebar').isVisible(), true);
     assert.equal(await page.locator('#tocFilter').evaluate(node => node === document.activeElement), true);
     await page.keyboard.press('Escape');
+    await page.locator('#brandMark').click();
     await page.locator('#menuHelp > summary').click();
     await page.locator('#menuHelp [data-command="btnHelp"]').click();
     const mode = await page.evaluate(() => RVApp.state.mode);
@@ -84,10 +94,11 @@ async function dragTab(page, source, target, vertical) {
     await page.keyboard.press('Tab');
     assert.equal(await page.evaluate(() => document.getElementById('helpModal').contains(document.activeElement)), true);
     await page.keyboard.press('Escape');
-    assert.equal(await page.locator('#menuHelp > summary').evaluate(node => node === document.activeElement), true);
+    assert.equal(await page.locator('#brandMark').evaluate(node => node === document.activeElement), true);
+    await page.locator('#brandMark').click();
     await page.locator('#menuView > summary').click(); await page.locator('#btnAppearance').click();
     await page.keyboard.press('Escape');
-    assert.equal(await page.locator('#menuView > summary').evaluate(node => node === document.activeElement), true);
+    assert.equal(await page.locator('#brandMark').evaluate(node => node === document.activeElement), true);
 
     await page.setViewportSize({ width: 1200, height: 720 });
     await page.evaluate(() => {
@@ -114,6 +125,38 @@ async function dragTab(page, source, target, vertical) {
     await toggle.click();
     assert.equal(await toggle.getAttribute('aria-pressed'), 'false');
     await page.locator('.workspacebar [role="tablist"]').waitFor();
+
+    // Exercise the Windows island, where Reading and Compare share the toolbar row.
+    await page.evaluate(() => {
+      RVApp.newTab('# Long document name', 'a-document-name-that-needs-truncating.md');
+      document.documentElement.dataset.windowsTitlebar = '';
+      document.documentElement.dataset.windowGlass = '';
+      document.getElementById('captionButtons').hidden = false;
+      document.getElementById('titlebarDrag').hidden = false;
+    });
+    await toggle.click(); await toggle.click();
+    await page.locator('#titlebarTabs [role="tablist"]').waitFor();
+    for (const width of [1440, 860, 641, 360]) {
+      await page.setViewportSize({ width, height: 720 });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await assertToolbarFits(page, 'Windows ' + width);
+    }
+    assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
+      const bounds = tab.getBoundingClientRect(), rail = tab.parentElement.getBoundingClientRect();
+      return bounds.left >= rail.left - 1 && bounds.right <= rail.right + 1 &&
+        parseFloat(getComputedStyle(tab).borderBottomRightRadius) >= 6;
+    }), true, 'the selected tab and its close button fit at the minimum Windows width');
+    const more = page.locator('#btnToolbarMore');
+    await more.click();
+    const wrap = page.locator('#toolbarOverflow #btnWrap');
+    const beforeWrap = await wrap.getAttribute('aria-pressed');
+    await wrap.click();
+    assert.notEqual(await wrap.getAttribute('aria-pressed'), beforeWrap);
+    await page.keyboard.press('Escape');
+    assert.equal(await more.evaluate(node => node === document.activeElement), true);
+    await page.setViewportSize({ width: 1600, height: 720 });
+    await page.locator('#toolbar > .display-tools #btnWrap').waitFor();
+    assert.notEqual(await page.locator('#btnWrap').getAttribute('aria-pressed'), beforeWrap);
 
     assert.deepEqual(errors, []);
     console.log('UI smoke passed: English/Persian, light/dark, responsive menus, keyboard focus, and tab reordering.');

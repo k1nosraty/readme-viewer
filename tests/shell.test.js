@@ -50,8 +50,13 @@ test('Edit menu undo and redo use the current document history', async t => {
 test('menu keyboard navigation switches menus and returns focus on Escape', async t => {
   const app = await load(t); if (!app) return;
   const { document, window } = app;
+  const launcher = document.getElementById('brandMark');
   const summary = document.querySelector('#menuFile > summary');
-  summary.focus();
+  assert.equal(document.getElementById('appMenuPanel').hidden, true);
+  launcher.focus();
+  launcher.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  assert.equal(document.activeElement, summary);
+  assert.equal(launcher.getAttribute('aria-expanded'), 'true');
   summary.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
   assert.equal(document.getElementById('menuFile').open, true);
   assert.equal(document.activeElement.getAttribute('data-command'), 'btnNewTab');
@@ -60,12 +65,14 @@ test('menu keyboard navigation switches menus and returns focus on Escape', asyn
   assert.equal(document.getElementById('menuEdit').open, true);
   document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(document.getElementById('menuEdit').open, false);
-  assert.equal(document.activeElement, document.querySelector('#menuEdit > summary'));
+  assert.equal(launcher.getAttribute('aria-expanded'), 'false');
+  assert.equal(document.activeElement, launcher);
 });
 
 test('Theme flyout selects an explicit theme and Escape returns to its trigger', async t => {
   const app = await load(t); if (!app) return;
   const { api, document, window } = app;
+  document.getElementById('brandMark').click();
   document.getElementById('menuView').open = true;
   const trigger = document.querySelector('[data-submenu="themeMenu"]');
   trigger.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));

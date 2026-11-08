@@ -167,8 +167,7 @@
   function open(event) {
     if (snapshot) return;
     returnFocus = event && event.currentTarget || document.activeElement;
-    if (returnFocus.closest && returnFocus.closest('.app-menu')) returnFocus = returnFocus.closest('.app-menu').querySelector('summary');
-    if (RV.Shell) RV.Shell.close();
+    if (RV.Shell) { returnFocus = RV.Shell.popupFocusTarget(returnFocus); RV.Shell.close(); }
     byId('readingOptions').open = false;
     snapshot = { prefs: Object.assign({}, prefs), state: api.get() };
     byId('appearanceStorageError').hidden = true; sync();
@@ -180,7 +179,7 @@
     if (cancel) { prefs = snapshot.prefs; api.preview(snapshot.state); apply(); }
     snapshot = null;
     byId('appearancePanel').hidden = true; byId('appearanceScrim').hidden = true;
-    if (returnFocus && returnFocus.isConnected) returnFocus.focus();
+    if (returnFocus && returnFocus.isConnected) (returnFocus.closest('[hidden]') ? byId('brandMark') : returnFocus).focus();
   }
   function init(callbacks) {
     api = callbacks; wireFontChoices();

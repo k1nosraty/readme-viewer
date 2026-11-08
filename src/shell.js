@@ -1,7 +1,8 @@
-/* Conventional application menus share the toolbar's existing commands. */
+/* Application menus and toolbar overflow share the existing command controls. */
 (function () {
   'use strict';
   var RV = window.RV = window.RV || {}, actions = null, openSub = null;
+  var menuButton, nav, toolbar, overflowButton, overflowPanel, toolbarGroups, rankedGroups;
   var toolbarPrefs = { show: true, hidden: [] };
   var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'direction', 'font', 'appearance', 'theme', 'wrap', 'sync', 'contents', 'export', 'help'];
   function hideSub(focus) {
@@ -11,10 +12,7 @@
     trigger.setAttribute('aria-expanded', 'false');
     if (focus) trigger.focus();
   }
-  function showSub(trigger, focus) {
-    hideSub(); openSub = trigger;
-    var panel = document.getElementById(trigger.getAttribute('data-submenu'));
-    panel.hidden = false; trigger.setAttribute('aria-expanded', 'true');
+  function placeSub(trigger, panel) {
     var rect = trigger.getBoundingClientRect(), width = panel.getBoundingClientRect().width;
     var rtl = document.documentElement.dir === 'rtl';
     var x = rtl ? rect.left - width - 4 : rect.right + 4;
@@ -22,17 +20,92 @@
     x = Math.max(8, Math.min(x, innerWidth - width - 8));
     panel.style.left = x + 'px';
     panel.style.top = Math.max(8, Math.min(rect.top, innerHeight - panel.getBoundingClientRect().height - 8)) + 'px';
+  }
+  function showSub(trigger, focus) {
+    hideSub(); openSub = trigger;
+    var panel = document.getElementById(trigger.getAttribute('data-submenu'));
+    panel.hidden = false; trigger.setAttribute('aria-expanded', 'true');
+    placeSub(trigger, panel);
     if (focus) (panel.querySelector('[aria-checked="true"]') || panel.querySelector('button:not(:disabled), input')).focus();
   }
+  function setPopup(trigger, panel, open) {
+    panel.hidden = !open;
+    trigger.setAttribute('aria-expanded', String(open));
+    if (!open) return;
+    var rect = trigger.getBoundingClientRect();
+    var top = rect.bottom + 5;
+    var width = panel.getBoundingClientRect().width;
+    var rtl = document.documentElement.dir === 'rtl';
+    var alignRight = panel === overflowPanel ? !rtl : rtl;
+    var left = alignRight ? rect.right - width : rect.left;
+    panel.style.left = Math.max(8, Math.min(left, innerWidth - width - 8)) + 'px';
+    panel.style.top = top + 'px';
+    panel.style.maxHeight = Math.max(0, innerHeight - top - 8) + 'px';
+  }
+  function closeOverflow(focus) {
+    if (overflowPanel.hidden) return;
+    setPopup(overflowButton, overflowPanel, false);
+    if (focus) overflowButton.focus();
+  }
+  function popupFocusTarget(node) {
+    if (nav.contains(node)) return menuButton;
+    if (overflowPanel.contains(node)) return overflowButton;
+    return node;
+  }
+  function layoutToolbar() {
+    if (toolbar.hidden || !toolbar.clientWidth) return;
+    var focus = document.activeElement;
+    // Measure every group in its row styling before deciding what fits.
+    var next = overflowButton;
+    for (var i = toolbarGroups.length - 1; i >= 0; i--) {
+      var group = toolbarGroups[i];
+      if (group.nextElementSibling !== next) toolbar.insertBefore(group, next);
+      next = group;
+    }
+    var style = getComputedStyle(toolbar), gap = parseFloat(style.columnGap) || 0;
+    var available = toolbar.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) + gap;
+    var visible = toolbarGroups.filter(function (item) { return !item.hidden; });
+    var widths = new Map(visible.map(function (item) { return [item, item.getBoundingClientRect().width + gap]; }));
+    var needed = visible.reduce(function (total, item) { return total + widths.get(item); }, 0);
+    overflowButton.hidden = needed <= available;
+    if (overflowButton.hidden) closeOverflow();
+    else {
+      available -= overflowButton.getBoundingClientRect().width + gap;
+      var fitting = new Set();
+      rankedGroups.forEach(function (item) {
+        var width = widths.get(item);
+        if (width !== undefined && width <= available) {
+          fitting.add(item);
+          available -= width;
+        }
+      });
+      visible.forEach(function (item) {
+        if (!fitting.has(item)) overflowPanel.appendChild(item);
+      });
+      if (!overflowPanel.hidden) setPopup(overflowButton, overflowPanel, true);
+    }
+    if (!toolbar.contains(focus)) return;
+    if (overflowPanel.hidden && overflowPanel.contains(focus)) focus = overflowButton;
+    if (focus === overflowButton && overflowButton.hidden) {
+      focus = toolbar.querySelector('.tgroup:not([hidden]) button:not([hidden]):not(:disabled)') || menuButton;
+    }
+    if (focus !== document.activeElement) focus.focus({ preventScroll: true });
+  }
+  var toolbarFrame = 0;
+  function scheduleToolbarLayout() {
+    if (toolbarFrame) return;
+    toolbarFrame = requestAnimationFrame(function () { toolbarFrame = 0; layoutToolbar(); });
+  }
   function applyToolbar(save) {
-    var toolbar = document.getElementById('toolbar');
     toolbar.querySelectorAll('[data-toolbar-item]').forEach(function (item) {
       item.hidden = toolbarPrefs.hidden.indexOf(item.getAttribute('data-toolbar-item')) >= 0;
     });
     toolbar.querySelectorAll('[data-toolbar-group]').forEach(function (group) {
-      group.hidden = !Array.prototype.some.call(group.children, function (child) { return !child.hidden; });
+      group.hidden = !group.querySelector('[data-toolbar-item]:not([hidden])');
     });
-    toolbar.hidden = !toolbarPrefs.show || !Array.prototype.some.call(toolbar.children, function (child) { return !child.hidden; });
+    toolbar.hidden = !toolbarPrefs.show || !toolbarGroups.some(function (group) { return !group.hidden; });
+    if (toolbar.hidden) closeOverflow();
+    else scheduleToolbarLayout();
     document.querySelector('[data-toolbar-show]').checked = toolbarPrefs.show;
     document.querySelectorAll('[data-toolbar-option]').forEach(function (input) {
       input.checked = toolbarPrefs.hidden.indexOf(input.getAttribute('data-toolbar-option')) < 0;
@@ -40,6 +113,21 @@
     if (save) { try { localStorage.setItem('rv.toolbar', JSON.stringify(toolbarPrefs)); } catch (e) { void 0; } }
   }
   function initToolbar() {
+    toolbar = document.getElementById('toolbar');
+    overflowButton = document.getElementById('btnToolbarMore');
+    overflowPanel = document.getElementById('toolbarOverflow');
+    toolbarGroups = Array.from(toolbar.querySelectorAll(':scope > .tgroup'));
+    rankedGroups = toolbarGroups.slice().sort(function (a, b) {
+      return (a.dataset.toolbarPriority || 5) - (b.dataset.toolbarPriority || 5);
+    });
+    toolbarGroups.forEach(function (group) {
+      var heading = document.createElement('span');
+      var key = 'toolbar.' + (group.dataset.toolbarGroup || group.dataset.toolbarItem);
+      heading.className = 'toolbar-group-label';
+      heading.setAttribute('data-i18n', key);
+      heading.textContent = RV.I18n.t(key);
+      group.prepend(heading);
+    });
     try {
       var saved = JSON.parse(localStorage.getItem('rv.toolbar'));
       if (saved && typeof saved === 'object') {
@@ -55,25 +143,25 @@
       label.appendChild(input); label.appendChild(text); choices.appendChild(label);
     });
     applyToolbar(false);
+    if (typeof ResizeObserver === 'function') new ResizeObserver(scheduleToolbarLayout).observe(toolbar);
+    new MutationObserver(scheduleToolbarLayout).observe(document.documentElement, {
+      attributeFilter: ['lang', 'dir', 'style', 'data-density', 'data-windows-titlebar']
+    });
+    if (document.fonts) document.fonts.addEventListener('loadingdone', scheduleToolbarLayout);
   }
   function menus() { return Array.prototype.slice.call(document.querySelectorAll('.app-menu')); }
-  function placeMenu(menu) {
-    var panel = menu.querySelector('.menu-panel'), rect = menu.querySelector('summary').getBoundingClientRect();
-    panel.style.maxHeight = Math.max(0, innerHeight - rect.bottom - 12) + 'px';
-    var width = panel.getBoundingClientRect().width;
-    var left = document.documentElement.dir === 'rtl' ? rect.right - width : rect.left;
-    panel.style.left = Math.max(8, Math.min(left, innerWidth - width - 8)) + 'px';
-    panel.style.top = (rect.bottom + 4) + 'px';
-  }
-  function close(except, focus) {
+  function closeMenus(except) {
     hideSub();
     menus().forEach(function (menu) {
-      if (menu !== except && menu.open) {
-        menu.open = false;
-        if (focus) menu.querySelector('summary').focus();
-      }
+      if (menu !== except) menu.open = false;
     });
   }
+  function closeAppMenu(focus) {
+    closeMenus();
+    setPopup(menuButton, nav, false);
+    if (focus) menuButton.focus();
+  }
+  function close() { closeAppMenu(); closeOverflow(); }
   function refresh() {
     if (!actions) return;
     document.querySelectorAll('[data-command]').forEach(function (button) {
@@ -90,22 +178,47 @@
     document.querySelector('[data-shell-action="redo"]').disabled = !actions.canRedo();
   }
   function items(menu) {
-    return Array.prototype.slice.call(menu.querySelectorAll('.menu-panel > button:not(:disabled), .menu-panel > .menu-submenu > button'));
+    return Array.prototype.slice.call(menu.querySelectorAll('.menu-commands > button:not(:disabled), .menu-commands > .menu-submenu > button'));
   }
   function init(callbacks) {
     if (actions) return;
     actions = callbacks;
+    menuButton = document.getElementById('brandMark');
+    nav = document.getElementById('appMenuPanel');
     initToolbar();
-    var nav = document.querySelector('.app-menubar');
+    function openAppMenu(focus) {
+      closeOverflow();
+      refresh();
+      setPopup(menuButton, nav, true);
+      if (focus) nav.querySelector('summary').focus();
+    }
+    menuButton.addEventListener('click', function (event) {
+      if (nav.hidden) openAppMenu(event.detail === 0);
+      else closeAppMenu(true);
+    });
+    menuButton.addEventListener('keydown', function (event) {
+      if (event.key !== 'ArrowDown') return;
+      event.preventDefault(); openAppMenu(true);
+    });
+    overflowButton.addEventListener('click', function (event) {
+      if (!overflowPanel.hidden) { closeOverflow(true); return; }
+      closeAppMenu();
+      setPopup(overflowButton, overflowPanel, true);
+      if (!event.detail) overflowPanel.querySelector('button:not([hidden]):not(:disabled)')?.focus();
+    });
     menus().forEach(function (menu) {
       var summary = menu.querySelector('summary');
-      summary.addEventListener('click', function () { close(menu); refresh(); });
+      summary.addEventListener('click', function () { closeMenus(menu); refresh(); });
       menu.addEventListener('toggle', function () {
         summary.setAttribute('aria-expanded', menu.open ? 'true' : 'false');
-        if (menu.open) { refresh(); placeMenu(menu); }
       });
-      menu.querySelector('.menu-panel').addEventListener('scroll', function () { hideSub(); });
       summary.setAttribute('aria-expanded', 'false');
+    });
+    nav.addEventListener('scroll', function () {
+      if (!openSub) return;
+      var anchor = openSub.getBoundingClientRect(), bounds = nav.getBoundingClientRect();
+      if (anchor.bottom <= bounds.top || anchor.top >= bounds.bottom) hideSub();
+      else placeSub(openSub, document.getElementById(openSub.getAttribute('data-submenu')));
     });
     nav.addEventListener('click', function (event) {
       var button = event.target.closest('button');
@@ -115,14 +228,14 @@
         return;
       }
       if (button.hasAttribute('data-theme-choice')) {
-        actions.setTheme(button.getAttribute('data-theme-choice')); close(null, true); return;
+        actions.setTheme(button.getAttribute('data-theme-choice')); closeAppMenu(true); return;
       }
       if (button.hasAttribute('data-toolbar-reset')) {
         toolbarPrefs = { show: true, hidden: [] }; applyToolbar(true); return;
       }
       var command = button.getAttribute('data-command'), action = button.getAttribute('data-shell-action');
       if (!command && !action && !button.hasAttribute('data-mode-btn') && !button.hasAttribute('data-dir')) return;
-      close(null, true);
+      closeAppMenu(true);
       if (command) document.getElementById(command).click();
       else if (action && actions[action]) actions[action]();
     });
@@ -167,36 +280,43 @@
         var all = menus(), index = all.indexOf(menu);
         var step = (event.key === 'ArrowRight' ? 1 : -1) * (document.documentElement.dir === 'rtl' ? -1 : 1);
         var next = all[(index + step + all.length) % all.length], wasOpen = menu.open;
-        close(next); next.open = wasOpen; next.querySelector('summary').focus();
+        closeMenus(next); next.open = wasOpen; next.querySelector('summary').focus();
         return;
       }
-      menu.open = true; refresh(); placeMenu(menu);
+      closeMenus(menu); menu.open = true; refresh();
       var buttons = items(menu), current = buttons.indexOf(event.target), target;
       if (event.key === 'Home') target = 0;
       else if (event.key === 'End' || (current < 0 && event.key === 'ArrowUp')) target = buttons.length - 1;
       else target = (current + (event.key === 'ArrowUp' ? -1 : 1) + buttons.length) % buttons.length;
       if (buttons[target]) buttons[target].focus();
     });
-    document.addEventListener('pointerdown', function (event) {
-      if (!nav.contains(event.target)) close();
-    });
+    function closeOutside(event) {
+      if (!nav.hidden && !nav.contains(event.target) && !menuButton.contains(event.target)) closeAppMenu();
+      if (!overflowPanel.contains(event.target) && !overflowButton.contains(event.target)) closeOverflow();
+    }
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('focusin', closeOutside);
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' && openSub) {
         event.preventDefault(); hideSub(true);
-      } else if (event.key === 'Escape' && menus().some(function (menu) { return menu.open; })) {
-        event.preventDefault(); event.stopPropagation(); close(null, true);
+      } else if (event.key === 'Escape' && (!nav.hidden || !overflowPanel.hidden)) {
+        event.preventDefault(); event.stopPropagation();
+        if (!nav.hidden) closeAppMenu(true); else closeOverflow(true);
       } else if (event.key === 'F10' && !event.shiftKey) {
-        event.preventDefault(); nav.querySelector('summary').focus();
+        event.preventDefault(); menuButton.focus();
       }
     });
     window.addEventListener('resize', function () {
+      var focus = document.activeElement, trigger = popupFocusTarget(focus);
       close();
+      if (trigger !== focus) trigger.focus({ preventScroll: true });
+      scheduleToolbarLayout();
       requestAnimationFrame(function () {
-        var selected = document.querySelector('#documentTabs [aria-selected="true"]');
+        var selected = document.querySelector('#documentTabs .is-active');
         if (selected && selected.scrollIntoView) selected.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       });
     });
     refresh();
   }
-  RV.Shell = { close: close, init: init, refresh: refresh };
+  RV.Shell = { close: close, init: init, refresh: refresh, popupFocusTarget: popupFocusTarget };
 }());

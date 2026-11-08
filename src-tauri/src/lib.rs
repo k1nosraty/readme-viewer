@@ -334,13 +334,6 @@ pub fn run() {
     }));
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
-    #[cfg(target_os = "windows")]
-    let builder = builder.setup(|app| {
-        if let Some(window) = app.get_webview_window("main") {
-            windows_native::prepare_tab_shortcut(&window);
-        }
-        Ok(())
-    });
     builder
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
