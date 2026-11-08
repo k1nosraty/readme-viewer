@@ -121,9 +121,9 @@
     var path = tabLocation(tab).replace(/\\/g, '/').split('/').filter(Boolean);
     return name + ' — ' + (path.length > 1 ? path[path.length - 2] : '#' + (tabs.indexOf(tab) + 1));
   }
-  function scrollSelectedTab(bar) {
-    var selected = bar.querySelector('[aria-selected="true"]');
-    if (selected && selected.scrollIntoView) selected.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  function scrollTabIntoView(bar, id) {
+    var tab = bar.querySelector(id ? '[data-tab-id="' + id + '"]' : '[aria-selected="true"]');
+    if (tab && tab.scrollIntoView) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
   function applyTabLayout() {
     var bar = $('documentTabs'), add = $('btnNewTab');
@@ -140,10 +140,22 @@
     titlebar.hidden = !inTitlebar;
     bar.setAttribute('aria-orientation', state.verticalTabs ? 'vertical' : 'horizontal');
     $('btnVerticalTabs').setAttribute('aria-pressed', String(state.verticalTabs));
+    var toggle = $('btnTabLayout');
+    var label = state.verticalTabs ? 'tabs.switchHorizontal' : 'tabs.switchVertical';
+    toggle.setAttribute('aria-pressed', String(state.verticalTabs));
+    toggle.setAttribute('data-i18n-title', label);
+    toggle.title = t(label);
+    toggle.innerHTML = Icons.svg(state.verticalTabs ? 'tabsHorizontal' : 'tabsVertical', 16);
     if (bar.contains(focus) || focus === add) focus.focus({ preventScroll: true });
-    scrollSelectedTab(bar);
+    scrollTabIntoView(bar);
   }
-  function renderTabs() {
+  function toggleTabLayout() {
+    state.verticalTabs = !state.verticalTabs;
+    applyTabLayout();
+    saveSettings();
+    scheduleRender(null, 0);
+  }
+  function renderTabs(scrollId) {
     var bar = $('documentTabs');
     if (!bar) return;
     var signature = JSON.stringify(tabs.map(function (tab) {
@@ -173,8 +185,13 @@
         var rtl = document.documentElement.getAttribute('dir') === 'rtl';
         var forward = state.verticalTabs ? 'ArrowDown' : (rtl ? 'ArrowLeft' : 'ArrowRight');
         var backward = state.verticalTabs ? 'ArrowUp' : (rtl ? 'ArrowRight' : 'ArrowLeft');
-        if (event.key === forward) next = (index + 1) % tabs.length;
-        else if (event.key === backward) next = (index - 1 + tabs.length) % tabs.length;
+        var step = event.key === forward ? 1 : (event.key === backward ? -1 : 0);
+        if (step && event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey) {
+          event.preventDefault();
+          moveTab(index, index + step);
+          return;
+        }
+        if (step) next = (index + step + tabs.length) % tabs.length;
         else if (event.key === 'Home') next = 0;
         else if (event.key === 'End') next = tabs.length - 1;
         else return;
@@ -195,11 +212,96 @@
       close.addEventListener('click', function () { closeTab(tab.id); });
       item.appendChild(button); item.appendChild(close); bar.appendChild(item);
     });
-    scrollSelectedTab(bar);
+    scrollTabIntoView(bar, scrollId);
     if (focusId) {
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
       if (replacement) replacement.focus();
     }
+  }
+  function moveTab(from, to) {
+    if (pendingSave || pendingDiscard || from === to || from < 0 || to < 0 || to >= tabs.length) return;
+    var tab = tabs.splice(from, 1)[0];
+    tabs.splice(to, 0, tab);
+    renderTabs(tab.id);
+    if (RV.Reading) RV.Reading.workspaceChanged();
+  }
+  function wireTabReordering(bar) {
+    if (!bar.setPointerCapture) return;
+    var drag = null;
+
+    function clearDrag() {
+      if (!drag) return;
+      var previous = drag;
+      drag = null;
+      cancelAnimationFrame(previous.frame);
+      previous.source.classList.remove('is-dragged');
+      if (previous.drop) previous.drop.tab.removeAttribute('data-tab-drop');
+      bar.removeAttribute('data-reordering');
+    }
+    function dropAt(x, y, autoScroll) {
+      var bounds = bar.getBoundingClientRect();
+      if (x < bounds.left || x > bounds.right || y < bounds.top || y > bounds.bottom) return null;
+      var vertical = drag.vertical;
+      var position = vertical ? y : x;
+      var start = vertical ? bounds.top : bounds.left;
+      var end = vertical ? bounds.bottom : bounds.right;
+      if (autoScroll) {
+        var delta = position < start + 20 ? -7 : (position > end - 20 ? 7 : 0);
+        if (delta) bar[vertical ? 'scrollTop' : 'scrollLeft'] += delta;
+      }
+      var direction = !vertical && document.documentElement.dir === 'rtl' ? -1 : 1;
+      var last = null, lastIndex = 0;
+      for (var i = 0; i < bar.children.length; i++) {
+        var tab = bar.children[i];
+        if (tab === drag.source) continue;
+        var rect = tab.getBoundingClientRect();
+        var center = vertical ? rect.top + rect.height / 2 : rect.left + rect.width / 2;
+        if ((position - center) * direction < 0) return { tab: tab, edge: 'before', index: i };
+        last = tab; lastIndex = i + 1;
+      }
+      return last && { tab: last, edge: 'after', index: lastIndex };
+    }
+    function drawDrag() {
+      if (!bar.contains(drag.source) || drag.vertical !== state.verticalTabs) { clearDrag(); return; }
+      var drop = dropAt(drag.x, drag.y, true);
+      if (drag.drop && (!drop || drag.drop.tab !== drop.tab)) drag.drop.tab.removeAttribute('data-tab-drop');
+      if (drop && (!drag.drop || drag.drop.tab !== drop.tab || drag.drop.edge !== drop.edge)) {
+        drop.tab.setAttribute('data-tab-drop', drop.edge);
+      }
+      drag.drop = drop;
+      drag.frame = requestAnimationFrame(drawDrag);
+    }
+
+    // Pointer capture keeps tab reordering separate from native file drops.
+    bar.addEventListener('pointerdown', function (event) {
+      if (drag || !event.isPrimary || event.button !== 0 || event.pointerType === 'touch' ||
+          tabs.length < 2 || pendingSave || pendingDiscard || event.target.closest('.document-tab-close')) return;
+      var source = event.target.closest('.document-tab');
+      if (!source) return;
+      drag = { source: source, pointer: event.pointerId, vertical: state.verticalTabs,
+        x: event.clientX, y: event.clientY, frame: 0, drop: null };
+    });
+    window.addEventListener('pointermove', function (event) {
+      if (!drag || drag.pointer !== event.pointerId) return;
+      if (!drag.frame && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 5) return;
+      drag.x = event.clientX; drag.y = event.clientY;
+      if (drag.frame) return;
+      bar.setPointerCapture(event.pointerId);
+      bar.setAttribute('data-reordering', '');
+      drag.source.classList.add('is-dragged');
+      drawDrag();
+    });
+    window.addEventListener('pointerup', function (event) {
+      if (!drag || drag.pointer !== event.pointerId) return;
+      var from = Array.prototype.indexOf.call(bar.children, drag.source);
+      var drop = drag.frame && from >= 0 && drag.vertical === state.verticalTabs && dropAt(event.clientX, event.clientY, false);
+      clearDrag();
+      if (drop) moveTab(from, drop.index - (from < drop.index ? 1 : 0));
+    });
+    window.addEventListener('pointercancel', function (event) { if (drag && drag.pointer === event.pointerId) clearDrag(); });
+    bar.addEventListener('lostpointercapture', clearDrag);
+    window.addEventListener('blur', clearDrag);
+    window.addEventListener('keydown', function (event) { if (event.key === 'Escape') clearDrag(); });
   }
   function switchTab(id, internal) {
     var tab = tabs.filter(function (item) { return item.id === id; })[0];
@@ -3315,8 +3417,10 @@
       el.panes.parentNode.insertBefore(tabbar, el.panes);
     }
     tabbar.setAttribute('role', 'tablist');
+    wireTabReordering(tabbar);
     var newButton = $('btnNewTab');
     if (newButton) newButton.addEventListener('click', function () { newTab(); });
+    $('btnTabLayout').addEventListener('click', toggleTabLayout);
     applyTabLayout();
     newTab();
     markGutterCursor();
@@ -3326,12 +3430,7 @@
       redo: function () { undoEdit(true); el.editor.focus(); },
       getTheme: function () { return state.theme; }, setTheme: setTheme,
       find: openFind, close: function () { closeTab(activeTab.id); },
-      verticalTabs: function () {
-        state.verticalTabs = !state.verticalTabs;
-        applyTabLayout();
-        saveSettings();
-        scheduleRender(null, 0);
-      },
+      verticalTabs: toggleTabLayout,
       canUndo: function () { return !!(activeTab && activeTab.undo.length); },
       canRedo: function () { return !!(activeTab && activeTab.redo.length); }
     });

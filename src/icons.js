@@ -18,6 +18,8 @@
     more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
     maximize: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5"/>',
     windowMaximize: '<rect x="4" y="4" width="16" height="16" rx="1"/>',
+    tabsVertical: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16M6 8h1m-1 4h1m-1 4h1"/>',
+    tabsHorizontal: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 7h2m4 0h2"/>',
     diagramLayout: '<rect x="8" y="2" width="8" height="5" rx="1"/><rect x="2" y="17" width="7" height="5" rx="1"/><rect x="15" y="17" width="7" height="5" rx="1"/><path d="M12 7v5M5.5 17v-5h13v5"/>',
     documents: '<rect x="2" y="6" width="9" height="15" rx="1.5"/><rect x="13" y="3" width="9" height="15" rx="1.5"/>',
     expandAll: '<path d="M5 3h14M5 21h14M12 6v12m-3-9 3-3 3 3m-6 6 3 3 3-3"/>',

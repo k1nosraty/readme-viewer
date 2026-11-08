@@ -5,6 +5,17 @@ const fs = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
 
+async function dragTab(page, source, target, vertical) {
+  const tabs = page.getByRole('tab');
+  const from = await tabs.and(page.getByTitle(source, { exact: true })).boundingBox();
+  const to = await tabs.and(page.getByTitle(target, { exact: true })).boundingBox();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width * (vertical ? 0.5 : 0.85), to.y + to.height * (vertical ? 0.2 : 0.5), { steps: 8 });
+  await page.locator('[data-tab-drop]').waitFor({ timeout: 5000 });
+  await page.mouse.up();
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
   const output = path.resolve(__dirname, '../native-test-results');
@@ -77,7 +88,34 @@ const { chromium } = require('playwright');
     await page.locator('#menuView > summary').click(); await page.locator('#btnAppearance').click();
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#menuView > summary').evaluate(node => node === document.activeElement), true);
+
+    await page.setViewportSize({ width: 1200, height: 720 });
+    await page.evaluate(() => {
+      RV.I18n.setLocale('en'); RVApp.applyLocale();
+      RVApp.setDoc('# One', 'one.md');
+      RVApp.newTab('# Two', 'two.md');
+      RVApp.newTab('# Three', 'three.md');
+      RVApp.setMode('write');
+    });
+    const order = () => page.evaluate(() => RVApp.listTabs().map(tab => tab.name));
+    await page.locator('#editor').fill('# Three edited');
+    await dragTab(page, 'one.md', 'three.md', false);
+    assert.deepEqual(await order(), ['two.md', 'three.md', 'one.md']);
+    const toggle = page.locator('#btnTabLayout');
+    await toggle.click();
+    assert.equal(await toggle.getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#btnVerticalTabs').getAttribute('aria-pressed'), 'true');
+    await page.locator('#verticalTabs [role="tablist"]').waitFor();
+    await dragTab(page, 'one.md', 'two.md', true);
+    assert.deepEqual(await order(), ['one.md', 'two.md', 'three.md']);
+    assert.equal(await page.locator('#editor').inputValue(), '# Three edited');
+    await page.locator('[role="tab"][aria-selected="true"]').press('Control+Shift+ArrowUp');
+    assert.deepEqual(await order(), ['one.md', 'three.md', 'two.md']);
+    await toggle.click();
+    assert.equal(await toggle.getAttribute('aria-pressed'), 'false');
+    await page.locator('.workspacebar [role="tablist"]').waitFor();
+
     assert.deepEqual(errors, []);
-    console.log('UI smoke passed: English/Persian, light/dark, desktop/mobile/landscape menus, keyboard and modal focus.');
+    console.log('UI smoke passed: English/Persian, light/dark, responsive menus, keyboard focus, and tab reordering.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
