@@ -27,6 +27,14 @@ async function assertToolbarFits(page, state) {
   }), true, 'toolbar fits one row: ' + state);
 }
 
+async function assertTabsCentered(page, state) {
+  assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
+    const rect = tab.getBoundingClientRect(), top = tab.closest('.menu-line').getBoundingClientRect().top;
+    const toolbarTop = document.querySelector('.tools-island').getBoundingClientRect().top;
+    return Math.abs((rect.top - top) - (toolbarTop - rect.bottom)) <= 1;
+  }), true, 'equal space above and below the title-bar tabs: ' + state);
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
   const output = path.resolve(__dirname, '../native-test-results');
@@ -161,6 +169,7 @@ async function assertToolbarFits(page, state) {
       await page.setViewportSize({ width, height: 720 });
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await assertToolbarFits(page, 'Windows ' + width);
+      await assertTabsCentered(page, width);
       assert.equal(await page.locator('#titlebarTabs #documentTabs').evaluate(rail => {
         const r = rail.getBoundingClientRect();
         return rail.children.length === 2 && rail.scrollWidth <= rail.clientWidth + 1 && Array.from(rail.children).every(tab => {
@@ -170,6 +179,28 @@ async function assertToolbarFits(page, state) {
       }), true, 'both tabs fit with their close buttons at ' + width);
       assert.equal(await page.locator('#btnOpen').evaluate(button => button.closest('#titlebarActions, #toolbar').id),
         width >= 760 ? 'titlebarActions' : 'toolbar');
+      if (width >= 760) assert.equal(await page.locator('#titlebarActions').evaluate(actions =>
+        actions.getBoundingClientRect().right < document.getElementById('titlebarTabs').getBoundingClientRect().left), true);
+    }
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(theme => document.querySelector('[data-theme-choice="' + theme + '"]').click(), theme);
+      assert.equal(await page.evaluate(() => {
+        const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
+        const rgba = color => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+          return [...ctx.getImageData(0, 0, 1, 1).data];
+        };
+        const luminance = ([r, g, b]) => [r, g, b].map(v => v / 255)
+          .map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4)
+          .reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+        return ['#btnNewTab', '#titlebarTabs .document-tab:not(.is-active)'].every(selector => {
+          const style = getComputedStyle(document.querySelector(selector));
+          const background = rgba(style.backgroundColor), text = rgba(style.color);
+          const [a, b] = [luminance(background), luminance(text)];
+          return background[3] === 255 && (Math.max(a, b) + .05) / (Math.min(a, b) + .05) >= 4.5;
+        });
+      }), true, 'New Tab and inactive labels have readable colors in ' + theme);
     }
     await page.evaluate(() => {
       RVApp.newTab('# Long document name', 'a-document-name-that-needs-truncating.md');
@@ -177,10 +208,13 @@ async function assertToolbarFits(page, state) {
     });
     assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
       const bounds = tab.getBoundingClientRect(), rail = tab.parentElement.getBoundingClientRect();
+      const marker = getComputedStyle(tab, '::before');
+      const markerTop = bounds.top + tab.clientTop + parseFloat(marker.top);
       return bounds.left >= rail.left - 1 && bounds.right <= rail.right + 1 &&
         parseFloat(getComputedStyle(tab).borderBottomRightRadius) >= 6 &&
-        parseFloat(getComputedStyle(tab, '::before').width) >= 3;
-    }), true, 'the selected tab and its close button fit at the minimum Windows width');
+        markerTop >= rail.top && markerTop + parseFloat(marker.height) < bounds.top;
+    }), true, 'the selected tab, close button, and exterior top marker fit at minimum width');
+    await assertTabsCentered(page, 'scrolling tab strip');
     await page.locator('#titlebarTabs [aria-selected="true"]').press('Control+Tab');
     assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
       const bounds = tab.getBoundingClientRect(), rail = tab.parentElement.getBoundingClientRect();
@@ -231,6 +265,12 @@ async function assertToolbarFits(page, state) {
     await page.mouse.up();
     assert.equal(await width(), initialWidth + 64);
     await page.evaluate(() => { RV.I18n.setLocale('fa'); RVApp.applyLocale(); });
+    assert.equal(await rail.locator('.document-tab.is-active').evaluate(tab => {
+      const x = tab.getBoundingClientRect().left;
+      const marker = getComputedStyle(tab, '::before');
+      const left = x + tab.clientLeft + parseFloat(marker.left);
+      return left >= tab.parentElement.getBoundingClientRect().left && left + parseFloat(marker.width) < x;
+    }), true, 'the vertical selection marker stays outside the left edge in RTL');
     await handle.press('ArrowLeft');
     const savedWidth = await width();
     assert.equal(savedWidth, initialWidth + 76, 'RTL ArrowLeft widens the vertical tab sidebar');

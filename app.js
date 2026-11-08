@@ -131,6 +131,8 @@
       if (tab.scrollIntoView) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       return;
     }
+    // Match the lower scrollbar gutter above the tabs so the row stays centered.
+    bar.style.setProperty('--tab-scrollbar-height', (bar.offsetHeight - bar.clientHeight) + 'px');
     // Scroll the tab lane without moving the title bar or its buttons.
     var rail = bar.getBoundingClientRect(), bounds = tab.getBoundingClientRect();
     if (bounds.left < rail.left) bar.scrollLeft += bounds.left - rail.left;

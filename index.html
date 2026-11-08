@@ -113,12 +113,12 @@
     <div class="brand" hidden="">
       <span class="brand-text"><span class="brand-name" id="fileName" title="">README Viewer</span><span class="brand-sub" id="fileState" data-state="empty"></span></span>
     </div>
-    <div class="titlebar-tabs" id="titlebarTabs" hidden></div>
-    <div class="titlebar-drag" id="titlebarDrag" data-tauri-drag-region hidden></div>
     <div class="titlebar-actions" id="titlebarActions" role="group" data-i18n-aria="window.actions" aria-label="File and edit shortcuts" hidden>
-      <button type="button" class="btn btn-icon titlebar-create" data-command="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon new-tab titlebar-create" data-command="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="18"></i></button>
       <button type="button" class="btn btn-icon" id="btnTitlebarUndo" data-shell-action="undo" data-i18n-title="menu.undo" data-i18n-aria="menu.undo" disabled><i data-icon="undo" data-size="16"></i></button>
     </div>
+    <div class="titlebar-tabs" id="titlebarTabs" hidden></div>
+    <div class="titlebar-drag" id="titlebarDrag" data-tauri-drag-region hidden></div>
     <div class="caption-buttons" id="captionButtons" hidden>
       <button type="button" id="btnWindowMinimize" data-i18n-aria="window.minimize" data-i18n-title="window.minimize" aria-label="Minimize"><i data-icon="minus" data-size="15"></i></button>
       <button type="button" id="btnWindowMaximize" data-i18n-aria="window.maximize" data-i18n-title="window.maximize" aria-label="Maximize"><i data-icon="windowMaximize" data-size="15"></i></button>
@@ -175,7 +175,7 @@
   </div>
   <div class="workspacebar">
     <div id="documentTabs" class="document-tabs" role="tablist" data-i18n-aria="tabs.label" aria-label="Documents"></div>
-    <button type="button" class="btn btn-icon new-tab" id="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="16"></i></button>
+    <button type="button" class="btn btn-icon new-tab" id="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="18"></i></button>
     <details class="reading-options" id="readingOptions">
       <summary data-i18n-title="reading.title"><i data-icon="eye" data-size="16"></i><span data-i18n="reading.title">Reading</span></summary>
       <div class="reading-panel">
