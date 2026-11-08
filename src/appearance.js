@@ -80,7 +80,11 @@
     byId('appearanceStandardLinks').checked = prefs.standardLinks;
     byId('accentPicker').value = prefs.accent; byId('accentHex').value = prefs.accent.toUpperCase();
     byId('accentHex').setAttribute('aria-invalid', 'false'); byId('accentError').hidden = true;
-    ['latin', 'persian', 'ui'].forEach(function (key) { byId('font' + key.charAt(0).toUpperCase() + key.slice(1)).value = prefs.fonts[key]; syncFontChoice(byId('font' + key.charAt(0).toUpperCase() + key.slice(1))); });
+    fontFields.forEach(function (id) {
+      var input = byId(id);
+      input.value = prefs.fonts[id.slice(4).toLowerCase()];
+      syncFontChoice(input);
+    });
     validateFonts(); fontStatus();
     document.querySelectorAll('[data-accent-preset]').forEach(function (button) { button.setAttribute('aria-pressed', button.getAttribute('data-accent-preset') === prefs.accent ? 'true' : 'false'); });
   }
@@ -228,7 +232,6 @@
     });
     byId('appearancePanel').querySelector('.appearance-body').addEventListener('scroll', positionFontSuggestions, { passive: true });
     window.addEventListener('resize', positionFontSuggestions);
-    if (RV.Native && RV.Native.available() && RV.Native.installedFontFamilies) loadFontCatalog();
   }
   function fontValues() { return { latin: byId('fontLatin').value.trim(), persian: byId('fontPersian').value.trim(), ui: byId('fontUi').value.trim() }; }
   function validateFonts() {
@@ -293,6 +296,7 @@
   }
   function open(event) {
     if (snapshot) return;
+    if (RV.Native && RV.Native.available() && RV.Native.installedFontFamilies) loadFontCatalog();
     returnFocus = event && event.currentTarget || document.activeElement;
     if (RV.Shell) { returnFocus = RV.Shell.popupFocusTarget(returnFocus); RV.Shell.close(); }
     byId('readingOptions').open = false;

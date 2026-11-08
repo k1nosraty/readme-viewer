@@ -118,10 +118,10 @@
     var folder = tab === activeTab ? state.folder : tab.folder;
     return handle && handle.path || (folder ? folder.root.fullPath + '/' + folder.path : '');
   }
-  function tabLabel(tab) {
+  function tabLabel(tab, location) {
     var name = (tab === activeTab ? state.name : tab.name) || tabText('tabs.untitled', 'Untitled');
     if (tabs.filter(function (other) { return (other === activeTab ? state.name : other.name) === name; }).length < 2) return name;
-    var path = tabLocation(tab).replace(/\\/g, '/').split('/').filter(Boolean);
+    var path = location.replace(/\\/g, '/').split('/').filter(Boolean);
     return name + ' — ' + (path.length > 1 ? path[path.length - 2] : '#' + (tabs.indexOf(tab) + 1));
   }
   function scrollTabIntoView(bar, id) {
@@ -266,9 +266,10 @@
           if (target) target.focus({ preventScroll: true });
         }
       });
-      button.textContent = (dirty ? '• ' : '') + tabLabel(tab);
-      button.title = tabLocation(tab) || tabLabel(tab);
-      button.setAttribute('aria-label', button.textContent + (tabLocation(tab) ? ': ' + tabLocation(tab) : ''));
+      var location = tabLocation(tab), label = tabLabel(tab, location);
+      button.textContent = (dirty ? '• ' : '') + label;
+      button.title = location || label;
+      button.setAttribute('aria-label', button.textContent + (location ? ': ' + location : ''));
       button.addEventListener('click', function () { switchTab(tab.id); });
       var close = document.createElement('button');
       close.type = 'button'; close.className = 'document-tab-close'; close.innerHTML = Icons.svg('close', 12);
@@ -532,14 +533,17 @@
     views.style.setProperty('--compare-split', comparison.split + '%');
     var select = $('comparisonSelect');
     if (select) {
-      var options = other.map(function (tab) { return [tab.id, tabLabel(tab), tab.dirty, tabLocation(tab)]; });
+      var options = other.map(function (tab) {
+        var location = tabLocation(tab);
+        return [tab.id, tabLabel(tab, location), tab.dirty, location];
+      });
       var optionSignature = JSON.stringify(options);
       if (select.getAttribute('data-options') !== optionSignature) {
         select.textContent = '';
-        other.forEach(function (tab) {
-          var option = document.createElement('option'); option.value = String(tab.id);
-          option.textContent = (tab.dirty ? '• ' : '') + tabLabel(tab);
-          option.title = tabLocation(tab);
+        options.forEach(function ([id, label, dirty, location]) {
+          var option = document.createElement('option'); option.value = String(id);
+          option.textContent = (dirty ? '• ' : '') + label;
+          option.title = location;
           select.appendChild(option);
         });
         select.setAttribute('data-options', optionSignature);
@@ -3531,24 +3535,25 @@
       save: function () { return saveSettings() && RV.Reading.appearance(RV.Reading.appearance(), true); }
     });
     if (RV.Updates) RV.Updates.init(window.RVApp);
-    Promise.resolve(sessionReady).then(function () {
-      state.ready = true;
-      if (nativeAvailable()) return RV.Native.initialize({
+    var workspaceReady = Promise.resolve(sessionReady).then(function () { state.ready = true; });
+    workspaceReady.catch(reportOpen);
+    if (nativeAvailable()) {
+      RV.Native.initialize({
         onTitlebar: applyTabLayout,
         openPath: function (path) {
-          return openNativePath(path, false, true).then(function (ok) {
+          return workspaceReady.then(function () { return openNativePath(path, false, true); }).then(function (ok) {
             if (ok) setMode('preview');
             return ok;
           });
         },
         confirmClose: function () {
-          return confirmAllDirty().then(function (ok) {
+          return workspaceReady.then(confirmAllDirty).then(function (ok) {
             return ok && RV.Reading ? RV.Reading.saveSession().then(function () { return true; }) : ok;
           });
         }, onError: reportOpen,
         onDrag: function (active) { document.body.classList.toggle('dragover', !!active); }
-      });
-    }).catch(function (err) { reportOpen(err); });
+      }).catch(reportOpen);
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

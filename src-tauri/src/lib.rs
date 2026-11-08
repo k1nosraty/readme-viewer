@@ -28,6 +28,9 @@ async fn write_document_atomic(
 #[derive(Default)]
 struct DroppedDirectories(Mutex<Vec<PathBuf>>);
 
+#[cfg(target_os = "windows")]
+struct PendingActivations(Mutex<Option<Vec<String>>>);
+
 fn document_paths(args: impl Iterator<Item = String>, cwd: &Path) -> Vec<String> {
     args.filter(|arg| !arg.starts_with('-'))
         .filter_map(|arg| {
@@ -146,7 +149,13 @@ fn resolve_document_path(app: tauri::AppHandle, path: String) -> Result<String, 
 
 #[tauri::command]
 fn startup_paths(app: tauri::AppHandle) -> Vec<String> {
-    startup_paths_inner(app)
+    let mut paths = startup_paths_inner(&app);
+    paths.truncate(1);
+    #[cfg(target_os = "windows")]
+    if let Ok(mut pending) = app.state::<PendingActivations>().0.lock() {
+        paths.extend(pending.take().unwrap_or_default());
+    }
+    paths
 }
 
 fn is_document(path: &Path) -> bool {
@@ -183,12 +192,12 @@ fn open_linked_document(app: tauri::AppHandle, path: String) -> Result<String, S
     Ok(path.to_string_lossy().into_owned())
 }
 
-fn startup_paths_inner(app: tauri::AppHandle) -> Vec<String> {
+fn startup_paths_inner(app: &tauri::AppHandle) -> Vec<String> {
     #[cfg(desktop)]
     {
         let cwd = std::env::current_dir().unwrap_or_default();
         let paths = document_paths(std::env::args().skip(1), &cwd);
-        allow_documents(&app, &paths);
+        allow_documents(app, &paths);
         paths
     }
     #[cfg(mobile)]
@@ -322,10 +331,32 @@ async fn installed_font_families() -> Result<Vec<String>, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
+    #[cfg(target_os = "windows")]
+    let builder = builder
+        .manage(PendingActivations(Mutex::new(Some(Vec::new()))))
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                std::thread::spawn(move || {
+                    // Leave a visible window even if WebView startup or its bridge fails.
+                    std::thread::sleep(std::time::Duration::from_secs(10));
+                    if matches!(window.is_visible(), Ok(false)) {
+                        let _ = window.show();
+                    }
+                });
+            }
+            Ok(())
+        });
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
         let paths = document_paths(args.into_iter().skip(1), Path::new(&cwd));
         allow_documents(app, &paths);
+        #[cfg(target_os = "windows")]
+        if let Ok(mut pending) = app.state::<PendingActivations>().0.lock() {
+            if let Some(queue) = pending.as_mut() {
+                queue.extend(paths.into_iter().take(1));
+                return;
+            }
+        }
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.show();
             let _ = window.set_focus();
