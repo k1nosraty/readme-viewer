@@ -123,7 +123,26 @@
   }
   function scrollTabIntoView(bar, id) {
     var tab = bar.querySelector(id ? '[data-tab-id="' + id + '"]' : '.document-tab.is-active');
-    if (tab && tab.scrollIntoView) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (!tab) return;
+    if (bar.parentElement.id !== 'titlebarTabs') {
+      if (tab.scrollIntoView) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      return;
+    }
+    // Scroll the tab lane without moving the title bar or its buttons.
+    var rail = bar.getBoundingClientRect(), bounds = tab.getBoundingClientRect();
+    if (bounds.left < rail.left) bar.scrollLeft += bounds.left - rail.left;
+    else if (bounds.right > rail.right) bar.scrollLeft += bounds.right - rail.right;
+    updateTitlebarTabEdges(bar);
+  }
+  function updateTitlebarTabEdges(bar) {
+    if (bar.parentElement.id !== 'titlebarTabs') return;
+    var rail = bar.getBoundingClientRect();
+    Array.prototype.forEach.call(bar.children, function (tab) {
+      var bounds = tab.getBoundingClientRect();
+      var visible = bounds.right > rail.left && bounds.left < rail.right;
+      var clipped = bounds.left < rail.left - 1 || bounds.right > rail.right + 1;
+      tab.toggleAttribute('data-tab-clipped', visible && clipped);
+    });
   }
   function applyTabLayout() {
     var bar = $('documentTabs'), add = $('btnNewTab');
@@ -198,7 +217,7 @@
         event.preventDefault();
         if (switchTab(tabs[next].id)) {
           var target = bar.querySelector('[data-tab-focus="tab-' + tabs[next].id + '"]');
-          if (target) target.focus();
+          if (target) target.focus({ preventScroll: true });
         }
       });
       button.textContent = (dirty ? '• ' : '') + tabLabel(tab);
@@ -215,7 +234,7 @@
     scrollTabIntoView(bar, scrollId);
     if (focusId) {
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
-      if (replacement) replacement.focus();
+      if (replacement) replacement.focus({ preventScroll: true });
     }
   }
   function moveTab(from, to) {
@@ -3433,6 +3452,11 @@
     }
     tabbar.setAttribute('role', 'tablist');
     wireTabReordering(tabbar);
+    tabbar.addEventListener('scroll', function () { updateTitlebarTabEdges(tabbar); }, { passive: true });
+    function revealActiveTab() { scrollTabIntoView(tabbar); }
+    if (typeof ResizeObserver === 'function') new ResizeObserver(revealActiveTab).observe(tabbar);
+    else window.addEventListener('resize', revealActiveTab);
+    document.addEventListener('rv:fonts-layout', revealActiveTab);
     var newButton = $('btnNewTab');
     if (newButton) newButton.addEventListener('click', function () { newTab(); });
     $('btnTabLayout').addEventListener('click', toggleTabLayout);

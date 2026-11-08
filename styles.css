@@ -1161,6 +1161,16 @@ mark.rv-find.current { background: #ff9632; }
 .document-tab { position: relative; display: flex; align-items: center; flex: 0 0 auto; min-width: 116px; max-width: 240px; padding: 0 10px; gap: 8px; min-height: 36px; border: 1px solid transparent; border-radius: var(--r-md); background: var(--bg-hover); color: var(--fg-muted); font-size: 12px; text-align: start; cursor: pointer; }
 .document-tab:hover { background: var(--bg-active); color: var(--fg); }
 .document-tab.is-active { color: var(--fg); background: var(--accent-subtle); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.document-tab.is-active::before {
+  content: '';
+  position: absolute;
+  inset-block: 7px;
+  inset-inline-start: 3px;
+  inline-size: 3px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  pointer-events: none;
+}
 .document-tab > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .document-tab-close { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 22px; height: 22px; padding: 3px; border: 0; border-radius: 4px; background: transparent; color: var(--fg-muted); cursor: pointer; }
 .document-tab-close:hover { background: var(--bg-active); color: var(--fg); }
@@ -1435,12 +1445,29 @@ button.toc-toggle:disabled { opacity: .45; cursor: default; }
 .menu-command[aria-pressed="true"]:hover, .menu-command[aria-pressed="true"]:focus-visible { background: var(--bg-hover); }
 
 /* Appearance is a live workspace inspector, with an explicit apply/cancel boundary. */
-.appearance-scrim { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .12); }
-.appearance-panel { position: fixed; z-index: 71; inset-block: 0; inset-inline-end: 0; width: min(380px, 100vw); display: grid; grid-template-rows: auto minmax(0,1fr) auto; background: var(--bg); color: var(--fg); border-inline-start: 1px solid var(--border); box-shadow: var(--shadow-lg); }
-.appearance-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px; border-block-end: 1px solid var(--border-muted); }
+.appearance-scrim { position: fixed; inset: 0; z-index: 70; background: color-mix(in srgb, var(--scrim) 24%, transparent); }
+.appearance-panel {
+  --appearance-inset: 14px;
+  position: fixed;
+  z-index: 71;
+  inset-block: var(--appearance-inset);
+  inset-inline-end: var(--appearance-inset);
+  width: min(400px, calc(100% - 2 * var(--appearance-inset)));
+  max-height: 760px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow-lg);
+}
+.appearance-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 16px; background: var(--bg-subtle); border-block-end: 1px solid var(--border-muted); }
+.appearance-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--r-lg); background: var(--accent-subtle); color: var(--accent); }
 .appearance-head h2 { margin: 0 0 5px; font-size: 18px; font-weight: 600; }
 .appearance-head p, .appearance-section p { margin: 0; color: var(--fg-muted); font-size: 12px; line-height: 1.6; }
-.appearance-body { min-height: 0; overflow: auto; padding: 20px; }
+.appearance-body { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 16px; }
 .appearance-field { display: grid; grid-template-columns: 1fr 1.2fr; align-items: center; gap: 12px; margin-block-end: 12px; font-size: 13px; }
 .appearance-field select, .accent-custom input[type="text"] { min-width: 0; width: 100%; min-height: 36px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; }
 .appearance-section { margin: 20px 0 0; padding: 16px 0 0; border: 0; border-block-start: 1px solid var(--border-muted); min-width: 0; }
@@ -1461,7 +1488,7 @@ button.toc-toggle:disabled { opacity: .45; cursor: default; }
 .appearance-font input { min-width: 0; width: 100%; }
 .appearance-font output { min-width: 20px; font-size: 12px; font-variant-numeric: tabular-nums; }
 .appearance-reset { margin-block-start: 12px; padding-inline: 0; color: var(--fg-muted); font-size: 12px; }
-.appearance-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-block-start: 1px solid var(--border-muted); }
+.appearance-foot { display: flex; justify-content: flex-end; gap: 8px; margin: 4px 10px 10px; padding: 6px 8px; background: var(--bg-subtle); border: 1px solid var(--border-muted); border-radius: 16px; }
 .appearance-foot .btn, .appearance-head .btn { min-height: 36px; }
 .appearance-foot .btn { min-width: 80px; }
 :root[data-surface] .markdown-body { --rv-md-theme-2: var(--fg); --rv-md-theme-3: var(--bg); --rv-md-theme-4: var(--document-link); --rv-md-theme-7: var(--border); --rv-md-theme-8: var(--fg-muted); --rv-md-theme-9: var(--bg-subtle); --rv-md-theme-10: .25em solid var(--border); --rv-md-theme-12: 1px solid var(--border); --rv-md-theme-14: 2px solid var(--accent); --rv-md-theme-22: var(--code-bg); --rv-md-theme-33: var(--border); }
@@ -1479,10 +1506,9 @@ button.toc-toggle:disabled { opacity: .45; cursor: default; }
   [data-density="compact"] .toc-toggle { height: 44px; }
 }
 @media print { .appearance-panel, .appearance-scrim { display: none !important; } }
-.appearance-scrim { background: transparent; }
 .appearance-head .btn { min-width: 36px; }
 @media (max-width: 640px) {
-  .appearance-panel { width: 100vw; }
+  .appearance-panel { --appearance-inset: 8px; }
   .appearance-head .btn, .accent-custom input[type="color"] { min-width: 44px; }
   .appearance-font input { min-height: 44px; }
 }
@@ -1538,6 +1564,11 @@ html[data-theme="light"] { color-scheme: light; }
 
 .font-choice { display: grid; min-width: 0; gap: 6px; }
 .font-choice > input { width: 100%; min-width: 0; min-height: 36px; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 7px 9px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; }
+.font-suggestions { position: absolute; z-index: 2; overflow: auto; overscroll-behavior: contain; padding: 4px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); box-shadow: var(--shadow-lg); }
+.font-suggestions [role="option"] { padding: 7px 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; border-radius: var(--r-sm); cursor: pointer; }
+.font-suggestions [aria-selected="true"] { background: var(--accent-subtle); color: var(--accent); }
+.font-suggestions [role="option"]:hover { background: var(--bg-hover); color: var(--fg); }
+@media (pointer: coarse) { .font-suggestions [role="option"] { min-height: 40px; } }
 
 /* Reading focus is temporary; the normal workspace and its preferences stay intact. */
 .focus-exit { display: none; position: fixed; z-index: 45; inset-block-start: 12px; inset-inline-end: 16px; max-width: calc(100vw - 32px); min-height: 44px; padding-inline: 14px; background: var(--bg); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
@@ -1596,7 +1627,7 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 }
 @media print { .vertical-tabs { display: none !important; } }
 
-/* All window chrome uses the same acrylic surface. */
+/* The frame shows more of the acrylic backdrop than the toolbar island. */
 [data-windows-titlebar] {
   --shell-inset: 10px;
   --titlebar-drag-min: 36px;
@@ -1605,12 +1636,14 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   --glass-tint: var(--bg-subtle);
   --glass-border: var(--border-muted);
   --glass-surface: linear-gradient(125deg, var(--glass-highlight), var(--glass-tint));
+  --glass-frame: var(--glass-surface);
 }
 [data-windows-titlebar][data-window-glass] {
   --window-base: transparent;
   --glass-highlight: color-mix(in srgb, var(--bg) 62%, transparent);
   --glass-tint: color-mix(in srgb, var(--bg-subtle) 36%, transparent);
   --glass-border: color-mix(in srgb, var(--border-strong) 48%, transparent);
+  --glass-frame: linear-gradient(125deg, color-mix(in srgb, var(--glass-highlight) 42%, transparent), color-mix(in srgb, var(--glass-tint) 36%, transparent));
 }
 [data-windows-titlebar][data-window-glass][data-theme="dark"] {
   --glass-highlight: color-mix(in srgb, #101f34 60%, transparent);
@@ -1629,7 +1662,7 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   min-height: 40px;
   padding: 0 0 0 var(--shell-inset);
   direction: ltr;
-  background: var(--glass-surface);
+  background: var(--glass-frame);
 }
 [data-windows-titlebar] .brand-mark { grid-area: brand; }
 [data-windows-titlebar][dir="rtl"] :is(.app-menubar, .titlebar-tabs) { direction: rtl; }
@@ -1641,11 +1674,14 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   display: flex;
   align-self: center;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
   padding-block: 4px;
+  margin-left: 4px;
+  overflow: clip;
 }
-.titlebar-tabs .document-tabs { gap: 4px; max-width: none; scrollbar-width: none; }
+.titlebar-tabs .document-tabs { gap: 4px; max-width: none; overflow-y: hidden; overscroll-behavior-inline: contain; scrollbar-width: none; }
+.titlebar-tabs .document-tabs:not([data-reordering]) .document-tab[data-tab-clipped] { opacity: 0; pointer-events: none; }
 .titlebar-tabs .document-tab {
   min-width: min(96px, 100%);
   max-width: min(232px, 100%);
@@ -1694,12 +1730,12 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   }
   [data-windows-titlebar] .workspace-views { background: var(--bg); }
   [data-windows-titlebar] .vertical-tabs {
-    background: var(--glass-surface);
+    background: var(--glass-frame);
     border-color: var(--glass-border);
   }
   [data-windows-titlebar] .statusbar {
     margin: 6px var(--shell-inset) 7px;
-    background: var(--glass-surface);
+    background: var(--glass-frame);
     color: var(--fg);
     border: 1px solid var(--glass-border);
     border-radius: var(--r-pill);
@@ -1724,6 +1760,7 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
     --glass-highlight: var(--bg);
     --glass-tint: var(--bg-subtle);
     --glass-border: var(--border-muted);
+    --glass-frame: var(--glass-surface);
   }
 }
 @media (641px <= width <= 1340px) {

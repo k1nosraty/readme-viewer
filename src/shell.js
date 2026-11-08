@@ -311,10 +311,6 @@
       close();
       if (trigger !== focus) trigger.focus({ preventScroll: true });
       scheduleToolbarLayout();
-      requestAnimationFrame(function () {
-        var selected = document.querySelector('#documentTabs .is-active');
-        if (selected && selected.scrollIntoView) selected.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      });
     });
     refresh();
   }

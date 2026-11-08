@@ -97,6 +97,24 @@ async function assertToolbarFits(page, state) {
     assert.equal(await page.locator('#brandMark').evaluate(node => node === document.activeElement), true);
     await page.locator('#brandMark').click();
     await page.locator('#menuView > summary').click(); await page.locator('#btnAppearance').click();
+    assert.equal(await page.locator('#appearancePanel').evaluate(panel => {
+      const r = panel.getBoundingClientRect();
+      return r.left > 0 && r.top > 0 && r.right < innerWidth && r.bottom < innerHeight &&
+        parseFloat(getComputedStyle(panel).borderTopLeftRadius) >= 18;
+    }), true, 'Appearance is a rounded island on narrow screens');
+    await page.evaluate(() => { window.queryLocalFonts = async () => [{ family: 'Segoe UI' }, { family: 'Segoe UI Emoji' }]; });
+    await page.locator('#fontLatinChoice').selectOption('__custom__');
+    const font = page.locator('#fontLatin');
+    await font.pressSequentially('Seg');
+    const option = page.locator('#fontSuggestions').getByRole('option', { name: 'Segoe UI', exact: true });
+    await option.waitFor();
+    assert.equal(await option.evaluate(node => {
+      const r = node.getBoundingClientRect();
+      return node.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+    }), true, 'font suggestions are clickable inside the Appearance island');
+    await font.press('Enter');
+    assert.equal(await font.inputValue(), 'Segoe UI');
+    assert.equal(await page.getByRole('listbox').isVisible(), false);
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#brandMark').evaluate(node => node === document.activeElement), true);
 
@@ -144,8 +162,26 @@ async function assertToolbarFits(page, state) {
     assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
       const bounds = tab.getBoundingClientRect(), rail = tab.parentElement.getBoundingClientRect();
       return bounds.left >= rail.left - 1 && bounds.right <= rail.right + 1 &&
-        parseFloat(getComputedStyle(tab).borderBottomRightRadius) >= 6;
+        parseFloat(getComputedStyle(tab).borderBottomRightRadius) >= 6 &&
+        parseFloat(getComputedStyle(tab, '::before').width) >= 3;
     }), true, 'the selected tab and its close button fit at the minimum Windows width');
+    await page.locator('#titlebarTabs [aria-selected="true"]').press('Control+Tab');
+    assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
+      const bounds = tab.getBoundingClientRect(), rail = tab.parentElement.getBoundingClientRect();
+      return tab.contains(document.activeElement) && bounds.left >= rail.left - 1 && bounds.right <= rail.right + 1;
+    }), true, 'Ctrl+Tab from the title-bar tab list reveals and focuses the next complete tab');
+    await page.locator('#titlebarTabs .document-tabs').evaluate(rail => { rail.scrollLeft = 12; });
+    await page.waitForFunction(() => document.querySelector('#titlebarTabs [data-tab-clipped]'));
+    assert.equal(await page.locator('#titlebarTabs .document-tabs').evaluate(rail => {
+      const toggle = document.getElementById('btnTabLayout'), add = document.getElementById('btnNewTab');
+      const r = rail.getBoundingClientRect();
+      return r.left > toggle.getBoundingClientRect().right && r.right < add.getBoundingClientRect().left &&
+        Array.from(rail.querySelectorAll('[data-tab-clipped]')).every(tab => getComputedStyle(tab).opacity === '0');
+    }), true, 'scrolled tabs stay clear of the title-bar controls');
+    assert.equal(await page.evaluate(() => {
+      const fill = selector => getComputedStyle(document.querySelector(selector)).backgroundImage;
+      return fill('.menu-line') === fill('.statusbar') && fill('.menu-line') !== fill('.tools-island');
+    }), true, 'title and status bars use their own lighter acrylic tint');
     const more = page.locator('#btnToolbarMore');
     await more.click();
     const wrap = page.locator('#toolbarOverflow #btnWrap');

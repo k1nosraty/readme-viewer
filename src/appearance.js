@@ -2,6 +2,8 @@
 (function () {
   'use strict';
   var RV = window.RV = window.RV || {}, api, snapshot, returnFocus;
+  var fontFields = ['fontLatin', 'fontPersian', 'fontUi'];
+  var fontCatalog = [], fontKeys = new Set(), fontLoad, fontInput, suggestions, selectedFont = 0, fontPreviewTimer;
   var defaults = { accent: '#0969da', surface: 'neutral', density: 'comfortable', standardLinks: false, fonts: { latin: '', persian: '', ui: '' } };
   var presets = [['blue', '#0969da'], ['emerald', '#12805c'], ['teal', '#087f8c'], ['violet', '#8250df'],
     ['indigo', '#5364cf'], ['orange', '#ce620e'], ['rose', '#c93671'], ['copper', '#a45a37']];
@@ -87,31 +89,127 @@
     var preset = Array.prototype.some.call(choice.options, function (option) { return option.value !== '__custom__' && option.value === input.value; });
     choice.value = preset ? input.value : '__custom__'; input.hidden = preset;
   }
-  var fontSuggestions;
-  function loadFontSuggestions() {
-    if (fontSuggestions) return;
-    fontSuggestions = RV.Fonts.installedFamilies().catch(function () { return []; }).then(function (names) {
+  function fontKey(name) { return name.normalize('NFKC').toLowerCase(); }
+  function loadFontCatalog() {
+    if (fontLoad) return;
+    fontLoad = RV.Fonts.installedFamilies().catch(function () { return []; }).then(function (names) {
       if (names.length) return names;
-      var presets = Array.from(document.querySelectorAll('.font-choice option'), function (option) { return option.value; });
-      presets = Array.from(new Set(presets.filter(function (name) { return name && name !== '__custom__'; })));
-      return Promise.all(presets.map(function (name) {
+      var choices = Array.from(document.querySelectorAll('.font-choice option'), function (option) { return option.value; });
+      var namesToCheck = Array.from(new Set(choices.filter(function (name) { return name && name !== '__custom__'; })));
+      return Promise.all(namesToCheck.map(function (name) {
         return RV.Fonts.available(name).then(function (installed) { return installed ? name : ''; });
       }));
     }).then(function (names) {
-      var list = byId('installedFontNames');
-      Array.from(new Set(names)).filter(function (name) { return name && RV.Fonts.valid(name); })
-        .sort(function (a, b) { return a.localeCompare(b); }).forEach(function (name) {
-          var option = document.createElement('option');
-          option.value = name;
-          list.appendChild(option);
+      names.concat('Vazirmatn').filter(function (name) { return name && RV.Fonts.valid(name); })
+        .sort(function (a, b) { return a.length - b.length || a.localeCompare(b); }).forEach(function (name) {
+          var key = fontKey(name);
+          if (fontKeys.has(key)) return;
+          fontKeys.add(key);
+          fontCatalog.push({ name: name, key: key });
         });
-    }).catch(function () { fontSuggestions = null; });
+      if (fontInput) showFontSuggestions(fontInput);
+      if (snapshot) fontStatus();
+    }).catch(function () { fontLoad = null; });
+  }
+  function closeFontSuggestions() {
+    if (!fontInput) return;
+    fontInput.setAttribute('aria-expanded', 'false');
+    fontInput.removeAttribute('aria-activedescendant');
+    fontInput = null;
+    suggestions.hidden = true;
+  }
+  function positionFontSuggestions() {
+    if (suggestions.hidden) return;
+    var panel = byId('appearancePanel');
+    if (!panel.clientWidth) return;
+    var input = fontInput.getBoundingClientRect(), frame = panel.getBoundingClientRect();
+    var body = panel.querySelector('.appearance-body').getBoundingClientRect();
+    if (input.bottom <= body.top || input.top >= body.bottom) { closeFontSuggestions(); return; }
+    var width = Math.min(Math.max(input.width, 216), frame.width - 16);
+    var left = document.documentElement.dir === 'rtl' ? input.right - width : input.left;
+    suggestions.style.width = width + 'px';
+    suggestions.style.left = Math.max(8, Math.min(left - frame.left, frame.width - width - 8)) - panel.clientLeft + 'px';
+    var below = frame.bottom - input.bottom - 12, above = input.top - frame.top - 12;
+    var openAbove = below < Math.min(220, suggestions.scrollHeight) && above > below;
+    suggestions.style.maxHeight = Math.max(0, Math.min(220, openAbove ? above : below)) + 'px';
+    var top = openAbove ? input.top - suggestions.offsetHeight - 4 : input.bottom + 4;
+    suggestions.style.top = top - frame.top - panel.clientTop + 'px';
+  }
+  function selectFontSuggestion(index) {
+    var previous = suggestions.children[selectedFont], option = suggestions.children[index];
+    if (previous) previous.setAttribute('aria-selected', 'false');
+    selectedFont = index;
+    option.setAttribute('aria-selected', 'true');
+    fontInput.setAttribute('aria-activedescendant', option.id);
+    var list = suggestions.getBoundingClientRect(), row = option.getBoundingClientRect();
+    if (row.top < list.top) suggestions.scrollTop -= list.top - row.top;
+    else if (row.bottom > list.bottom) suggestions.scrollTop += row.bottom - list.bottom;
+  }
+  function showFontSuggestions(input) {
+    fontInput = input;
+    var query = fontKey(input.value.trim()), starts = [], contains = [], limit = 8;
+    if (query) {
+      for (var entry of fontCatalog) {
+        if (entry.key.startsWith(query)) {
+          starts.push(entry.name);
+          if (starts.length === limit) break;
+        } else if (contains.length < limit && entry.key.includes(query)) contains.push(entry.name);
+      }
+    }
+    var matches = starts.concat(contains.slice(0, limit - starts.length));
+    var items = document.createDocumentFragment();
+    matches.forEach(function (name, index) {
+      var option = document.createElement('div');
+      option.id = 'fontSuggestion-' + index;
+      option.setAttribute('role', 'option');
+      option.dir = 'auto'; option.textContent = name; option.title = name;
+      items.appendChild(option);
+    });
+    suggestions.textContent = '';
+    suggestions.appendChild(items);
+    suggestions.hidden = !matches.length;
+    input.setAttribute('aria-expanded', String(!!matches.length));
+    input.removeAttribute('aria-activedescendant');
+    if (!matches.length) return;
+    suggestions.scrollTop = 0;
+    positionFontSuggestions();
+    if (!suggestions.hidden) selectFontSuggestion(0);
+  }
+  function acceptFontSuggestion(option) {
+    var input = fontInput;
+    input.value = option.textContent;
+    closeFontSuggestions();
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function fontSuggestionKey(event) {
+    if (suggestions.hidden || event.target !== fontInput) return false;
+    var count = suggestions.children.length;
+    if (event.key === 'Enter') acceptFontSuggestion(suggestions.children[selectedFont]);
+    else if (event.key === 'Escape') closeFontSuggestions();
+    else if (event.key === 'ArrowDown') selectFontSuggestion((selectedFont + 1) % count);
+    else if (event.key === 'ArrowUp') selectFontSuggestion((selectedFont + count - 1) % count);
+    else return false;
+    event.preventDefault();
+    return true;
   }
   function wireFontChoices() {
-    ['fontLatin', 'fontPersian', 'fontUi'].forEach(function (id) {
+    suggestions = byId('fontSuggestions');
+    fontFields.forEach(function (id) {
       var input = byId(id), choice = byId(id + 'Choice');
-      input.setAttribute('list', 'installedFontNames');
-      input.addEventListener('focus', loadFontSuggestions);
+      input.setAttribute('role', 'combobox');
+      input.setAttribute('aria-autocomplete', 'list');
+      input.setAttribute('aria-controls', suggestions.id);
+      input.setAttribute('aria-expanded', 'false');
+      input.addEventListener('focus', function () { loadFontCatalog(); showFontSuggestions(input); });
+      input.addEventListener('input', function (event) {
+        if (!event.isComposing && document.activeElement === input) showFontSuggestions(input);
+      });
+      input.addEventListener('compositionstart', closeFontSuggestions);
+      input.addEventListener('compositionend', function () { showFontSuggestions(input); });
+      input.addEventListener('blur', function () {
+        if (fontInput === input) closeFontSuggestions();
+        if (fontPreviewTimer) applyFontPreview();
+      });
       function change(event) {
         if (choice.value === '__custom__') {
           if (input.hidden) input.value = '';
@@ -121,11 +219,21 @@
       }
       choice.addEventListener('input', change); choice.addEventListener('change', change);
     });
+    suggestions.addEventListener('mousedown', function (event) {
+      if (event.target.closest('[role="option"]')) event.preventDefault();
+    });
+    suggestions.addEventListener('click', function (event) {
+      var option = event.target.closest('[role="option"]');
+      if (fontInput && option) acceptFontSuggestion(option);
+    });
+    byId('appearancePanel').querySelector('.appearance-body').addEventListener('scroll', positionFontSuggestions, { passive: true });
+    window.addEventListener('resize', positionFontSuggestions);
+    if (RV.Native && RV.Native.available() && RV.Native.installedFontFamilies) loadFontCatalog();
   }
   function fontValues() { return { latin: byId('fontLatin').value.trim(), persian: byId('fontPersian').value.trim(), ui: byId('fontUi').value.trim() }; }
   function validateFonts() {
     var valid = true;
-    ['fontLatin', 'fontPersian', 'fontUi'].forEach(function (id) {
+    fontFields.forEach(function (id) {
       var ok = RV.Fonts.valid(byId(id).value.trim()); byId(id).setAttribute('aria-invalid', String(!ok)); if (!ok) valid = false;
     });
     byId('fontError').hidden = valid;
@@ -138,15 +246,35 @@
     Promise.all(Object.keys(values).map(function (key) {
       var name = values[key];
       if (!name || !RV.Fonts.valid(name)) return '';
-      return RV.Fonts.available(name).then(function (available) {
+      var installed = fontKeys.has(fontKey(name)) ? Promise.resolve(true) : RV.Fonts.available(name);
+      return installed.then(function (available) {
         return name + ': ' + RV.I18n.t('fonts.' + (name === 'Vazirmatn' ? 'included' : available === true ? 'installed' : available === false ? 'missing' : 'unknown'));
       });
     })).then(function (items) { if (version === statusVersion) byId('fontStatus').textContent = items.filter(Boolean).filter(function (item, index, all) { return all.indexOf(item) === index; }).join(' · '); });
   }
-  function preview(event) {
+  function applyFontPreview() {
+    clearTimeout(fontPreviewTimer); fontPreviewTimer = 0;
     if (!validateFonts()) return;
+    var fonts = RV.Fonts.normalize(fontValues());
+    if (Object.keys(fonts).some(function (key) { return fonts[key] !== prefs.fonts[key]; })) {
+      prefs.fonts = fonts;
+      RV.Fonts.apply(fonts);
+    }
+    fontStatus();
+  }
+  function preview(event) {
+    if (event.isComposing || !validateFonts()) return;
     var input = event.target, color = prefs.accent;
-    if (/^font(?:Latin|Persian|Ui)$/.test(input.id) && byId(input.id + 'Choice').value !== '__custom__') syncFontChoice(input);
+    if (/^font(?:Latin|Persian|Ui)(?:Choice)?$/.test(input.id)) {
+      var customInput = fontFields.indexOf(input.id) >= 0;
+      if (customInput && byId(input.id + 'Choice').value !== '__custom__') syncFontChoice(input);
+      if (customInput && event.type === 'input' && document.activeElement === input && !fontKeys.has(fontKey(input.value.trim()))) {
+        // Paint suggestions immediately and keep incomplete names out of the live workspace while typing.
+        clearTimeout(fontPreviewTimer);
+        fontPreviewTimer = setTimeout(applyFontPreview, 140);
+      } else applyFontPreview();
+      return;
+    }
     if (input.id === 'accentHex' || input.id === 'accentPicker') {
       color = hex(input.value);
       byId('accentHex').setAttribute('aria-invalid', color ? 'false' : 'true');
@@ -157,7 +285,6 @@
     prefs = { accent: color, surface: byId('appearanceSurface').value, density: byId('appearanceDensity').value,
       standardLinks: byId('appearanceStandardLinks').checked, fonts: RV.Fonts.normalize(fontValues()) };
     api.preview(fields()); apply(); validateFonts();
-    if (/^font/.test(input.id)) fontStatus();
     // Keep partially entered HEX text intact while the user types.
     byId('accentPicker').value = prefs.accent;
     if (input.id !== 'accentHex') byId('accentHex').value = prefs.accent.toUpperCase();
@@ -176,6 +303,8 @@
   }
   function close(cancel) {
     if (!snapshot) return;
+    closeFontSuggestions();
+    clearTimeout(fontPreviewTimer); fontPreviewTimer = 0;
     if (cancel) { prefs = snapshot.prefs; api.preview(snapshot.state); apply(); }
     snapshot = null;
     byId('appearancePanel').hidden = true; byId('appearanceScrim').hidden = true;
@@ -198,9 +327,12 @@
     byId('appearancePanel').addEventListener('change', preview);
     ['appearanceClose', 'appearanceCancel', 'appearanceScrim'].forEach(function (id) { byId(id).addEventListener('click', function () { close(true); }); });
     byId('appearanceReset').addEventListener('click', function () {
+      closeFontSuggestions();
+      clearTimeout(fontPreviewTimer); fontPreviewTimer = 0;
       prefs = normalize(defaults); api.preview({ theme: 'auto', font: 16, width: 'full', spacing: 'normal' }); sync(); apply();
     });
     byId('appearanceApply').addEventListener('click', function () {
+      applyFontPreview();
       var previous = {};
       try {
         ['rv.appearance', 'rv.settings', 'rv.reading.options'].forEach(function (key) { previous[key] = localStorage.getItem(key); });
@@ -214,9 +346,10 @@
     document.addEventListener('keydown', function (event) {
       if (!snapshot) return;
       event.stopPropagation();
+      if (event.isComposing || event.keyCode === 229 || fontSuggestionKey(event)) return;
       if (event.key === 'Escape') { event.preventDefault(); close(true); return; }
       if (event.key !== 'Tab') return;
-      var items = Array.prototype.filter.call(byId('appearancePanel').querySelectorAll('button, input, select'), function (node) { return !node.disabled; });
+      var items = Array.prototype.filter.call(byId('appearancePanel').querySelectorAll('button, input, select'), function (node) { return !node.disabled && !node.hidden; });
       var first = items[0], last = items[items.length - 1];
       if (event.shiftKey && (document.activeElement === first || !byId('appearancePanel').contains(document.activeElement))) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && (document.activeElement === last || !byId('appearancePanel').contains(document.activeElement))) { event.preventDefault(); first.focus(); }

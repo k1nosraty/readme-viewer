@@ -45,20 +45,41 @@ test('appearance preview, cancel, reset and focus preserve the document and save
   assert.deepEqual(a.errors, []);
 });
 
-test('the appearance shortcut offers installed font suggestions in each custom field', async t => {
+test('installed font suggestions update as you type and accept keyboard or pointer selection', async t => {
   const a = await load(t); if (!a) return;
-  a.window.queryLocalFonts = async () => [{ family: 'Zulu Sans' }, { family: 'Alpha Serif' },
-    { family: 'Alpha Serif' }, { family: 'Invalid" name' }];
+  let completeCatalog;
+  a.window.queryLocalFonts = () => new Promise(resolve => { completeCatalog = resolve; });
   a.click('btnAppearanceToolbar');
   assert.equal(a.document.getElementById('appearancePanel').hidden, false);
   a.set('fontLatinChoice', '__custom__');
-  a.document.getElementById('fontLatin').focus();
-  const list = a.document.getElementById('installedFontNames');
-  await harness.waitFor(() => list.options.length === 2, 1000);
-  assert.deepEqual(Array.from(list.options, option => option.value), ['Alpha Serif', 'Zulu Sans']);
-  for (const id of ['fontLatin', 'fontPersian', 'fontUi']) assert.equal(a.document.getElementById(id).list, list);
-  a.set('fontLatin', 'Alpha Serif');
-  assert.equal(a.window.RV.Fonts.snapshot().latin, 'Alpha Serif');
+  const input = a.document.getElementById('fontLatin');
+  const list = a.document.getElementById('fontSuggestions');
+  const names = () => Array.from(list.children, option => option.textContent);
+  const press = key => a.document.activeElement.dispatchEvent(new a.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  input.focus(); a.set('fontLatin', 'se');
+  assert.equal(list.hidden, true);
+  completeCatalog([{ family: 'Zulu Sans' }, { family: 'Alpha Serif' }, { family: 'Segoe UI' },
+    { family: 'Segoe UI Emoji' }, { family: 'Segoe Fluent Icons' }, { family: 'ALPHA SERIF' }, { family: 'Invalid" name' }]);
+  await harness.waitFor(() => !list.hidden, 1000);
+  assert.deepEqual(names(), ['Segoe UI', 'Segoe UI Emoji', 'Segoe Fluent Icons', 'Alpha Serif']);
+  a.set('fontLatin', 'UI');
+  assert.deepEqual(names(), ['Segoe UI', 'Segoe UI Emoji']);
+  press('ArrowDown'); press('Enter');
+  assert.equal(input.value, 'Segoe UI Emoji');
+  assert.equal(a.window.RV.Fonts.snapshot().latin, 'Segoe UI Emoji');
+  assert.equal(input.getAttribute('aria-expanded'), 'false');
+  for (const [id, query, expected, key] of [['fontPersian', 'erif', 'Alpha Serif', 'persian'], ['fontUi', 'zUl', 'Zulu Sans', 'ui']]) {
+    a.set(id + 'Choice', '__custom__');
+    a.document.getElementById(id).focus();
+    a.set(id, query);
+    assert.deepEqual(names().map(name => name.toLowerCase()), [expected.toLowerCase()]);
+    list.firstElementChild.click();
+    assert.equal(a.window.RV.Fonts.snapshot()[key].toLowerCase(), expected.toLowerCase());
+  }
+  a.set('fontUi', 'zu');
+  press('Escape');
+  assert.equal(list.hidden, true);
+  assert.equal(a.document.getElementById('appearancePanel').hidden, false);
   a.click('appearanceCancel');
   assert.equal(a.document.activeElement.id, 'btnAppearanceToolbar');
 });
