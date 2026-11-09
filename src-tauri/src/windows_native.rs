@@ -30,18 +30,11 @@ pub fn apply_backdrop(window: &WebviewWindow, dark: bool) -> bool {
             size_of_val(&DWMWCP_ROUND) as u32,
         );
     }
-    let tint = if dark {
-        (16, 30, 49, 90)
-    } else {
-        (239, 245, 252, 90)
-    };
-    if window_vibrancy::apply_acrylic(window, Some(tint))
-        .or_else(|_| window_vibrancy::apply_mica(window, Some(dark)))
-        .is_err()
-    {
+    // Legacy acrylic stutters during window moves and resizes on Windows 10 and early Windows 11.
+    if window_vibrancy::apply_mica(window, Some(dark)).is_err() {
         return false;
     }
-    // Acrylic is drawn behind the transparent WebView, across the client area.
+    // Mica is drawn behind the transparent WebView, across the client area.
     let margins = MARGINS {
         cxLeftWidth: -1,
         cxRightWidth: -1,
