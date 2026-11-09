@@ -12,6 +12,44 @@ const root = window;
 const available = () => !!root.__TAURI_INTERNALS__;
 const abort = () => new DOMException('Save cancelled.', 'AbortError');
 const filters = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mdwn', 'mkd', 'txt'] }];
+
+async function setupWindowsTitlebar(window, report, onTitlebar) {
+  const byId = id => document.getElementById(id);
+  const maximize = byId('btnWindowMaximize');
+  const syncMaximized = async () => {
+    const maximized = await window.isMaximized();
+    const key = maximized ? 'window.restore' : 'window.maximize';
+    if (maximize.dataset.i18nAria === key) return;
+    const label = root.RV.I18n.t(key);
+    maximize.dataset.i18nAria = key;
+    maximize.dataset.i18nTitle = key;
+    maximize.setAttribute('aria-label', label);
+    maximize.title = label;
+    maximize.innerHTML = root.RV.Icons.svg(maximized ? 'copy' : 'windowMaximize', 15);
+  };
+  byId('btnWindowMinimize').addEventListener('click', () => window.minimize().catch(report));
+  maximize.addEventListener('click', () => window.toggleMaximize().catch(report));
+  byId('btnWindowClose').addEventListener('click', () => window.close().catch(report));
+
+  byId('titlebarDrag').hidden = false;
+  byId('captionButtons').hidden = false;
+  const documentRoot = document.documentElement;
+  documentRoot.dataset.windowsTitlebar = '';
+  onTitlebar?.();
+  let backdropRevision = 0;
+  const syncBackdrop = async () => {
+    const revision = ++backdropRevision;
+    const glass = await invoke('set_window_backdrop', { dark: documentRoot.dataset.theme === 'dark' });
+    if (revision === backdropRevision) documentRoot.toggleAttribute('data-window-glass', glass === true);
+  };
+  new MutationObserver(() => syncBackdrop().catch(report)).observe(documentRoot, { attributeFilter: ['data-theme'] });
+  await Promise.all([
+    syncBackdrop(),
+    window.onResized(() => syncMaximized().catch(report)),
+    syncMaximized()
+  ].map(task => task.catch(report)));
+}
+
 function fileName(path) {
   let text = path;
   try { text = decodeURIComponent(text); } catch (_) { /* retain literal filename */ }
@@ -76,6 +114,7 @@ async function handle(path, name, authorize = true, writable = true) {
 }
 const Native = {
   available,
+  installedFontFamilies() { return invoke('installed_font_families'); },
   async appInfo() {
     const [platform, arch] = await invoke('update_platform');
     return { version: await getVersion(), platform, arch };
@@ -148,17 +187,13 @@ const Native = {
     if (!available()) return;
     const window = getCurrentWindow();
     const report = error => { if (hooks.onError) hooks.onError(error); else console.error(error); };
+    const userAgent = root.navigator?.userAgent || '';
+    const windows = /Windows NT/i.test(userAgent);
     const openPaths = async paths => {
-      for (const path of (paths || []).slice(0, 1)) {
+      for (const path of paths || []) {
         try { if (await hooks.openPath(path) === false) break; } catch (error) { report(error); break; }
       }
     };
-    await listen('native-open', event => openPaths(event.payload));
-    await window.onDragDropEvent(event => {
-      const data = event.payload;
-      if (hooks.onDrag) hooks.onDrag(data.type === 'enter' || data.type === 'over');
-      if (data.type === 'drop') void openPaths(data.paths);
-    });
     let checkingClose = false;
     const requestClose = async finish => {
       if (checkingClose) return;
@@ -167,14 +202,27 @@ const Native = {
       catch (error) { report(error); }
       finally { checkingClose = false; }
     };
-    await window.onCloseRequested(event => {
-      event.preventDefault();
-      return requestClose(() => window.destroy());
-    });
-    if (/Android/i.test(root.navigator && root.navigator.userAgent || '')) {
-      // Registering takes over Android's default Back navigation and exit.
-      await onBackButtonPress(() => requestClose(() => exit(0)));
+    const listeners = [
+      listen('native-open', event => openPaths(event.payload?.slice(0, 1))),
+      window.onDragDropEvent(event => {
+        const data = event.payload;
+        if (hooks.onDrag) hooks.onDrag(data.type === 'enter' || data.type === 'over');
+        if (data.type === 'drop') void openPaths(data.paths?.slice(0, 1));
+      }),
+      window.onCloseRequested(event => {
+        event.preventDefault();
+        return requestClose(() => window.destroy());
+      })
+    ];
+    if (windows) {
+      listeners.push(setupWindowsTitlebar(window, report, hooks.onTitlebar));
     }
+    if (/Android/i.test(userAgent)) {
+      // Registering takes over Android's default Back navigation and exit.
+      listeners.push(onBackButtonPress(() => requestClose(() => exit(0))));
+    }
+    await Promise.all(listeners.map(task => task.catch(report)));
+    if (windows) await window.show().catch(report);
     await openPaths(await invoke('startup_paths'));
   }
 };

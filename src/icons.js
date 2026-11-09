@@ -17,6 +17,10 @@
   var ICONS = {
     more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
     maximize: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5"/>',
+    windowMaximize: '<rect x="4" y="4" width="16" height="16" rx="1"/>',
+    tabsVertical: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16M6 8h1m-1 4h1m-1 4h1"/>',
+    tabsHorizontal: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 7h2m4 0h2"/>',
+    appearance: '<path d="M10 20H9a7 7 0 0 1 0-14h5a7 7 0 0 1 4 1.3M6 10h.01M9 9h.01M6 14h.01"/><path d="m13 15 5.6-5.6a1.4 1.4 0 0 1 2 2L15 17m-2-2a2 2 0 0 0-2 2c0 1-.6 1.8-1.5 2.5 3.4.3 5.5-.5 5.5-2.5a2 2 0 0 0-2-2Z"/>',
     diagramLayout: '<rect x="8" y="2" width="8" height="5" rx="1"/><rect x="2" y="17" width="7" height="5" rx="1"/><rect x="15" y="17" width="7" height="5" rx="1"/><path d="M12 7v5M5.5 17v-5h13v5"/>',
     documents: '<rect x="2" y="6" width="9" height="15" rx="1.5"/><rect x="13" y="3" width="9" height="15" rx="1.5"/>',
     expandAll: '<path d="M5 3h14M5 21h14M12 6v12m-3-9 3-3 3 3m-6 6 3 3 3-3"/>',
@@ -29,6 +33,7 @@
     saveAs: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 12v6"/><path d="M9 15h6"/>',
     reload: '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v5h-5"/>',
     back: '<path d="M19 12H5"/><path d="m11 18-6-6 6-6"/>',
+    undo: '<path d="m9 5-5 5 5 5M4 10h10a5 5 0 0 1 0 10h-3"/>',
     forward: '<path d="M5 12h14"/><path d="m13 18 6-6-6-6"/>',
     download: '<path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 21h16"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .9-1 1.6v.4"/><path d="M12 17h.01"/>',

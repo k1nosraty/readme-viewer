@@ -163,6 +163,78 @@ test('tab keyboard navigation uses a roving focus target and first open reuses e
   assert.equal(document.activeElement.getAttribute('aria-selected'), 'true');
 });
 
+test('Ctrl+Tab cycles documents from the editor without indenting their source', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, window, document } = app;
+  api.setDoc('first', 'one.md');
+  api.newTab('second', 'two.md');
+  edit(app, 'second edited');
+  api.el.editor.focus();
+  const cycle = (shiftKey = false) => {
+    const event = new window.KeyboardEvent('keydown', { key: 'Tab', ctrlKey: true, shiftKey, bubbles: true, cancelable: true });
+    document.activeElement.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+  };
+  cycle();
+  assert.equal(api.state.name, 'one.md');
+  assert.equal(api.el.editor.value, 'first');
+  assert.equal(document.activeElement, api.el.editor);
+  cycle(true);
+  assert.equal(api.state.name, 'two.md');
+  assert.equal(api.el.editor.value, 'second edited');
+  assert.equal(api.state.dirty, true);
+  const altTab = new window.KeyboardEvent('keydown', { key: 'Tab', altKey: true, bubbles: true, cancelable: true });
+  document.activeElement.dispatchEvent(altTab);
+  assert.equal(altTab.defaultPrevented, false);
+  assert.equal(api.state.name, 'two.md');
+});
+
+test('Ctrl+S saves when the keyboard reports a Persian letter', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, window } = app;
+  let writes = 0;
+  const handle = { name: 'one.md', createWritable: async () => ({
+    write: async () => { writes++; }, close: async () => {}
+  }) };
+  api.setDoc('one', 'one.md', handle);
+  edit(app, 'ویرایش');
+  api.el.editor.focus();
+  const event = new window.KeyboardEvent('keydown', {
+    key: 'س', code: 'KeyS', ctrlKey: true, bubbles: true, cancelable: true
+  });
+  api.el.editor.dispatchEvent(event);
+  await api.whenDocumentsReady();
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(writes, 1);
+  assert.equal(api.state.saved, 'ویرایش');
+  assert.equal(api.state.dirty, false);
+});
+
+test('vertical tabs reuse document controls and navigate with up and down arrows', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, window, document } = app;
+  const list = document.getElementById('documentTabs');
+  const toggle = document.getElementById('btnVerticalTabs');
+  api.setDoc('first', 'one.md');
+  api.newTab('second', 'two.md');
+
+  harness.click(window, toggle);
+  assert.equal(toggle.getAttribute('aria-pressed'), 'true');
+  assert.equal(list.getAttribute('aria-orientation'), 'vertical');
+  assert.equal(list.parentElement.id, 'verticalTabs');
+  const selected = list.querySelector('[aria-selected="true"]');
+  selected.focus();
+  selected.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+  assert.equal(api.state.name, 'one.md');
+  assert.equal(document.activeElement.getAttribute('aria-selected'), 'true');
+
+  harness.click(window, toggle);
+  assert.equal(list.getAttribute('aria-orientation'), 'horizontal');
+  assert.equal(list.parentElement.className, 'workspacebar');
+  assert.equal(api.state.name, 'one.md');
+  assert.equal(api.listTabs().length, 2);
+});
+
 test('new documents inherit the configured manual base without copying native auto bases', async t => {
   const app = await workspace(t); if (!app) return;
   const { api, window } = app;
@@ -401,8 +473,9 @@ test('same-name tabs expose locations and settings menus close with Escape', asy
   assert.ok(document.querySelector('#menuFile #restoreSession'));
   assert.ok(document.querySelector('#menuFile #baseUrl'));
   assert.equal(document.querySelector('#readingOptions #restoreSession'), null);
+  const launcher = document.getElementById('brandMark'); launcher.click();
   const menu = document.getElementById('menuFile'); menu.open = true;
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(menu.open, false);
-  assert.equal(document.activeElement, menu.querySelector('summary'));
+  assert.equal(document.activeElement, launcher);
 });

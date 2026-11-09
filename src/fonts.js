@@ -71,6 +71,13 @@
     if (!probes.has(name)) probes.set(name, new FontFace('rv-local-probe', 'local(' + quoted(name) + ')').load().then(function () { return true; }, function () { return false; }));
     return probes.get(name);
   }
+  async function installedFamilies() {
+    if (RV.Native && RV.Native.available() && RV.Native.installedFontFamilies) {
+      return RV.Native.installedFontFamilies();
+    }
+    if (typeof window.queryLocalFonts !== 'function') return [];
+    return (await window.queryLocalFonts()).map(function (face) { return face.family; });
+  }
   // System font files remain on the user's device; only our freely licensed face is embedded.
   function exportCss(value) { var state = value || prefs; return faces(false, state) + ((state.latin || state.persian) ? '\nbody{font-family:' + documentFamily(state) + ';}' : ''); }
   function svgFonts(svg) {
@@ -93,5 +100,6 @@
     }
   }
   RV.Fonts = { normalize: normalize, valid: valid, apply: apply, ready: function () { return pending; },
-    snapshot: function () { return Object.assign({}, prefs); }, key: function () { return JSON.stringify([prefs.latin, prefs.persian]); }, available: available, exportCss: exportCss, svgFonts: svgFonts, family: documentFamily };
+    snapshot: function () { return Object.assign({}, prefs); }, key: function () { return JSON.stringify([prefs.latin, prefs.persian]); },
+    available: available, installedFamilies: installedFamilies, exportCss: exportCss, svgFonts: svgFonts, family: documentFamily };
 }());

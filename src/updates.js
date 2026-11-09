@@ -39,6 +39,7 @@
   function show(which) {
     if (!app || busy && which !== 'updates') return;
     returnFocus = document.activeElement;
+    if (RV.Shell) returnFocus = RV.Shell.popupFocusTarget(returnFocus);
     if (app.state.readingFocus) app.setReadingFocus(false);
     if (RV.Shell) RV.Shell.close();
     panel = which; render(); byId('serviceModal').hidden = false;
@@ -48,7 +49,7 @@
   function close() {
     if (busy) return;
     byId('serviceModal').hidden = true;
-    var target = returnFocus && returnFocus.isConnected && returnFocus.getClientRects().length ? returnFocus : byId('menuHelp').querySelector('summary');
+    var target = returnFocus && returnFocus.isConnected && returnFocus.getClientRects().length ? returnFocus : byId('brandMark');
     target.focus();
   }
   function openExternal(url) {

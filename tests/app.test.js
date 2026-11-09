@@ -509,7 +509,7 @@ test('pressing enter continues lists, task lists and quotes (regression)', async
   }
 });
 
-test('the theme control cycles light, dark and system', async function (t) {
+test('the theme switch flips the effective light and dark modes', async function (t) {
   if (skipIfNoDom(t)) return;
   const html = doc.documentElement;
   const btn = doc.getElementById('btnTheme');
@@ -517,22 +517,21 @@ test('the theme control cycles light, dark and system', async function (t) {
     return doc.getElementById(id);
   });
 
-  const seen = [];
-  for (let i = 0; i < 3; i++) {
+  const original = html.getAttribute('data-theme');
+  for (const theme of [original === 'dark' ? 'light' : 'dark', original]) {
     btn.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
     await harness.settle(20);
-    seen.push(html.getAttribute('data-theme'));
-    const dark = html.getAttribute('data-theme') === 'dark';
+    assert.equal(html.getAttribute('data-theme'), theme);
+    assert.equal(RVApp.state.theme, theme);
+    const dark = theme === 'dark';
     assert.equal(sheets[0].disabled, dark, 'light highlight sheet');
     assert.equal(sheets[1].disabled, !dark, 'dark highlight sheet');
-    assert.ok(btn.querySelector('svg.ic'), 'the button keeps an icon');
-    assert.match(btn.getAttribute('title'), /^Theme: /);
+    assert.equal(btn.getAttribute('aria-checked'), String(dark));
+    assert.equal(btn.querySelectorAll('svg.ic').length, 2);
   }
+  doc.querySelector('[data-theme-choice="auto"]').click();
+  assert.equal(RVApp.state.theme, 'auto');
   assert.deepEqual(app.errors, [], app.errors.join(' | '));
-  // three clicks from any state must come back round to the start
-  btn.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
-  await harness.settle(20);
-  assert.equal(html.getAttribute('data-theme'), seen[0]);
 });
 
 test('text size, wrapping and the sidebar all apply to the layout', async function (t) {

@@ -20,6 +20,7 @@ test('reading focus restores layout and preferences, and navigation can leave it
   api.newTab('# Second', 'two.md'); api.showComparison(); api.setMode('split');
   const source = api.el.editor.value;
   const key = value => document.dispatchEvent(new window.KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true }));
+  document.getElementById('brandMark').click();
   document.querySelector('#menuView > summary').focus();
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'F8', isComposing: true, bubbles: true }));
   assert.equal(api.state.readingFocus, false, 'IME conversion keys keep their native behavior');
@@ -29,7 +30,7 @@ test('reading focus restores layout and preferences, and navigation can leave it
   document.getElementById('btnFontUp').click();
   assert.equal(JSON.parse(storage.get('rv.settings')).mode, 'split', 'temporary Preview must not overwrite the saved layout');
   key('Escape'); assert.equal(api.state.mode, 'split'); assert.equal(api.state.readingFocus, false);
-  assert.equal(document.activeElement, document.querySelector('#menuView > summary'));
+  assert.equal(document.activeElement, document.getElementById('brandMark'));
   assert.equal(document.getElementById('comparisonPane').hidden, false);
   api.setReadingFocus(true); api.setMode('write');
   assert.equal(api.state.readingFocus, false); assert.equal(api.state.mode, 'write');

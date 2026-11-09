@@ -50,6 +50,8 @@
   var RENDER_DELAY = 90;
   var FONT_MIN = 12;
   var FONT_MAX = 26;
+  var TAB_RAIL_MIN = 132;
+  var TAB_RAIL_MAX = 384;
 
   var state = {
     ready: false,
@@ -80,6 +82,8 @@
     theme: 'auto',
     editPreview: false,
     sidebar: true,
+    verticalTabs: false,
+    verticalTabWidth: null,
     split: 50,
     locale: 'en',
     taskSource: '',
@@ -114,13 +118,109 @@
     var folder = tab === activeTab ? state.folder : tab.folder;
     return handle && handle.path || (folder ? folder.root.fullPath + '/' + folder.path : '');
   }
-  function tabLabel(tab) {
+  function tabLabel(tab, location) {
     var name = (tab === activeTab ? state.name : tab.name) || tabText('tabs.untitled', 'Untitled');
     if (tabs.filter(function (other) { return (other === activeTab ? state.name : other.name) === name; }).length < 2) return name;
-    var path = tabLocation(tab).replace(/\\/g, '/').split('/').filter(Boolean);
+    var path = location.replace(/\\/g, '/').split('/').filter(Boolean);
     return name + ' — ' + (path.length > 1 ? path[path.length - 2] : '#' + (tabs.indexOf(tab) + 1));
   }
-  function renderTabs() {
+  function scrollTabIntoView(bar, id) {
+    var tab = bar.querySelector(id ? '[data-tab-id="' + id + '"]' : '.document-tab.is-active');
+    if (!tab) return;
+    if (bar.parentElement.id !== 'titlebarTabs') {
+      if (tab.scrollIntoView) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      return;
+    }
+    // Match the lower scrollbar gutter above the tabs so the row stays centered.
+    bar.style.setProperty('--tab-scrollbar-height', (bar.offsetHeight - bar.clientHeight) + 'px');
+    // Scroll the tab lane without moving the title bar or its buttons.
+    var rail = bar.getBoundingClientRect(), bounds = tab.getBoundingClientRect();
+    if (bounds.left < rail.left) bar.scrollLeft += bounds.left - rail.left;
+    else if (bounds.right > rail.right) bar.scrollLeft += bounds.right - rail.right;
+  }
+  function applyTabLayout() {
+    var bar = $('documentTabs'), add = $('btnNewTab');
+    var titlebar = $('titlebarTabs'), side = $('verticalTabs'), reading = $('readingOptions');
+    var inTitlebar = !state.verticalTabs && document.documentElement.hasAttribute('data-windows-titlebar');
+    var destination = state.verticalTabs ? side : inTitlebar ? titlebar : reading.parentNode;
+    var focus = document.activeElement;
+    if (bar.parentNode !== destination) {
+      var before = destination === reading.parentNode ? reading : null;
+      destination.insertBefore(bar, before);
+      destination.insertBefore(add, state.verticalTabs ? bar : before);
+    }
+    side.hidden = !state.verticalTabs;
+    titlebar.hidden = !inTitlebar;
+    bar.setAttribute('aria-orientation', state.verticalTabs ? 'vertical' : 'horizontal');
+    $('btnVerticalTabs').setAttribute('aria-pressed', String(state.verticalTabs));
+    var toggle = $('btnTabLayout');
+    var label = state.verticalTabs ? 'tabs.switchHorizontal' : 'tabs.switchVertical';
+    toggle.setAttribute('aria-pressed', String(state.verticalTabs));
+    toggle.setAttribute('data-i18n-title', label);
+    toggle.title = t(label);
+    toggle.innerHTML = Icons.svg(state.verticalTabs ? 'tabsHorizontal' : 'tabsVertical', 16);
+    if (bar.contains(focus) || focus === add) focus.focus({ preventScroll: true });
+    scrollTabIntoView(bar);
+  }
+  function toggleTabLayout() {
+    state.verticalTabs = !state.verticalTabs;
+    applyTabLayout();
+    saveSettings();
+    scheduleRender(null, 0);
+  }
+  function wireTabRailResizer() {
+    var rail = $('verticalTabs'), handle = $('tabRailResizer'), drag = null;
+    function maximum() {
+      var width = el.layout.clientWidth || window.innerWidth;
+      return clamp(Math.floor(width * .42), TAB_RAIL_MIN, TAB_RAIL_MAX);
+    }
+    function updateRange() {
+      if (rail.hidden) return;
+      var max = maximum();
+      handle.setAttribute('aria-valuemax', String(max));
+      handle.setAttribute('aria-valuenow', String(clamp(rail.offsetWidth || state.verticalTabWidth || 208, TAB_RAIL_MIN, max)));
+    }
+    function applyWidth() {
+      if (state.verticalTabWidth !== null) el.layout.style.setProperty('--tab-rail-size', state.verticalTabWidth + 'px');
+    }
+    function resize(width) {
+      state.verticalTabWidth = clamp(Math.round(width), TAB_RAIL_MIN, maximum());
+      applyWidth();
+      handle.setAttribute('aria-valuenow', String(state.verticalTabWidth));
+    }
+    function saveWidth() { saveSettings(); scheduleRender(null, 0); }
+    function direction() { return document.documentElement.dir === 'rtl' ? -1 : 1; }
+    applyWidth();
+    if (typeof ResizeObserver === 'function') new ResizeObserver(updateRange).observe(rail);
+    else window.addEventListener('resize', updateRange);
+    handle.addEventListener('pointerdown', function (event) {
+      if (event.button !== 0 || drag) return;
+      drag = { id: event.pointerId, start: event.clientX, width: rail.offsetWidth, direction: direction() };
+      handle.setAttribute('data-dragging', '');
+      if (handle.setPointerCapture) handle.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    handle.addEventListener('pointermove', function (event) {
+      if (drag && event.pointerId === drag.id) resize(drag.width + (event.clientX - drag.start) * drag.direction);
+    });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (type) {
+      handle.addEventListener(type, function (event) {
+        if (!drag || event.pointerId !== drag.id) return;
+        drag = null; handle.removeAttribute('data-dragging');
+        saveWidth();
+      });
+    });
+    handle.addEventListener('keydown', function (event) {
+      var width = rail.offsetWidth || state.verticalTabWidth || 208;
+      if (event.key === 'Home') width = TAB_RAIL_MIN;
+      else if (event.key === 'End') width = maximum();
+      else if (event.key === 'ArrowLeft') width -= 12 * direction();
+      else if (event.key === 'ArrowRight') width += 12 * direction();
+      else return;
+      event.preventDefault(); resize(width); saveWidth();
+    });
+  }
+  function renderTabs(scrollId) {
     var bar = $('documentTabs');
     if (!bar) return;
     var signature = JSON.stringify(tabs.map(function (tab) {
@@ -148,20 +248,28 @@
       button.addEventListener('keydown', function (event) {
         var index = tabs.indexOf(tab), next = index;
         var rtl = document.documentElement.getAttribute('dir') === 'rtl';
-        if (event.key === 'ArrowRight') next = (index + (rtl ? -1 : 1) + tabs.length) % tabs.length;
-        else if (event.key === 'ArrowLeft') next = (index + (rtl ? 1 : -1) + tabs.length) % tabs.length;
+        var forward = state.verticalTabs ? 'ArrowDown' : (rtl ? 'ArrowLeft' : 'ArrowRight');
+        var backward = state.verticalTabs ? 'ArrowUp' : (rtl ? 'ArrowRight' : 'ArrowLeft');
+        var step = event.key === forward ? 1 : (event.key === backward ? -1 : 0);
+        if (step && event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey) {
+          event.preventDefault();
+          moveTab(index, index + step);
+          return;
+        }
+        if (step) next = (index + step + tabs.length) % tabs.length;
         else if (event.key === 'Home') next = 0;
         else if (event.key === 'End') next = tabs.length - 1;
         else return;
         event.preventDefault();
         if (switchTab(tabs[next].id)) {
           var target = bar.querySelector('[data-tab-focus="tab-' + tabs[next].id + '"]');
-          if (target) target.focus();
+          if (target) target.focus({ preventScroll: true });
         }
       });
-      button.textContent = (dirty ? '• ' : '') + tabLabel(tab);
-      button.title = tabLocation(tab) || tabLabel(tab);
-      button.setAttribute('aria-label', button.textContent + (tabLocation(tab) ? ': ' + tabLocation(tab) : ''));
+      var location = tabLocation(tab), label = tabLabel(tab, location);
+      button.textContent = (dirty ? '• ' : '') + label;
+      button.title = location || label;
+      button.setAttribute('aria-label', button.textContent + (location ? ': ' + location : ''));
       button.addEventListener('click', function () { switchTab(tab.id); });
       var close = document.createElement('button');
       close.type = 'button'; close.className = 'document-tab-close'; close.innerHTML = Icons.svg('close', 12);
@@ -170,12 +278,96 @@
       close.addEventListener('click', function () { closeTab(tab.id); });
       item.appendChild(button); item.appendChild(close); bar.appendChild(item);
     });
-    var selectedTab = bar.querySelector('[aria-selected="true"]');
-    if (selectedTab && selectedTab.scrollIntoView) selectedTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    scrollTabIntoView(bar, scrollId);
     if (focusId) {
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
-      if (replacement) replacement.focus();
+      if (replacement) replacement.focus({ preventScroll: true });
     }
+  }
+  function moveTab(from, to) {
+    if (pendingSave || pendingDiscard || from === to || from < 0 || to < 0 || to >= tabs.length) return;
+    var tab = tabs.splice(from, 1)[0];
+    tabs.splice(to, 0, tab);
+    renderTabs(tab.id);
+    if (RV.Reading) RV.Reading.workspaceChanged();
+  }
+  function wireTabReordering(bar) {
+    if (!bar.setPointerCapture) return;
+    var drag = null;
+
+    function clearDrag() {
+      if (!drag) return;
+      var previous = drag;
+      drag = null;
+      cancelAnimationFrame(previous.frame);
+      previous.source.classList.remove('is-dragged');
+      if (previous.drop) previous.drop.tab.removeAttribute('data-tab-drop');
+      bar.removeAttribute('data-reordering');
+    }
+    function dropAt(x, y, autoScroll) {
+      var bounds = bar.getBoundingClientRect();
+      if (x < bounds.left || x > bounds.right || y < bounds.top || y > bounds.bottom) return null;
+      var vertical = drag.vertical;
+      var position = vertical ? y : x;
+      var start = vertical ? bounds.top : bounds.left;
+      var end = vertical ? bounds.bottom : bounds.right;
+      if (autoScroll) {
+        var delta = position < start + 20 ? -7 : (position > end - 20 ? 7 : 0);
+        if (delta) bar[vertical ? 'scrollTop' : 'scrollLeft'] += delta;
+      }
+      var direction = !vertical && document.documentElement.dir === 'rtl' ? -1 : 1;
+      var last = null, lastIndex = 0;
+      for (var i = 0; i < bar.children.length; i++) {
+        var tab = bar.children[i];
+        if (tab === drag.source) continue;
+        var rect = tab.getBoundingClientRect();
+        var center = vertical ? rect.top + rect.height / 2 : rect.left + rect.width / 2;
+        if ((position - center) * direction < 0) return { tab: tab, edge: 'before', index: i };
+        last = tab; lastIndex = i + 1;
+      }
+      return last && { tab: last, edge: 'after', index: lastIndex };
+    }
+    function drawDrag() {
+      if (!bar.contains(drag.source) || drag.vertical !== state.verticalTabs) { clearDrag(); return; }
+      var drop = dropAt(drag.x, drag.y, true);
+      if (drag.drop && (!drop || drag.drop.tab !== drop.tab)) drag.drop.tab.removeAttribute('data-tab-drop');
+      if (drop && (!drag.drop || drag.drop.tab !== drop.tab || drag.drop.edge !== drop.edge)) {
+        drop.tab.setAttribute('data-tab-drop', drop.edge);
+      }
+      drag.drop = drop;
+      drag.frame = requestAnimationFrame(drawDrag);
+    }
+
+    // Pointer capture keeps tab reordering separate from native file drops.
+    bar.addEventListener('pointerdown', function (event) {
+      if (drag || !event.isPrimary || event.button !== 0 || event.pointerType === 'touch' ||
+          tabs.length < 2 || pendingSave || pendingDiscard || event.target.closest('.document-tab-close')) return;
+      var source = event.target.closest('.document-tab');
+      if (!source) return;
+      drag = { source: source, pointer: event.pointerId, vertical: state.verticalTabs,
+        x: event.clientX, y: event.clientY, frame: 0, drop: null };
+    });
+    window.addEventListener('pointermove', function (event) {
+      if (!drag || drag.pointer !== event.pointerId) return;
+      if (!drag.frame && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 5) return;
+      drag.x = event.clientX; drag.y = event.clientY;
+      if (drag.frame) return;
+      bar.setPointerCapture(event.pointerId);
+      bar.setAttribute('data-reordering', '');
+      drag.source.classList.add('is-dragged');
+      drawDrag();
+    });
+    window.addEventListener('pointerup', function (event) {
+      if (!drag || drag.pointer !== event.pointerId) return;
+      var from = Array.prototype.indexOf.call(bar.children, drag.source);
+      var drop = drag.frame && from >= 0 && drag.vertical === state.verticalTabs && dropAt(event.clientX, event.clientY, false);
+      clearDrag();
+      if (drop) moveTab(from, drop.index - (from < drop.index ? 1 : 0));
+    });
+    window.addEventListener('pointercancel', function (event) { if (drag && drag.pointer === event.pointerId) clearDrag(); });
+    bar.addEventListener('lostpointercapture', clearDrag);
+    window.addEventListener('blur', clearDrag);
+    window.addEventListener('keydown', function (event) { if (event.key === 'Escape') clearDrag(); });
   }
   function switchTab(id, internal) {
     var tab = tabs.filter(function (item) { return item.id === id; })[0];
@@ -341,14 +533,17 @@
     views.style.setProperty('--compare-split', comparison.split + '%');
     var select = $('comparisonSelect');
     if (select) {
-      var options = other.map(function (tab) { return [tab.id, tabLabel(tab), tab.dirty, tabLocation(tab)]; });
+      var options = other.map(function (tab) {
+        var location = tabLocation(tab);
+        return [tab.id, tabLabel(tab, location), tab.dirty, location];
+      });
       var optionSignature = JSON.stringify(options);
       if (select.getAttribute('data-options') !== optionSignature) {
         select.textContent = '';
-        other.forEach(function (tab) {
-          var option = document.createElement('option'); option.value = String(tab.id);
-          option.textContent = (tab.dirty ? '• ' : '') + tabLabel(tab);
-          option.title = tabLocation(tab);
+        options.forEach(function ([id, label, dirty, location]) {
+          var option = document.createElement('option'); option.value = String(id);
+          option.textContent = (dirty ? '• ' : '') + label;
+          option.title = location;
           select.appendChild(option);
         });
         select.setAttribute('data-options', optionSignature);
@@ -745,6 +940,8 @@
     manualBaseUrl = state.baseUrl;
     state.editPreview = !!s.editPreview;
     state.sidebar = s.sidebar !== false;
+    state.verticalTabs = s.verticalTabs === true;
+    if (Number.isFinite(s.verticalTabWidth)) state.verticalTabWidth = clamp(s.verticalTabWidth, TAB_RAIL_MIN, TAB_RAIL_MAX);
     state.split = clamp(parseFloat(s.split) || 50, 15, 85);
     state.locale = I18n.setLocale(s.locale) ? s.locale : 'en';
   }
@@ -754,7 +951,8 @@
       localStorage.setItem(STORE, JSON.stringify({
         font: state.font, wrap: state.wrap, sync: state.sync, dirMode: state.dirMode,
         mode: focusSnapshot ? focusSnapshot.mode : state.mode, theme: state.theme, baseUrl: manualBaseUrl,
-        editPreview: state.editPreview, sidebar: state.sidebar, split: state.split,
+        editPreview: state.editPreview, sidebar: state.sidebar, verticalTabs: state.verticalTabs,
+        verticalTabWidth: state.verticalTabWidth, split: state.split,
         locale: I18n.getLocale()
       }));
       return true;
@@ -2059,15 +2257,13 @@
 
   /** The theme button doubles as an indicator: its glyph and tooltip name the active mode. */
   function updateThemeButton() {
-    var themeKey = state.theme === 'auto' ? 'system' : state.theme;
-    var label = t('theme.label') + ': ' + t('theme.' + themeKey);
-    el.btnTheme.innerHTML = Icons.svg(state.theme === 'auto' ? 'monitor' : (isDark() ? 'moon' : 'sun'), 16);
-    el.btnTheme.setAttribute('title', label);
-    el.btnTheme.setAttribute('aria-label', label);
+    var dark = isDark();
+    el.btnTheme.setAttribute('aria-checked', String(dark));
+    el.btnTheme.title = t(dark ? 'theme.switchLight' : 'theme.switchDark');
   }
 
-  function cycleTheme() {
-    setTheme(state.theme === 'auto' ? 'light' : (state.theme === 'light' ? 'dark' : 'auto'));
+  function toggleTheme() {
+    setTheme(isDark() ? 'light' : 'dark');
   }
 
   function setTheme(theme, preview) {
@@ -2139,7 +2335,7 @@
     el.btnBack.addEventListener('click', function () { goHistory(-1); });
     el.btnForward.addEventListener('click', function () { goHistory(1); });
     el.btnExport.addEventListener('click', exportHtml);
-    el.btnTheme.addEventListener('click', cycleTheme);
+    el.btnTheme.addEventListener('click', toggleTheme);
     el.btnEmptyOpen.addEventListener('click', pickOpen);
     el.btnEmptySample.addEventListener('click', function () {
       confirmDiscard().then(function (proceed) { if (proceed) loadSample(); });
@@ -2207,7 +2403,7 @@
     if (on === state.readingFocus || (on && !state.hasDocument)) return;
     var target = document.activeElement;
     if (on) {
-      if (target && target.closest && target.closest('.app-menu')) target = target.closest('.app-menu').querySelector('summary');
+      if (RV.Shell) target = RV.Shell.popupFocusTarget(target);
       focusSnapshot = { mode: state.mode, focus: target };
       if (RV.Shell) RV.Shell.close();
       $('readingOptions').open = false;
@@ -2220,7 +2416,7 @@
     document.body.setAttribute('data-reading-focus', on ? '1' : '0');
     applyMode(); updateChrome();
     if (on) el.previewScroll.focus({ preventScroll: true });
-    else if (target && target.isConnected) target.focus({ preventScroll: true });
+    else if (target && target.isConnected) (target.closest('[hidden]') ? $('brandMark') : target).focus({ preventScroll: true });
     requestAnimationFrame(function () { measureParts(); markActiveToc(); });
   }
   function setMode(mode) {
@@ -2233,10 +2429,16 @@
   }
 
   function wireModals() {
+    var helpFocus;
     var showHelp = function (show) {
       el.helpModal.hidden = !show;
-      if (show) el.btnHelpDone.focus();
-      else (el.btnHelp.getClientRects().length ? el.btnHelp : $('menuHelp').querySelector('summary')).focus();
+      if (show) {
+        helpFocus = document.activeElement;
+        if (RV.Shell) { helpFocus = RV.Shell.popupFocusTarget(helpFocus); RV.Shell.close(); }
+        el.btnHelpDone.focus();
+      } else {
+        (helpFocus && helpFocus.getClientRects().length ? helpFocus : $('brandMark')).focus();
+      }
     };
 
     el.btnHelp.addEventListener('click', function () { showHelp(true); });
@@ -2261,7 +2463,7 @@
     });
 
     document.addEventListener('keydown', function (e) {
-      var key = (e.key || '').toLowerCase();
+      var key = shortcutKey(e);
       if (el.confirmModal.hidden && el.helpModal.hidden && (e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
         e.preventDefault(); e.stopPropagation(); undoEdit(key === 'y' || e.shiftKey); return;
       }
@@ -2323,11 +2525,11 @@
 
     el.editor.addEventListener('keydown', function (e) {
       if (composing || e.isComposing || e.keyCode === 229) return;
-      var key = (e.key || '').toLowerCase();
+      var key = shortcutKey(e);
       if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
         e.preventDefault(); e.stopPropagation(); undoEdit(key === 'y' || e.shiftKey); return;
       }
-      if (e.key === 'Tab') {
+      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         indentSelection(e.shiftKey);
       }
@@ -2985,10 +3187,33 @@
     });
   }
 
+  function shortcutKey(event) {
+    var key = (event.key || '').toLowerCase();
+    // Keep Latin-layout shortcuts and use the physical letter for non-Latin layouts.
+    if (/^[a-z]$/.test(key) || !/^Key[A-Z]$/.test(event.code)) return key;
+    return event.code.slice(3).toLowerCase();
+  }
+
+  function cycleDocumentTabs(backward) {
+    if (tabs.length < 2 || !el.confirmModal.hidden || !el.helpModal.hidden ||
+        !$('appearancePanel').hidden || !$('serviceModal').hidden) return;
+    var bar = $('documentTabs'), focus = document.activeElement;
+    var fromEditor = focus === el.editor, fromTabs = bar.contains(focus);
+    var next = (tabs.indexOf(activeTab) + (backward ? -1 : 1) + tabs.length) % tabs.length;
+    if (!switchTab(tabs[next].id)) return;
+    if (fromEditor) el.editor.focus({ preventScroll: true });
+    else if (fromTabs) bar.querySelector('[aria-selected="true"]').focus({ preventScroll: true });
+  }
+
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
       if (!el.confirmModal.hidden || !el.helpModal.hidden) return;
       if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        cycleDocumentTabs(e.shiftKey);
+        return;
+      }
       if (e.key === 'F8' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault(); setReadingFocus(!state.readingFocus); return;
       }
@@ -3006,7 +3231,7 @@
       }
       var mod = e.ctrlKey || e.metaKey;
       if (!mod || e.altKey) return;
-      var key = (e.key || '').toLowerCase();
+      var key = shortcutKey(e);
       if (key === 's') { e.preventDefault(); save(e.shiftKey); return; }
       if (key === 'o') { e.preventDefault(); pickOpen(); return; }
       if (key === 'f' && e.shiftKey) { e.preventDefault(); openFind(); return; }
@@ -3227,7 +3452,7 @@
       'btnExport', 'btnTheme', 'btnWrap', 'btnSync', 'btnToc', 'btnEdit', 'btnFontUp',
       'btnFontDown', 'btnHelp', 'btnHelpClose', 'btnHelpDone', 'btnConfirmSave', 'btnBack', 'btnForward',
       'btnConfirmDiscard', 'btnConfirmCancel', 'btnEmptyOpen', 'btnEmptySample', 'fontValue',
-      'brandMark', 'findBar', 'findInput', 'findCount', 'findPrev', 'findNext', 'findClose',
+      'findBar', 'findInput', 'findCount', 'findPrev', 'findNext', 'findClose',
       'statusLink', 'recentList', 'btnReadingFocus', 'btnExitReadingFocus'];
     for (var i = 0; i < ids.length; i++) el[ids[i]] = $(ids[i]);
   }
@@ -3245,7 +3470,6 @@
     if (RV.Diagrams) RV.Diagrams.download = download;
     loadSettings();
     Icons.inject(document.body);
-    el.brandMark.innerHTML = Icons.svg('logo', 18);
 
     applyTheme();
     applyFont();
@@ -3279,8 +3503,16 @@
       el.panes.parentNode.insertBefore(tabbar, el.panes);
     }
     tabbar.setAttribute('role', 'tablist');
+    wireTabReordering(tabbar);
+    wireTabRailResizer();
+    function revealActiveTab() { scrollTabIntoView(tabbar); }
+    if (typeof ResizeObserver === 'function') new ResizeObserver(revealActiveTab).observe(tabbar);
+    else window.addEventListener('resize', revealActiveTab);
+    document.addEventListener('rv:fonts-layout', revealActiveTab);
     var newButton = $('btnNewTab');
     if (newButton) newButton.addEventListener('click', function () { newTab(); });
+    $('btnTabLayout').addEventListener('click', toggleTabLayout);
+    applyTabLayout();
     newTab();
     markGutterCursor();
     var sessionReady = RV.Reading ? RV.Reading.init(window.RVApp) : Promise.resolve();
@@ -3289,6 +3521,7 @@
       redo: function () { undoEdit(true); el.editor.focus(); },
       getTheme: function () { return state.theme; }, setTheme: setTheme,
       find: openFind, close: function () { closeTab(activeTab.id); },
+      verticalTabs: toggleTabLayout,
       canUndo: function () { return !!(activeTab && activeTab.undo.length); },
       canRedo: function () { return !!(activeTab && activeTab.redo.length); }
     });
@@ -3302,23 +3535,25 @@
       save: function () { return saveSettings() && RV.Reading.appearance(RV.Reading.appearance(), true); }
     });
     if (RV.Updates) RV.Updates.init(window.RVApp);
-    Promise.resolve(sessionReady).then(function () {
-      state.ready = true;
-      if (nativeAvailable()) return RV.Native.initialize({
+    var workspaceReady = Promise.resolve(sessionReady).then(function () { state.ready = true; });
+    workspaceReady.catch(reportOpen);
+    if (nativeAvailable()) {
+      RV.Native.initialize({
+        onTitlebar: applyTabLayout,
         openPath: function (path) {
-          return openNativePath(path, false, true).then(function (ok) {
+          return workspaceReady.then(function () { return openNativePath(path, false, true); }).then(function (ok) {
             if (ok) setMode('preview');
             return ok;
           });
         },
         confirmClose: function () {
-          return confirmAllDirty().then(function (ok) {
+          return workspaceReady.then(confirmAllDirty).then(function (ok) {
             return ok && RV.Reading ? RV.Reading.saveSession().then(function () { return true; }) : ok;
           });
         }, onError: reportOpen,
         onDrag: function (active) { document.body.classList.toggle('dragover', !!active); }
-      });
-    }).catch(function (err) { reportOpen(err); });
+      }).catch(reportOpen);
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

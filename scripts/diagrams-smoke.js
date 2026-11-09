@@ -54,8 +54,7 @@ const { chromium } = require('playwright');
     assert.equal(await expand.evaluate(node => node === document.activeElement), true);
     await page.evaluate(() => { window.RVApp.newTab('```mermaid\nflowchart LR\nX-->Y\n```', 'second.md'); window.RVApp.showComparison(); });
     await page.waitForFunction(() => document.querySelector('#comparisonPreview .diagram-figure img'));
-    await page.locator('#btnTheme').click();
-    await page.locator('#btnTheme').click();
+    if (await page.locator('#btnTheme').getAttribute('aria-checked') === 'false') await page.locator('#btnTheme').click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
     await page.evaluate(async () => { await window.RV.Diagrams.render(document.getElementById('preview')); await window.RV.Diagrams.render(document.getElementById('comparisonPreview')); });
     for (const width of [1440, 390, 320]) {

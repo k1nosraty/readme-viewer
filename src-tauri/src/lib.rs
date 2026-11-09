@@ -4,6 +4,8 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
 mod atomic_file;
+#[cfg(target_os = "windows")]
+mod windows_native;
 
 #[tauri::command]
 async fn write_document_atomic(
@@ -25,6 +27,9 @@ async fn write_document_atomic(
 
 #[derive(Default)]
 struct DroppedDirectories(Mutex<Vec<PathBuf>>);
+
+#[cfg(target_os = "windows")]
+struct PendingActivations(Mutex<Option<Vec<String>>>);
 
 fn document_paths(args: impl Iterator<Item = String>, cwd: &Path) -> Vec<String> {
     args.filter(|arg| !arg.starts_with('-'))
@@ -144,7 +149,13 @@ fn resolve_document_path(app: tauri::AppHandle, path: String) -> Result<String, 
 
 #[tauri::command]
 fn startup_paths(app: tauri::AppHandle) -> Vec<String> {
-    startup_paths_inner(app)
+    let mut paths = startup_paths_inner(&app);
+    paths.truncate(1);
+    #[cfg(target_os = "windows")]
+    if let Ok(mut pending) = app.state::<PendingActivations>().0.lock() {
+        paths.extend(pending.take().unwrap_or_default());
+    }
+    paths
 }
 
 fn is_document(path: &Path) -> bool {
@@ -181,12 +192,12 @@ fn open_linked_document(app: tauri::AppHandle, path: String) -> Result<String, S
     Ok(path.to_string_lossy().into_owned())
 }
 
-fn startup_paths_inner(app: tauri::AppHandle) -> Vec<String> {
+fn startup_paths_inner(app: &tauri::AppHandle) -> Vec<String> {
     #[cfg(desktop)]
     {
         let cwd = std::env::current_dir().unwrap_or_default();
         let paths = document_paths(std::env::args().skip(1), &cwd);
-        allow_documents(&app, &paths);
+        allow_documents(app, &paths);
         paths
     }
     #[cfg(mobile)]
@@ -288,13 +299,64 @@ fn restart_app(app: tauri::AppHandle) {
     let _ = app;
 }
 
+#[tauri::command]
+fn set_window_backdrop(window: tauri::WebviewWindow, dark: bool) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        windows_native::apply_backdrop(&window, dark)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (window, dark);
+        false
+    }
+}
+
+#[tauri::command]
+async fn installed_font_families() -> Result<Vec<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        tauri::async_runtime::spawn_blocking(|| {
+            windows_native::installed_font_families().map_err(|error| error.to_string())
+        })
+        .await
+        .map_err(|error| error.to_string())?
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(Vec::new())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
+    #[cfg(target_os = "windows")]
+    let builder = builder
+        .manage(PendingActivations(Mutex::new(Some(Vec::new()))))
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main" && payload.event() == tauri::webview::PageLoadEvent::Finished {
+                let window = webview.window();
+                std::thread::spawn(move || {
+                    // Recover from a failed frontend bridge after navigation, even on a slow launch.
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    if matches!(window.is_visible(), Ok(false)) {
+                        let _ = window.show();
+                    }
+                });
+            }
+        });
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
         let paths = document_paths(args.into_iter().skip(1), Path::new(&cwd));
         allow_documents(app, &paths);
+        #[cfg(target_os = "windows")]
+        if let Ok(mut pending) = app.state::<PendingActivations>().0.lock() {
+            if let Some(queue) = pending.as_mut() {
+                queue.extend(paths.into_iter().take(1));
+                return;
+            }
+        }
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.show();
             let _ = window.set_focus();
@@ -311,6 +373,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             update_platform,
             restart_app,
+            set_window_backdrop,
+            installed_font_families,
             write_document_atomic,
             startup_paths,
             authorize_document_directory,
