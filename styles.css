@@ -1636,7 +1636,7 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 [data-desktop-titlebar] body { --window-base: var(--bg-inset); background: var(--window-base); }
 [data-desktop-titlebar][data-window-glass] body {
   --window-base: color-mix(in srgb, var(--bg-inset) var(--titlebar-opacity, 70%), transparent);
-  --workspace-rail: color-mix(in srgb, var(--bg-subtle) 62%, transparent);
+  --workspace-rail: color-mix(in srgb, var(--bg-subtle) 88%, transparent);
 }
 :root:not([data-window-glass]) .titlebar-opacity { display: none; }
 [data-desktop-titlebar] .topbar {
@@ -1686,6 +1686,8 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   background: color-mix(in srgb, var(--bg-inset) 88%, var(--accent));
 }
 .titlebar-tabs .new-tab { margin: 0; }
+.titlebar-tabs .tab-overflow { flex: none; width: 26px; padding: 0; }
+.all-tabs-panel .menu-command { overflow-wrap: anywhere; }
 .titlebar-tabs :focus-visible { outline-offset: -2px; }
 .titlebar-drag { flex: 1 0 var(--titlebar-drag-min); align-self: stretch; user-select: none; }
 .caption-buttons { display: flex; flex: none; align-self: stretch; }

@@ -125,6 +125,7 @@
     return name + ' — ' + (path.length > 1 ? path[path.length - 2] : '#' + (tabs.indexOf(tab) + 1));
   }
   function scrollTabIntoView(bar, id) {
+    if (RV.Shell) RV.Shell.fitTabs(bar);
     var tab = bar.querySelector(id ? '[data-tab-id="' + id + '"]' : '.document-tab.is-active');
     if (!tab) return;
     if (bar.parentElement.id !== 'titlebarTabs') {
@@ -145,7 +146,7 @@
     var destination = state.verticalTabs ? side : inTitlebar ? titlebar : reading.parentNode;
     var focus = document.activeElement;
     if (bar.parentNode !== destination) {
-      var before = destination === reading.parentNode ? reading : null;
+      var before = inTitlebar ? $('btnAllTabs') : destination === reading.parentNode ? reading : null;
       destination.insertBefore(bar, before);
       destination.insertBefore(add, state.verticalTabs ? bar : before);
     }

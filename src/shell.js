@@ -3,6 +3,7 @@
   'use strict';
   var RV = window.RV = window.RV || {}, actions = null, openSub = null;
   var menuButton, nav, toolbar, tocButton, overflowButton, overflowPanel, toolbarGroups, rankedGroups;
+  var allTabsButton, allTabsPanel;
   var toolbarPrefs = { show: true, hidden: [] };
   var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'direction', 'font', 'appearance', 'theme', 'wrap', 'sync', 'export', 'help'];
   function hideSub(focus) {
@@ -47,9 +48,35 @@
     setPopup(overflowButton, overflowPanel, false);
     if (focus) overflowButton.focus();
   }
+  function closeAllTabs(focus) {
+    if (allTabsPanel.hidden) return;
+    setPopup(allTabsButton, allTabsPanel, false);
+    if (focus) allTabsButton.focus();
+  }
+  function fitTabs(bar) {
+    if (!allTabsButton) return;
+    var inTitlebar = bar.parentElement.id === 'titlebarTabs' && bar.clientWidth > 0;
+    var reclaimed = 0;
+    if (inTitlebar && !allTabsButton.hidden) {
+      var gap = parseFloat(getComputedStyle(bar.parentElement).columnGap) || 0;
+      reclaimed = allTabsButton.offsetWidth + gap;
+    }
+    var show = inTitlebar && bar.scrollWidth > bar.clientWidth + reclaimed + 1;
+    if (allTabsButton.hidden === !show) return;
+    if (!show) {
+      var focus = document.activeElement;
+      closeAllTabs();
+      if (focus === allTabsButton || allTabsPanel.contains(focus)) {
+        var active = bar.querySelector('[aria-selected="true"]');
+        if (active) active.focus({ preventScroll: true });
+      }
+    }
+    allTabsButton.hidden = !show;
+  }
   function popupFocusTarget(node) {
     if (nav.contains(node)) return menuButton;
     if (overflowPanel.contains(node)) return overflowButton;
+    if (allTabsPanel.contains(node)) return allTabsButton;
     return node;
   }
   function layoutToolbar() {
@@ -162,7 +189,7 @@
     setPopup(menuButton, nav, false);
     if (focus) menuButton.focus();
   }
-  function close() { closeAppMenu(); closeOverflow(); }
+  function close() { closeAppMenu(); closeOverflow(); closeAllTabs(); }
   function refresh() {
     if (!actions) return;
     document.querySelectorAll('[data-command]').forEach(function (button) {
@@ -187,6 +214,29 @@
     actions = callbacks;
     menuButton = document.getElementById('brandMark');
     nav = document.getElementById('appMenuPanel');
+    allTabsButton = document.getElementById('btnAllTabs');
+    allTabsPanel = document.getElementById('allTabsPanel');
+    allTabsButton.addEventListener('click', function () {
+      if (!allTabsPanel.hidden) { closeAllTabs(true); return; }
+      close();
+      allTabsPanel.replaceChildren();
+      document.querySelectorAll('#titlebarTabs [role="tab"]').forEach(function (tab) {
+        var choice = document.createElement('button');
+        choice.type = 'button';
+        choice.className = 'menu-command';
+        choice.textContent = tab.textContent;
+        choice.title = tab.title;
+        choice.setAttribute('aria-pressed', tab.getAttribute('aria-selected'));
+        choice.addEventListener('click', function () {
+          closeAllTabs(true);
+          tab.click();
+        });
+        allTabsPanel.appendChild(choice);
+      });
+      setPopup(allTabsButton, allTabsPanel, true);
+      var selected = allTabsPanel.querySelector('[aria-pressed="true"]');
+      if (selected) selected.focus();
+    });
     initToolbar();
     document.getElementById('btnToolbarUndo').addEventListener('click', actions.undo);
     function openAppMenu(focus) {
@@ -296,12 +346,15 @@
     function closeOutside(event) {
       if (!nav.hidden && !nav.contains(event.target) && !menuButton.contains(event.target)) closeAppMenu();
       if (!overflowPanel.contains(event.target) && !overflowButton.contains(event.target)) closeOverflow();
+      if (!allTabsPanel.contains(event.target) && !allTabsButton.contains(event.target)) closeAllTabs();
     }
     document.addEventListener('pointerdown', closeOutside);
     document.addEventListener('focusin', closeOutside);
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' && openSub) {
         event.preventDefault(); hideSub(true);
+      } else if (event.key === 'Escape' && !allTabsPanel.hidden) {
+        event.preventDefault(); closeAllTabs(true);
       } else if (event.key === 'Escape' && (!nav.hidden || !overflowPanel.hidden)) {
         event.preventDefault(); event.stopPropagation();
         if (!nav.hidden) closeAppMenu(true); else closeOverflow(true);
@@ -317,5 +370,5 @@
     });
     refresh();
   }
-  RV.Shell = { close: close, init: init, refresh: refresh, popupFocusTarget: popupFocusTarget };
+  RV.Shell = { close: close, init: init, refresh: refresh, popupFocusTarget: popupFocusTarget, fitTabs: fitTabs };
 }());

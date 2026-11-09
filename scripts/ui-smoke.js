@@ -186,6 +186,7 @@ async function assertTabsCentered(page, state) {
       assert.equal(await page.locator('#btnOpen').evaluate(button => button.closest('#toolbar') !== null),
         true, 'file tools stay out of the tab strip');
       assert.equal(await page.locator('#btnFocus').isVisible(), true, 'Focus remains visible at ' + width);
+      assert.equal(await page.locator('#btnAllTabs').isVisible(), false, 'the tab list stays hidden when both tabs fit');
     }
     for (const theme of ['light', 'dark']) {
       await page.evaluate(theme => document.querySelector('[data-theme-choice="' + theme + '"]').click(), theme);
@@ -224,6 +225,16 @@ async function assertTabsCentered(page, state) {
       const r = rail.getBoundingClientRect();
       return rail.scrollLeft > 0 && r.left > toggle.getBoundingClientRect().right && r.right < add.getBoundingClientRect().left;
     }), true, 'scrolled tabs stay clear of the title-bar controls');
+    const allTabs = page.getByRole('button', { name: 'All tabs', exact: true });
+    await allTabs.click();
+    const allTabsPanel = page.locator('#allTabsPanel');
+    await page.keyboard.press('Escape');
+    assert.equal(await allTabsPanel.isVisible(), false);
+    assert.equal(await allTabs.evaluate(button => button === document.activeElement), true);
+    await allTabs.click();
+    await allTabsPanel.getByRole('button', { name: 'a-document-name-that-needs-truncating.md', exact: true }).click();
+    assert.equal(await allTabsPanel.isVisible(), false);
+    assert.equal(await page.locator('#titlebarTabs [aria-selected="true"]').textContent(), 'a-document-name-that-needs-truncating.md');
     await page.locator('#brandMark').click();
     await page.locator('#menuView > summary').click();
     await page.locator('#btnAppearance').click();
@@ -250,6 +261,7 @@ async function assertTabsCentered(page, state) {
     await page.keyboard.press('Escape');
     assert.equal(await more.evaluate(node => node === document.activeElement), true);
     await page.setViewportSize({ width: 1600, height: 720 });
+    await allTabs.waitFor({ state: 'hidden' });
     await page.locator('#toolbar > .display-tools #btnWrap').waitFor();
     assert.notEqual(await page.locator('#btnWrap').getAttribute('aria-pressed'), beforeWrap);
 
@@ -266,7 +278,7 @@ async function assertTabsCentered(page, state) {
       return getComputedStyle(layout).borderRadius === '10px' &&
         [...panels].every(panel => {
           const style = getComputedStyle(panel);
-          return style.borderRadius === '0px' && style.backgroundColor.includes('/ 0.62');
+          return style.borderRadius === '0px' && style.backgroundColor.includes('/ 0.88');
         });
     }), true, 'the workspace has one rounded frame and straight tinted side panels');
     const focus = page.getByRole('button', { name: 'Focus', exact: true });

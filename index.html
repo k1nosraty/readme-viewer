@@ -113,7 +113,10 @@
     <div class="brand" hidden="">
       <span class="brand-text"><span class="brand-name" id="fileName" title="">README Viewer</span><span class="brand-sub" id="fileState" data-state="empty"></span></span>
     </div>
-    <div class="titlebar-tabs" id="titlebarTabs" hidden></div>
+    <div class="titlebar-tabs" id="titlebarTabs" hidden>
+      <button type="button" class="btn btn-icon tab-overflow" id="btnAllTabs" aria-controls="allTabsPanel" aria-expanded="false" data-i18n-aria="tabs.all" data-i18n-title="tabs.all" aria-label="All tabs" hidden><i data-icon="chevronDown" data-size="16"></i></button>
+    </div>
+    <div class="menu-panel all-tabs-panel" id="allTabsPanel" role="group" data-i18n-aria="tabs.all" aria-label="All tabs" hidden></div>
     <div class="titlebar-drag" id="titlebarDrag" data-tauri-drag-region hidden></div>
     <div class="caption-buttons" id="captionButtons" hidden>
       <button type="button" id="btnWindowMinimize" data-i18n-aria="window.minimize" data-i18n-title="window.minimize" aria-label="Minimize"><i data-icon="minus" data-size="15"></i></button>
