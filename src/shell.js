@@ -3,7 +3,7 @@
   'use strict';
   var RV = window.RV = window.RV || {}, actions = null, openSub = null;
   var menuButton, nav, toolbar, tocButton, overflowButton, overflowPanel, toolbarGroups, rankedGroups;
-  var allTabsButton, allTabsPanel;
+  var allTabsButton, allTabsPanel, menuCategories;
   var toolbarPrefs = { show: true, hidden: [] };
   var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'direction', 'font', 'appearance', 'theme', 'wrap', 'sync', 'export', 'help'];
   function hideSub(focus) {
@@ -177,15 +177,16 @@
     });
     if (document.fonts) document.fonts.addEventListener('loadingdone', scheduleToolbarLayout);
   }
-  function menus() { return Array.prototype.slice.call(document.querySelectorAll('.app-menu')); }
-  function closeMenus(except) {
+  function selectMenu(category) {
     hideSub();
-    menus().forEach(function (menu) {
-      if (menu !== except) menu.open = false;
+    menuCategories.forEach(function (button) {
+      var selected = button === category;
+      button.setAttribute('aria-pressed', String(selected));
+      document.getElementById(button.getAttribute('aria-controls')).hidden = !selected;
     });
   }
   function closeAppMenu(focus) {
-    closeMenus();
+    selectMenu();
     setPopup(menuButton, nav, false);
     if (focus) menuButton.focus();
   }
@@ -214,6 +215,7 @@
     actions = callbacks;
     menuButton = document.getElementById('brandMark');
     nav = document.getElementById('appMenuPanel');
+    menuCategories = Array.from(nav.querySelectorAll('.app-menu-categories button'));
     allTabsButton = document.getElementById('btnAllTabs');
     allTabsPanel = document.getElementById('allTabsPanel');
     allTabsButton.addEventListener('click', function () {
@@ -242,8 +244,9 @@
     function openAppMenu(focus) {
       closeOverflow();
       refresh();
+      selectMenu(menuCategories[0]);
       setPopup(menuButton, nav, true);
-      if (focus) nav.querySelector('summary').focus();
+      if (focus) menuCategories[0].focus();
     }
     menuButton.addEventListener('click', function (event) {
       if (nav.hidden) openAppMenu(event.detail === 0);
@@ -259,23 +262,16 @@
       setPopup(overflowButton, overflowPanel, true);
       if (!event.detail) overflowPanel.querySelector('button:not([hidden]):not(:disabled)')?.focus();
     });
-    menus().forEach(function (menu) {
-      var summary = menu.querySelector('summary');
-      summary.addEventListener('click', function () { closeMenus(menu); refresh(); });
-      menu.addEventListener('toggle', function () {
-        summary.setAttribute('aria-expanded', menu.open ? 'true' : 'false');
-      });
-      summary.setAttribute('aria-expanded', 'false');
-    });
-    nav.addEventListener('scroll', function () {
-      if (!openSub) return;
-      var anchor = openSub.getBoundingClientRect(), bounds = nav.getBoundingClientRect();
+    nav.addEventListener('scroll', function (event) {
+      if (!openSub || event.target !== openSub.closest('.app-menu')) return;
+      var anchor = openSub.getBoundingClientRect(), bounds = event.target.getBoundingClientRect();
       if (anchor.bottom <= bounds.top || anchor.top >= bounds.bottom) hideSub();
       else placeSub(openSub, document.getElementById(openSub.getAttribute('data-submenu')));
-    });
+    }, true);
     nav.addEventListener('click', function (event) {
       var button = event.target.closest('button');
       if (!button || button.disabled) return;
+      if (menuCategories.includes(button)) { selectMenu(button); return; }
       if (button.hasAttribute('data-submenu')) {
         if (openSub === button) hideSub(); else showSub(button, false);
         return;
@@ -322,21 +318,21 @@
         }
         return;
       }
-      var menu = event.target.closest('.app-menu');
-      if (!menu || !/^(BUTTON|SUMMARY)$/.test(event.target.tagName)) return;
+      var category = event.target.closest('.app-menu-categories button');
+      var menu = event.target.closest('.app-menu') || (category && document.getElementById(category.getAttribute('aria-controls')));
+      if (!menu || event.target.tagName !== 'BUTTON') return;
       var keys = ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
       if (keys.indexOf(event.key) < 0) return;
-      var summary = menu.querySelector('summary');
-      if (event.target.tagName === 'SUMMARY' && event.target !== summary) return;
       event.preventDefault();
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        var all = menus(), index = all.indexOf(menu);
-        var step = (event.key === 'ArrowRight' ? 1 : -1) * (document.documentElement.dir === 'rtl' ? -1 : 1);
-        var next = all[(index + step + all.length) % all.length], wasOpen = menu.open;
-        closeMenus(next); next.open = wasOpen; next.querySelector('summary').focus();
+        var currentCategory = category || nav.querySelector('.app-menu-categories [aria-pressed="true"]');
+        var index = menuCategories.indexOf(currentCategory);
+        var step = (event.key === 'ArrowRight' ? 1 : -1) * (rtl ? -1 : 1);
+        var next = menuCategories[(index + step + menuCategories.length) % menuCategories.length];
+        selectMenu(next); next.focus();
         return;
       }
-      closeMenus(menu); menu.open = true; refresh();
+      if (category) selectMenu(category);
       var buttons = items(menu), current = buttons.indexOf(event.target), target;
       if (event.key === 'Home') target = 0;
       else if (event.key === 'End' || (current < 0 && event.key === 'ArrowUp')) target = buttons.length - 1;

@@ -21,7 +21,7 @@ test('reading focus restores layout and preferences, and navigation can leave it
   const source = api.el.editor.value;
   const key = value => document.dispatchEvent(new window.KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true }));
   document.getElementById('brandMark').click();
-  document.querySelector('#menuView > summary').focus();
+  document.querySelector('.app-menu-categories [aria-controls="menuView"]').focus();
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'F8', isComposing: true, bubbles: true }));
   assert.equal(api.state.readingFocus, false, 'IME conversion keys keep their native behavior');
   key('F8');

@@ -3208,6 +3208,15 @@
     else if (fromTabs) bar.querySelector('[aria-selected="true"]').focus({ preventScroll: true });
   }
 
+  function focusContentsFilter() {
+    if (state.readingFocus) setReadingFocus(false);
+    if (window.innerWidth <= 900) mobileSidebar = true;
+    else state.sidebar = true;
+    applySidebar(); updateChrome(); saveSettings();
+    el.tocFilter.focus();
+    el.tocFilter.select();
+  }
+
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
       if (!el.confirmModal.hidden || !el.helpModal.hidden) return;
@@ -3242,15 +3251,7 @@
       if (key === '1') { e.preventDefault(); setMode('write'); return; }
       if (key === '2') { e.preventDefault(); setMode('split'); return; }
       if (key === '3') { e.preventDefault(); setMode('preview'); return; }
-      if (key === 'f') {
-        e.preventDefault();
-        if (state.readingFocus) setReadingFocus(false);
-        if (window.innerWidth <= 900) mobileSidebar = true;
-        else state.sidebar = true;
-        applySidebar(); updateChrome(); saveSettings();
-        el.tocFilter.focus();
-        el.tocFilter.select();
-      }
+      if (key === 'f') { e.preventDefault(); focusContentsFilter(); }
     });
   }
 
@@ -3523,7 +3524,7 @@
       undo: function () { undoEdit(false); el.editor.focus(); },
       redo: function () { undoEdit(true); el.editor.focus(); },
       getTheme: function () { return state.theme; }, setTheme: setTheme,
-      find: openFind, close: function () { closeTab(activeTab.id); },
+      find: openFind, filterContents: focusContentsFilter, close: function () { closeTab(activeTab.id); },
       verticalTabs: toggleTabLayout,
       canUndo: function () { return !!(activeTab && activeTab.undo.length); },
       canRedo: function () { return !!(activeTab && activeTab.redo.length); }

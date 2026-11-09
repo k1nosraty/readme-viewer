@@ -27,7 +27,7 @@
     collapseAll: '<path d="M5 3h14M5 21h14M12 4v5m-3-3 3 3 3-3M12 20v-5m-3 3 3-3 3 3"/>',
     bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/>',
     chevronDown: '<path d="m6 9 6 6 6-6"/>',
-    logo: '<path d="M3 5h18v14H3z"/><path d="M7 15.5V9l3 3 3-3v6.5"/><path d="M17 9v4.5"/><path d="m15.2 12.2 1.8 2 1.8-2"/>',
+    logo: '<path d="M3 5h5.5q2.2 0 3.5 1.8Q13.3 5 15.5 5H21v13h-5.5q-2.2 0-3.5 1.8Q10.7 18 8.5 18H3z" stroke-width="1.5"/><path d="M6 9.5h3m-3 3h2.5m6.5-3h3m-2.5 3H18" stroke-width="1.2"/><path d="M12 8.5v8.5" stroke="var(--accent)" stroke-width="1.4"/>',
     open: '<path d="M3 7a2 2 0 0 1 2-2h3.6a2 2 0 0 1 1.6.8l.9 1.2a2 2 0 0 0 1.6.8H19a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
     saveAs: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 12v6"/><path d="M9 15h6"/>',

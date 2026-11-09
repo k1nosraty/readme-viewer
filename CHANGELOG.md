@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 1.6.0 — 2026-11-09
+
+- Share the desktop title bar and workspace styling between Windows and Linux. Add adjustable title-bar opacity where transparency is available and installed-font suggestions in Appearance.
+- Add resizable vertical tabs, drag and keyboard reordering, Ctrl+Tab navigation, and an All tabs list when the horizontal title bar runs out of room.
+- Keep File, Edit, View and Help visible while commands scroll. Group file settings, surface Appearance earlier in View, and give document search and the Contents filter distinct commands.
+- Put Focus directly on the toolbar and keep Contents visible on narrow windows. Make Save work on non-English keyboard layouts.
+- Consolidate native startup scripts and show the desktop window before draft restoration finishes. Avoid copying the compared document on unrelated UI updates and batch native window-state reads during resizing.
+- Retry transient Gradle downloads and AppImage bundling without repeating the Linux compilation.
+
 ## 1.5.1 — 2026-11-02
 
 - Fix native compilation of updater configuration by declaring the existing `serde_json` crate as a direct dependency for `tauri::generate_context!`.

@@ -1162,7 +1162,7 @@ mark.rv-find.current { background: #ff9632; }
 .document-tab-close:hover { background: var(--bg-active); color: var(--fg); }
 .new-tab { align-self: center; flex-shrink: 0; margin-inline-end: auto; }
 .new-tab .ic { stroke-width: 2; }
-.brand-mark { width: 26px; height: 26px; background: transparent; color: var(--accent); border-radius: 0; }
+.brand-mark { width: 26px; height: 26px; background: transparent; color: var(--fg); border-radius: 0; }
 .brand-name { font-weight: 600; }
 .statusbar { font-variant-numeric: tabular-nums; }
 .editor { caret-color: var(--accent); }
@@ -1255,21 +1255,22 @@ mark.rv-find.current { background: #ff9632; }
 body { grid-template-columns: minmax(0, 1fr); }
 .tools-island { display: contents; }
 .menu-line { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 32px; padding: 0 12px; }
-.menu-line > .brand-mark { width: 32px; height: 32px; border-radius: var(--r-md); }
+.menu-line > .brand-mark { width: 36px; height: 32px; gap: 2px; border-radius: var(--r-md); }
+.brand-chevron { color: var(--fg-muted); }
+.brand-mark[aria-expanded="true"] .brand-chevron { transform: rotate(180deg); }
 .brand-mark:is(:hover, [aria-expanded="true"]) { background: var(--bg-hover); }
 .menu-line > .tab-layout-toggle { flex: none; width: 30px; min-height: 30px; }
 .brand { display: flex; flex: 0 1 auto; min-width: 0; max-width: 40%; margin-inline-start: auto; }
 .brand-text { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .brand-name { font-size: 12px; font-weight: 500; }
 .brand-sub { font-size: 11px; }
-.app-menu > summary { display: flex; align-items: center; justify-content: space-between; min-height: 34px; padding: 4px 10px; border-radius: var(--r-sm); list-style: none; cursor: pointer; font-size: 13px; font-weight: 600; user-select: none; }
-.app-menu > summary::-webkit-details-marker { display: none; }
-.app-menu > summary:hover, .app-menu[open] > summary { background: var(--bg-hover); }
-.app-menu > summary::after { content: ''; width: 6px; height: 6px; border-inline-end: 1px solid; border-block-end: 1px solid; transform: rotate(45deg); color: var(--fg-muted); }
-.app-menu[open] > summary::after { transform: rotate(225deg); }
-[dir="rtl"] .app-menu > summary::after { transform: rotate(-45deg); }
-[dir="rtl"] .app-menu[open] > summary::after { transform: rotate(135deg); }
 .menu-panel { position: fixed; z-index: 42; width: min(296px, calc(100vw - 16px)); max-height: calc(100dvh - 48px); overflow: auto; padding: 5px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); box-shadow: var(--shadow-lg); }
+.app-menubar:not([hidden]) { display: flex; flex-direction: column; overflow: visible; }
+.app-menu-categories { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding-block-end: 5px; border-block-end: 1px solid var(--border-muted); }
+.app-menu-categories .btn { padding-inline: 3px; font-size: 12px; }
+.app-menu-categories .btn[aria-pressed="true"] { border-color: transparent; }
+.app-menu { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.app-menu :focus-visible { outline-offset: -2px; }
 .menu-commands { padding: 3px 0 5px; }
 .menu-command { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 32px; padding: 6px 10px; border: 0; border-radius: 3px; background: transparent; color: var(--fg); text-align: start; font-size: 13px; cursor: pointer; }
 .menu-command:hover, .menu-command:focus-visible { background: var(--bg-hover); }
@@ -1277,13 +1278,12 @@ body { grid-template-columns: minmax(0, 1fr); }
 .menu-command:disabled { opacity: .45; cursor: default; }
 .menu-command kbd { flex-shrink: 0; background: transparent; border: 0; color: var(--fg-muted); font: 11px var(--sans); direction: ltr; }
 .menu-panel hr { margin: 5px 6px; border: 0; border-top: 1px solid var(--border-muted); }
-.menu-settings, .advanced-settings { margin: 5px 6px; padding: 5px 4px; border-top: 1px solid var(--border-muted); font-size: 12px; }
-.menu-settings > summary, .advanced-settings > summary { padding-block: 5px; cursor: pointer; }
-.menu-settings .reading-check { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.menu-settings p { margin: 8px 0; color: var(--fg-muted); line-height: 1.6; font-size: 12px; }
-.menu-settings .btn { justify-content: flex-start; font-size: 12px; }
-.advanced-settings label { display: block; margin-block: 8px 4px; color: var(--fg-muted); }
-.advanced-settings input { width: 100%; min-height: 32px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
+.submenu-panel.file-settings { padding: 10px; font-size: 12px; }
+.file-settings .reading-check { display: flex; align-items: center; gap: 8px; }
+.file-settings p, .file-settings label[for] { color: var(--fg-muted); line-height: 1.6; }
+.file-settings label[for] { display: block; margin-block: 6px 4px; }
+.file-settings input[type="text"] { width: 100%; min-height: 32px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
+.menu-group-label { padding: 5px 10px 0; color: var(--fg-muted); font-size: 11px; }
 .menu-directions { display: flex; gap: 4px; margin: 4px 6px; }
 .menu-directions .seg { flex: 1; font-size: 12px; }
 .toolbar > .tgroup { flex: none; padding-inline-start: 4px; border-inline-start: 1px solid var(--border-muted); }
@@ -1341,7 +1341,7 @@ body { grid-template-columns: minmax(0, 1fr); }
   .brand { max-width: 32%; }
   .brand-text { display: flex; }
   .brand-name { font-size: 11px; }
-  .app-menu > summary { min-height: 44px; }
+  .app-menu-categories .btn { min-height: 44px; }
   .menu-command { min-height: 44px; }
   .toolbar { gap: 4px; padding: 4px 8px; }
   .toolbar > .tgroup { gap: 1px; padding: 0; }
@@ -1780,7 +1780,8 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 }
 @media (max-width: 520px) and (pointer: fine) {
   [data-desktop-titlebar] .menu-line { gap: 3px; }
-  [data-desktop-titlebar] .menu-line > :is(.brand-mark, .tab-layout-toggle) { width: 28px; }
+  [data-desktop-titlebar] .menu-line > .brand-mark { width: 34px; }
+  [data-desktop-titlebar] .menu-line > .tab-layout-toggle { width: 28px; }
   [data-desktop-titlebar] .titlebar-tabs { gap: 4px; margin-left: 3px; }
   [data-desktop-titlebar] .titlebar-tabs .document-tab { min-width: 60px; padding-inline: 5px; }
   [data-desktop-titlebar] .titlebar-tabs .document-tab-close { width: 20px; min-width: 20px; }

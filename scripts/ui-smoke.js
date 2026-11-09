@@ -69,7 +69,7 @@ async function assertTabsCentered(page, state) {
         })), true, 'mode labels do not overlap: ' + state);
         for (const id of ['menuFile', 'menuEdit', 'menuView', 'menuHelp']) {
           await page.locator('#brandMark').click();
-          await page.locator('#' + id + ' > summary').click();
+          await page.locator('.app-menu-categories [aria-controls="' + id + '"]').click();
           assert.equal(await page.locator('#' + id + ' > .menu-commands').evaluate(commands => {
             const r = commands.closest('.app-menubar').getBoundingClientRect();
             const button = commands.querySelector('button:not(:disabled)'), b = button.getBoundingClientRect();
@@ -100,7 +100,7 @@ async function assertTabsCentered(page, state) {
     assert.equal(await page.locator('#tocFilter').evaluate(node => node === document.activeElement), true);
     await page.keyboard.press('Escape');
     await page.locator('#brandMark').click();
-    await page.locator('#menuHelp > summary').click();
+    await page.locator('.app-menu-categories [aria-controls="menuHelp"]').click();
     await page.locator('#menuHelp [data-command="btnHelp"]').click();
     const mode = await page.evaluate(() => RVApp.state.mode);
     await page.keyboard.press('Control+1');
@@ -110,7 +110,7 @@ async function assertTabsCentered(page, state) {
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#brandMark').evaluate(node => node === document.activeElement), true);
     await page.locator('#brandMark').click();
-    await page.locator('#menuView > summary').click(); await page.locator('#btnAppearance').click();
+    await page.locator('.app-menu-categories [aria-controls="menuView"]').click(); await page.locator('#btnAppearance').click();
     assert.equal(await page.locator('#appearancePanel').evaluate(panel => {
       const r = panel.getBoundingClientRect();
       return r.left > 0 && r.top > 0 && r.right < innerWidth && r.bottom < innerHeight &&
@@ -236,7 +236,7 @@ async function assertTabsCentered(page, state) {
     assert.equal(await allTabsPanel.isVisible(), false);
     assert.equal(await page.locator('#titlebarTabs [aria-selected="true"]').textContent(), 'a-document-name-that-needs-truncating.md');
     await page.locator('#brandMark').click();
-    await page.locator('#menuView > summary').click();
+    await page.locator('.app-menu-categories [aria-controls="menuView"]').click();
     await page.locator('#btnAppearance').click();
     const opacity = page.locator('#appearanceOpacity');
     await opacity.press('Home');

@@ -5,22 +5,20 @@ scrolling, and **interactive task lists**: with *Edit in preview* turned on, you
 in the rendered document and the Markdown source is updated — one `[ ]` → `[x]` at a time, with
 every other byte of the file left exactly as it was.
 
-Version 1.5.1 adds signed desktop updates, stronger opt-in draft recovery, distraction-free reading
-and an About dialog. It improves rendering speed, save safety and compact-screen usability while
-preserving full offline Mermaid, mathematical labels and selectable fonts on Windows, Linux and
-Android Preview.
+Version 1.6.0 brings the same desktop workspace to Windows and Linux, with adjustable title-bar
+transparency, vertical tabs, easier-to-find menus and direct access to reading focus.
 Open and Save use native file dialogs and direct file access in the app window. The portable
 browser application remains supported and needs no build step. Remote document images and
 external links can still use the network.
 
-## Native application (1.5.1)
+## Native application (1.6.0)
 
-Native 1.5.1 includes independent document tabs, a resizable second reading pane, link context menus,
+Native 1.6.0 includes independent document tabs, a resizable second reading pane, link context menus,
 bookmarks, section folding, a collapsible outline and optional session restoration. File / Edit /
 View / Help menus complement a customizable toolbar. View > Appearance offers accent presets,
 custom colors, warm/cool surfaces, interface density and live reading preferences.
 The release workflow runs all platform checks before publishing the installers and APK in
-[GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/tag/v1.5.1).
+[GitHub Releases](https://github.com/k1nosraty/readme-viewer/releases/tag/v1.6.0).
 Earlier downloads remain available.
 
 | Platform | Native package and requirements |
@@ -29,12 +27,12 @@ Earlier downloads remain available.
 | Linux | `.deb` for Ubuntu/Debian with WebKitGTK 4.1, or `.AppImage` for compatible Linux systems. Both open an application window. |
 | Android | Tauri Preview debug APK for ARM64/x86_64; Android 8.0+ and an updated Android System WebView. Development-signed, distributed outside Play Store. |
 
-Install from the 1.5.1 release: run the per-user installer on Windows; install the .deb with your
+Install from the 1.6.0 release: run the per-user installer on Windows; install the .deb with your
 software manager or make the .AppImage executable and open it on Linux; on Android, install the
 APK matching your device and allow your downloader to install apps when prompted. Every installer
 and APK has a SHA-256 checksum beside it.
 
-The 1.5.1 builds keep the full offline Mermaid bundle, optimize the native Release binary and
+The 1.6.0 builds keep the full offline Mermaid bundle, optimize the native Release binary and
 distribute Android Preview APKs separately for ARM64 and X86_64. CI measures actual installer
 sizes against [explicit budgets](docs/size-and-ui-audit.md); frontend size is reported separately.
 
@@ -78,7 +76,7 @@ available. Other browsers download an updated copy; replace the original with it
 
 ## Features
 
-Mermaid diagrams, fonts and the updated sample document are included in the v1.5.1 installers.
+Mermaid diagrams, fonts and the updated sample document are included in the v1.6.0 installers.
 
 - **GitHub-accurate rendering** — headings, tables, task lists, fenced code with syntax
   highlighting, block quotes, images, strikethrough, footnotes-free GFM, hover heading anchors.
@@ -103,7 +101,7 @@ Mermaid diagrams, fonts and the updated sample document are included in the v1.5
   for OS-confirmed installation. See [release setup](docs/updates.md).
 - **Unsaved-changes protection** — a dirty document is never replaced silently, and closing the tab
   warns.
-- **Opt-in recovery for large drafts** — File → Session → Restore open documents keeps transactional
+- **Opt-in recovery for large drafts** — File → File settings → Restore open documents keeps transactional
   recovery copies on this device, including unsaved edits. Failed updates preserve the previous
   copy; recovered documents ask where to save.
 - **Distraction-free reading** — Click Focus or press `F8` to hide the application

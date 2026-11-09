@@ -139,7 +139,7 @@ const { chromium } = require('playwright');
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       for (const panelId of ['themeMenu', 'toolbarMenu']) {
         await page.locator('#brandMark').click();
-        await page.locator('#menuView > summary').click();
+        await page.locator('.app-menu-categories [aria-controls="menuView"]').click();
         await page.locator('[data-submenu="' + panelId + '"]').click();
         assert.ok(await page.locator('#' + panelId).evaluate(panel => {
           const rect = panel.getBoundingClientRect();
@@ -186,7 +186,7 @@ const { chromium } = require('playwright');
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 900 });
       await page.locator('#brandMark').click();
-      await page.locator('#menuView > summary').click();
+      await page.locator('.app-menu-categories [aria-controls="menuView"]').click();
       await page.locator('#btnAppearance').click();
       await page.locator('#appearanceSurface').selectOption('warm');
       await page.locator('#accentHex').fill('#c93671');
@@ -204,7 +204,7 @@ const { chromium } = require('playwright');
     assert.equal(await page.locator('#toolbar > #btnToc').isVisible(), true, 'Contents stays visible on narrow screens');
     await page.locator('#btnToc').click();
     await page.locator('#brandMark').click();
-    await page.locator('#menuFile > summary').click();
+    await page.locator('.app-menu-categories [aria-controls="menuFile"]').click();
     assert.ok(await page.evaluate(() => { const button = document.querySelector('#menuFile [data-command="btnExport"]'); const rect = button.getBoundingClientRect(); return button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); }), 'mobile sidebar must never cover the toolbar');
     const downloading = page.waitForEvent('download');
     await page.locator('#menuFile [data-command="btnExport"]').click();

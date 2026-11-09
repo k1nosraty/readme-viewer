@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="application-version" content="1.5.1">
+<meta name="application-version" content="1.6.0">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="A local, offline Markdown and README viewer with live preview and interactive task lists.">
 <title>README Viewer</title>
@@ -17,13 +17,19 @@
 
 <header class="topbar">
   <div class="menu-line">
-    <button type="button" class="btn btn-icon brand-mark" id="brandMark" aria-expanded="false" aria-controls="appMenuPanel" data-i18n-aria="menu.label" data-i18n-title="menu.label" aria-label="Application menus"><i data-icon="logo" data-size="18"></i></button>
+    <button type="button" class="btn btn-icon brand-mark" id="brandMark" aria-expanded="false" aria-controls="appMenuPanel" data-i18n-aria="menu.label" data-i18n-title="menu.label" aria-label="Application menus"><i data-icon="logo" data-size="20"></i><i class="brand-chevron" data-icon="chevronDown" data-size="10"></i></button>
     <nav class="app-menubar menu-panel" id="appMenuPanel" data-i18n-aria="menu.label" aria-label="Application menus" hidden>
-      <details class="app-menu" id="menuFile">
-        <summary data-i18n="menu.file">File</summary>
+      <div class="app-menu-categories" role="group" data-i18n-aria="menu.label">
+        <button type="button" class="btn" aria-controls="menuFile" aria-pressed="false" data-i18n="menu.file">File</button>
+        <button type="button" class="btn" aria-controls="menuEdit" aria-pressed="false" data-i18n="menu.edit">Edit</button>
+        <button type="button" class="btn" aria-controls="menuView" aria-pressed="false" data-i18n="menu.view">View</button>
+        <button type="button" class="btn" aria-controls="menuHelp" aria-pressed="false" data-i18n="menu.help">Help</button>
+      </div>
+      <div class="app-menu" id="menuFile" hidden>
         <div class="menu-commands">
           <button class="menu-command" type="button" data-command="btnNewTab"><span data-i18n="tabs.new">New tab</span></button>
           <button class="menu-command" type="button" data-command="btnOpen"><span data-i18n="action.openFile">Open file…</span><kbd>Ctrl+O</kbd></button>
+          <button class="menu-command" type="button" data-shell-action="close"><span data-i18n="tabs.close">Close tab</span></button>
           <hr class="">
           <button class="menu-command" type="button" data-command="btnSave"><span data-i18n="action.save">Save</span><kbd>Ctrl+S</kbd></button>
           <button class="menu-command" type="button" data-command="btnSaveAs"><span data-i18n="action.saveAs">Save as</span><kbd>Ctrl+Shift+S</kbd></button>
@@ -32,42 +38,41 @@
           <hr>
           <button type="button" class="menu-command" data-command="btnBack"><span data-i18n="action.back">Back (Alt+←)</span></button>
           <button type="button" class="menu-command" data-command="btnForward"><span data-i18n="action.forward">Forward (Alt+→)</span></button>
-          <button class="menu-command" type="button" data-shell-action="close"><span data-i18n="tabs.close">Close tab</span></button>
-          <details class="menu-settings">
-            <summary data-i18n="tools.session">Session</summary>
-            <label class="reading-check"><input type="checkbox" id="restoreSession"><span data-i18n="reading.restore">Restore open documents</span></label>
-            <p data-i18n="reading.sessionHint">When enabled, document text is saved on this device. Restored copies ask where to save.</p>
-            <p id="sessionStatus" role="status" aria-live="polite"></p>
-            <button type="button" class="btn" id="clearSession" data-i18n="reading.clear">Clear saved session</button>
-          </details>
-          <details class="advanced-settings">
-            <summary data-i18n="tools.links">Advanced link settings</summary>
-            <label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label>
-            <input type="text" id="baseUrl" dir="ltr" spellcheck="false" data-i18n-placeholder="baseUrl.placeholder" placeholder="https://github.com/user/repo/blob/main/">
-          </details>
+          <div class="menu-submenu">
+            <button type="button" class="menu-command" data-submenu="fileSettingsMenu" aria-expanded="false" aria-controls="fileSettingsMenu"><span data-i18n="menu.fileSettings">File settings</span><i data-icon="chevronDown" class="submenu-arrow" data-size="14"></i></button>
+            <div class="submenu-panel file-settings" id="fileSettingsMenu" role="group" data-i18n-aria="menu.fileSettings" hidden>
+              <label class="reading-check"><input type="checkbox" id="restoreSession"><span data-i18n="reading.restore">Restore open documents</span></label>
+              <p data-i18n="reading.sessionHint">When enabled, document text is saved on this device. Restored copies ask where to save.</p>
+              <p id="sessionStatus" role="status" aria-live="polite"></p>
+              <button type="button" class="btn" id="clearSession" data-i18n="reading.clear">Clear saved session</button>
+              <hr>
+              <label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label>
+              <input type="text" id="baseUrl" dir="ltr" spellcheck="false" data-i18n-placeholder="baseUrl.placeholder" placeholder="https://github.com/user/repo/blob/main/">
+            </div>
+          </div>
         </div>
-      </details>
-      <details class="app-menu" id="menuEdit">
-        <summary data-i18n="menu.edit">Edit</summary>
+      </div>
+      <div class="app-menu" id="menuEdit" hidden>
         <div class="menu-commands">
           <button class="menu-command" type="button" data-shell-action="undo"><span data-i18n="menu.undo">Undo</span><kbd>Ctrl+Z</kbd></button>
           <button class="menu-command" type="button" data-shell-action="redo"><span data-i18n="menu.redo">Redo</span><kbd>Ctrl+Shift+Z</kbd></button>
           <hr class="">
           <button class="menu-command" type="button" data-shell-action="find"><span data-i18n="find.placeholder">Find in document</span><kbd>Ctrl+Shift+F</kbd></button>
+          <button class="menu-command" type="button" data-shell-action="filterContents"><span data-i18n="toc.filterCommand">Filter table of contents</span><kbd>Ctrl+F</kbd></button>
           <button class="menu-command" type="button" data-command="btnEdit"><span data-i18n="toggle.edit">Edit in preview</span></button>
         </div>
-      </details>
-      <details class="app-menu" id="menuView">
-        <summary data-i18n="menu.view">View</summary>
+      </div>
+      <div class="app-menu" id="menuView" hidden>
         <div class="menu-commands">
           <button class="menu-command" type="button" data-mode-btn="write"><span data-i18n="mode.source">Source</span><kbd>Ctrl+1</kbd></button>
           <button class="menu-command" type="button" data-mode-btn="split"><span data-i18n="mode.split">Split</span><kbd>Ctrl+2</kbd></button>
           <button class="menu-command" type="button" data-mode-btn="preview"><span data-i18n="mode.preview">Preview</span><kbd>Ctrl+3</kbd></button>
-          <hr class="">
+          <hr>
+          <button type="button" class="menu-command" id="btnAppearance" data-i18n="appearance.title">Appearance…</button>
+          <button class="menu-command" type="button" id="btnReadingFocus" data-command="btnFocus" aria-pressed="false"><span data-i18n="reading.focus">Distraction-free reading</span><kbd>F8</kbd></button>
           <button class="menu-command" type="button" data-command="btnToc"><span data-i18n="toggle.toc">Table of contents</span></button>
           <button class="menu-command" type="button" id="btnVerticalTabs" data-shell-action="verticalTabs" aria-pressed="false"><span data-i18n="tabs.vertical">Vertical tabs</span></button>
           <button class="menu-command" type="button" data-command="btnCompare"><span data-i18n="compare.toggle">Two documents</span></button>
-          <button class="menu-command" type="button" id="btnReadingFocus" data-command="btnFocus" aria-pressed="false"><span data-i18n="reading.focus">Distraction-free reading</span><kbd>F8</kbd></button>
           <button class="menu-command" type="button" data-command="btnWrap"><span data-i18n="toggle.wrap">Wrap long lines</span></button>
           <button class="menu-command" type="button" data-command="btnSync"><span data-i18n="toggle.sync">Sync scrolling</span></button>
           <hr class="">
@@ -81,6 +86,7 @@
               <button type="button" class="menu-command" role="menuitemradio" aria-checked="false" data-theme-choice="dark" data-i18n="theme.dark"></button>
             </div>
           </div>
+          <div class="menu-group-label" data-i18n="dir.label">Text direction</div>
           <div class="menu-directions" role="group" data-i18n-aria="dir.label">
             <button class="seg" type="button" data-dir="auto" data-i18n="dir.auto">Auto</button>
             <button class="seg" type="button" data-dir="ltr" data-i18n="dir.ltr">LTR</button>
@@ -96,18 +102,16 @@
               <button type="button" class="menu-command" data-toolbar-reset="" data-i18n="toolbar.reset">Restore defaults</button>
             </div>
           </div>
-          <button type="button" class="menu-command" id="btnAppearance" data-i18n="appearance.title">Appearance…</button>
         </div>
-      </details>
-      <details class="app-menu" id="menuHelp">
-        <summary data-i18n="menu.help">Help</summary>
+      </div>
+      <div class="app-menu" id="menuHelp" hidden>
         <div class="menu-commands">
           <button class="menu-command" type="button" data-command="btnHelp"><span data-i18n="action.help">Help and shortcuts</span></button>
           <button class="menu-command" type="button" id="btnCheckUpdates"><span data-i18n="updates.title">Check for updates…</span></button>
           <hr>
           <button class="menu-command" type="button" id="btnAbout"><span data-i18n="about.title">About README Viewer</span></button>
         </div>
-      </details>
+      </div>
     </nav>
     <button type="button" class="btn btn-icon tab-layout-toggle" id="btnTabLayout" data-i18n-aria="tabs.vertical" data-i18n-title="tabs.switchVertical" aria-label="Vertical tabs" aria-pressed="false"><i data-icon="tabsVertical" data-size="16"></i></button>
     <div class="brand" hidden="">

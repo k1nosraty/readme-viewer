@@ -44,7 +44,7 @@ package dependencies. AppImage compatibility depends on the distribution and its
 Android requires Android 8.0+ and an updated System WebView. Allow APK installation from your
 downloader when Android asks. This is a development-signed **debug Preview**, outside Play Store.
 Future signing changes may require uninstall/reinstall. Save documents outside the app first;
-enable **File → Session → Restore open documents** to keep local recovery copies of unsaved
+enable **File → File settings → Restore open documents** to keep local recovery copies of unsaved
 drafts. Without that opt-in, drafts are not retained when Android terminates the process.
 
 ## Draft recovery and reading focus

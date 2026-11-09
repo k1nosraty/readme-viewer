@@ -127,6 +127,7 @@
       'toc.collapseAll': 'Collapse all headings',
 
       'menu.label': 'Application menus',
+      'menu.fileSettings': 'File settings',
       'window.minimize': 'Minimize',
       'window.maximize': 'Maximize',
       'window.restore': 'Restore down',
@@ -137,8 +138,6 @@
       'menu.help': 'Help',
       'menu.undo': 'Undo',
       'menu.redo': 'Redo',
-      'tools.session': 'Session',
-      'tools.links': 'Advanced link settings',
       'linkMenu.label': 'Open link',
       'linkMenu.same': 'Open in this tab',
       'linkMenu.new': 'Open in new tab',
@@ -259,6 +258,7 @@
       'edit.stale': 'The document changed — click the checkbox again.',
 
       'toc.title': 'Contents',
+      'toc.filterCommand': 'Filter table of contents',
       'toc.filter': 'Filter headings',
       'toc.empty': 'No matching headings',
       'toc.none': 'No headings in this document',
@@ -456,6 +456,7 @@
       'toc.collapseAll': 'بستن همهٔ تیترها',
 
       'menu.label': 'منوهای برنامه',
+      'menu.fileSettings': 'تنظیمات فایل',
       'window.minimize': 'کمینه کردن',
       'window.maximize': 'بیشینه کردن',
       'window.restore': 'بازگرداندن اندازه',
@@ -466,8 +467,6 @@
       'menu.help': 'راهنما',
       'menu.undo': 'واگرد',
       'menu.redo': 'انجام دوباره',
-      'tools.session': 'نشست',
-      'tools.links': 'تنظیمات پیشرفتهٔ لینک',
       'linkMenu.label': 'بازکردن لینک',
       'linkMenu.same': 'بازکردن در همین تب',
       'linkMenu.new': 'بازکردن در تب جدید',
@@ -588,6 +587,7 @@
       'edit.stale': 'سند تغییر کرده است — دوباره روی مربع کلیک کنید.',
 
       'toc.title': 'فهرست مطالب',
+      'toc.filterCommand': 'فیلتر فهرست مطالب',
       'toc.filter': 'جستجو در فهرست',
       'toc.empty': 'بدون نتیجه',
       'toc.none': 'این سند عنوانی ندارد',

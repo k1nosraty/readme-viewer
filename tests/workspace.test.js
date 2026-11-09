@@ -474,8 +474,8 @@ test('same-name tabs expose locations and settings menus close with Escape', asy
   assert.ok(document.querySelector('#menuFile #baseUrl'));
   assert.equal(document.querySelector('#readingOptions #restoreSession'), null);
   const launcher = document.getElementById('brandMark'); launcher.click();
-  const menu = document.getElementById('menuFile'); menu.open = true;
+  const menu = document.getElementById('menuFile');
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  assert.equal(menu.open, false);
+  assert.equal(menu.hidden, true);
   assert.equal(document.activeElement, launcher);
 });
