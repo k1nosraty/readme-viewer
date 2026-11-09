@@ -1676,7 +1676,7 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 .titlebar-tabs .document-tabs::-webkit-scrollbar-thumb { border-width: 1px 0; }
 .titlebar-tabs .document-tab {
   flex: 0 1 auto;
-  min-width: 96px;
+  min-width: clamp(96px, 12vw, 128px);
   max-width: 232px;
   gap: 4px;
   padding-inline: 8px;
