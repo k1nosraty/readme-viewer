@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+#[cfg(target_os = "linux")]
+use gtk::{pango::prelude::FontFamilyExt, prelude::WidgetExt};
 use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
@@ -28,7 +30,7 @@ async fn write_document_atomic(
 #[derive(Default)]
 struct DroppedDirectories(Mutex<Vec<PathBuf>>);
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 struct PendingActivations(Mutex<Option<Vec<String>>>);
 
 fn document_paths(args: impl Iterator<Item = String>, cwd: &Path) -> Vec<String> {
@@ -151,7 +153,7 @@ fn resolve_document_path(app: tauri::AppHandle, path: String) -> Result<String, 
 fn startup_paths(app: tauri::AppHandle) -> Vec<String> {
     let mut paths = startup_paths_inner(&app);
     paths.truncate(1);
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     if let Ok(mut pending) = app.state::<PendingActivations>().0.lock() {
         paths.extend(pending.take().unwrap_or_default());
     }
@@ -305,33 +307,54 @@ fn set_window_backdrop(window: tauri::WebviewWindow, dark: bool) -> bool {
     {
         windows_native::apply_backdrop(&window, dark)
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
+    {
+        let _ = dark;
+        window
+            .gtk_window()
+            .ok()
+            .and_then(|native| WidgetExt::screen(&native))
+            .is_some_and(|screen| screen.is_composited())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
         let _ = (window, dark);
         false
     }
 }
 
+#[cfg(target_os = "windows")]
 #[tauri::command]
 async fn installed_font_families() -> Result<Vec<String>, String> {
-    #[cfg(target_os = "windows")]
-    {
-        tauri::async_runtime::spawn_blocking(|| {
-            windows_native::installed_font_families().map_err(|error| error.to_string())
-        })
-        .await
-        .map_err(|error| error.to_string())?
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        Ok(Vec::new())
-    }
+    tauri::async_runtime::spawn_blocking(|| {
+        windows_native::installed_font_families().map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[cfg(target_os = "linux")]
+#[tauri::command]
+fn installed_font_families(window: tauri::WebviewWindow) -> Result<Vec<String>, String> {
+    let native = window.gtk_window().map_err(|error| error.to_string())?;
+    Ok(native
+        .pango_context()
+        .list_families()
+        .into_iter()
+        .map(|family| family.name().into())
+        .collect())
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+#[tauri::command]
+fn installed_font_families() -> Vec<String> {
+    Vec::new()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     let builder = builder
         .manage(PendingActivations(Mutex::new(Some(Vec::new()))))
         .on_page_load(|webview, payload| {
@@ -350,7 +373,7 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
         let paths = document_paths(args.into_iter().skip(1), Path::new(&cwd));
         allow_documents(app, &paths);
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         if let Ok(mut pending) = app.state::<PendingActivations>().0.lock() {
             if let Some(queue) = pending.as_mut() {
                 queue.extend(paths.into_iter().take(1));

@@ -163,7 +163,7 @@ async function assertTabsCentered(page, state) {
       RVApp.setDoc(RVApp.el.editor.value, RVApp.state.name);
       for (const tab of RVApp.listTabs().slice(1)) await RVApp.closeTab(tab.id);
       RVApp.setEmpty();
-      document.documentElement.dataset.windowsTitlebar = '';
+      document.documentElement.dataset.desktopTitlebar = '';
       document.documentElement.dataset.windowGlass = '';
       document.getElementById('captionButtons').hidden = false;
       document.getElementById('titlebarDrag').hidden = false;
@@ -236,6 +236,18 @@ async function assertTabsCentered(page, state) {
       const title = getComputedStyle(document.querySelector('.menu-line'));
       return title.backgroundColor === getComputedStyle(document.body).backgroundColor && title.backgroundImage === 'none';
     }), true, 'title bar exposes the same backdrop as the gaps between islands');
+    await page.evaluate(() => { document.documentElement.dataset.windowGlass = 'tinted'; });
+    assert.equal(await page.evaluate(() => {
+      const body = getComputedStyle(document.body);
+      return body.backgroundColor.includes('/ 0.84') && body.backdropFilter === 'none' &&
+        getComputedStyle(document.querySelector('.menu-line')).backgroundColor === 'rgba(0, 0, 0, 0)';
+    }), true, 'Linux tint exposes the backdrop without a blur filter');
+    await page.emulateMedia({ forcedColors: 'active' });
+    assert.equal(await page.evaluate(() =>
+      getComputedStyle(document.body).getPropertyValue('--window-base') ===
+      getComputedStyle(document.body).getPropertyValue('--bg-inset')), true, 'forced colors disable the glass tint');
+    await page.emulateMedia({ forcedColors: null });
+    await page.evaluate(() => { document.documentElement.dataset.windowGlass = ''; });
     const more = page.locator('#btnToolbarMore');
     await more.click();
     const wrap = page.locator('#toolbarOverflow #btnWrap');

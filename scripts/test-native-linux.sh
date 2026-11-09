@@ -44,6 +44,9 @@ def wait(script):
 try:
     wait("return window.RVApp && RVApp.state.ready && document.querySelector('#editor').value.includes('یادگیری PostgreSQL')")
     assert js("return !!window.__TAURI_INTERNALS__"), 'Expected native Tauri WebView'
+    assert js("return document.documentElement.hasAttribute('data-desktop-titlebar') && !document.querySelector('#captionButtons').hidden && document.querySelector('#titlebarTabs #documentTabs') !== null"), 'Expected the shared desktop title bar and tabs'
+    fonts=request('POST',prefix+'/execute/async',{'script':'const done=arguments[arguments.length-1]; RV.Native.installedFontFamilies().then(done, error => done({error:String(error)}));','args':[]})
+    assert isinstance(fonts,list) and any(fonts), 'Installed font catalog unavailable: '+str(fonts)
     js("document.querySelector('#btnEdit').click(); document.querySelector('#preview input[type=checkbox]').click(); return true")
     wait("return document.querySelector('#editor').value.includes('[x]') && document.querySelector('#preview input').checked")
     js("document.querySelector('#btnSave').click(); return true")

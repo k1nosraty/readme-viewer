@@ -30,7 +30,7 @@
       },
       "capabilities": [
         "main",
-        "windows-titlebar",
+        "desktop-titlebar",
         "android-back",
         "updater"
       ]

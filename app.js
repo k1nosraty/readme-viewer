@@ -141,7 +141,7 @@
   function applyTabLayout() {
     var bar = $('documentTabs'), add = $('btnNewTab');
     var titlebar = $('titlebarTabs'), side = $('verticalTabs'), reading = $('readingOptions');
-    var inTitlebar = !state.verticalTabs && document.documentElement.hasAttribute('data-windows-titlebar');
+    var inTitlebar = !state.verticalTabs && document.documentElement.hasAttribute('data-desktop-titlebar');
     var destination = state.verticalTabs ? side : inTitlebar ? titlebar : reading.parentNode;
     var focus = document.activeElement;
     if (bar.parentNode !== destination) {

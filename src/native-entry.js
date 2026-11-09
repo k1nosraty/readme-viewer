@@ -13,7 +13,7 @@ const available = () => !!root.__TAURI_INTERNALS__;
 const abort = () => new DOMException('Save cancelled.', 'AbortError');
 const filters = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mdwn', 'mkd', 'txt'] }];
 
-async function setupWindowsTitlebar(window, report, onTitlebar) {
+async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
   const byId = id => document.getElementById(id);
   const maximize = byId('btnWindowMaximize');
   const syncMaximized = async () => {
@@ -34,15 +34,19 @@ async function setupWindowsTitlebar(window, report, onTitlebar) {
   byId('titlebarDrag').hidden = false;
   byId('captionButtons').hidden = false;
   const documentRoot = document.documentElement;
-  documentRoot.dataset.windowsTitlebar = '';
+  documentRoot.dataset.desktopTitlebar = '';
   onTitlebar?.();
   let backdropRevision = 0;
   const syncBackdrop = async () => {
     const revision = ++backdropRevision;
     const glass = await invoke('set_window_backdrop', { dark: documentRoot.dataset.theme === 'dark' });
-    if (revision === backdropRevision) documentRoot.toggleAttribute('data-window-glass', glass === true);
+    if (revision !== backdropRevision) return;
+    if (glass) documentRoot.dataset.windowGlass = windows ? '' : 'tinted';
+    else delete documentRoot.dataset.windowGlass;
   };
-  new MutationObserver(() => syncBackdrop().catch(report)).observe(documentRoot, { attributeFilter: ['data-theme'] });
+  if (windows) {
+    new MutationObserver(() => syncBackdrop().catch(report)).observe(documentRoot, { attributeFilter: ['data-theme'] });
+  }
   await Promise.all([
     syncBackdrop(),
     window.onResized(() => syncMaximized().catch(report)),
@@ -189,6 +193,8 @@ const Native = {
     const report = error => { if (hooks.onError) hooks.onError(error); else console.error(error); };
     const userAgent = root.navigator?.userAgent || '';
     const windows = /Windows NT/i.test(userAgent);
+    const android = /Android/i.test(userAgent);
+    const desktopTitlebar = windows || (!android && /Linux/i.test(userAgent));
     const openPaths = async paths => {
       for (const path of paths || []) {
         try { if (await hooks.openPath(path) === false) break; } catch (error) { report(error); break; }
@@ -214,15 +220,15 @@ const Native = {
         return requestClose(() => window.destroy());
       })
     ];
-    if (windows) {
-      listeners.push(setupWindowsTitlebar(window, report, hooks.onTitlebar));
+    if (desktopTitlebar) {
+      listeners.push(setupDesktopTitlebar(window, windows, report, hooks.onTitlebar));
     }
-    if (/Android/i.test(userAgent)) {
+    if (android) {
       // Registering takes over Android's default Back navigation and exit.
       listeners.push(onBackButtonPress(() => requestClose(() => exit(0))));
     }
     await Promise.all(listeners.map(task => task.catch(report)));
-    if (windows) await window.show().catch(report);
+    if (desktopTitlebar) await window.show().catch(report);
     await openPaths(await invoke('startup_paths'));
   }
 };

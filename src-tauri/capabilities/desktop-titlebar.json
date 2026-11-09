@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "windows-titlebar",
-  "description": "Window controls for the Windows title bar.",
-  "platforms": ["windows"],
+  "description": "Window controls for the desktop title bar.",
+  "platforms": ["windows", "linux"],
   "windows": ["main"],
   "permissions": [
     "core:window:allow-close",

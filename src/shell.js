@@ -56,7 +56,7 @@
   function layoutToolbar() {
     var focus = document.activeElement;
     // Leave space for tabs and caption buttons before moving file controls up.
-    var fileToolsInTitlebar = document.documentElement.hasAttribute('data-windows-titlebar') && innerWidth >= 760;
+    var fileToolsInTitlebar = document.documentElement.hasAttribute('data-desktop-titlebar') && innerWidth >= 760;
     titlebarActions.hidden = !fileToolsInTitlebar;
     // Measure every group in its row styling before deciding what fits.
     var next = overflowButton, nextTitlebar = titlebarUndo;
@@ -157,7 +157,7 @@
     applyToolbar(false);
     if (typeof ResizeObserver === 'function') new ResizeObserver(scheduleToolbarLayout).observe(toolbar);
     new MutationObserver(scheduleToolbarLayout).observe(document.documentElement, {
-      attributeFilter: ['lang', 'dir', 'style', 'data-density', 'data-windows-titlebar']
+      attributeFilter: ['lang', 'dir', 'style', 'data-density', 'data-desktop-titlebar']
     });
     if (document.fonts) document.fonts.addEventListener('loadingdone', scheduleToolbarLayout);
   }

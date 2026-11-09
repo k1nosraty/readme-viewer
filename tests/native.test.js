@@ -117,41 +117,45 @@ test('startup, native-open, drop and close confirmation share app hooks', async 
   assert.deepEqual(drags, [true, false]);
 });
 
-test('Windows reveals the configured title bar before opening queued launch documents', async () => {
-  const calls = [];
-  const nodes = new Map();
-  const documentElement = {
-    dataset: { theme: 'dark' },
-    toggleAttribute(name, value) { calls.push([name, value]); }
-  };
-  const { native } = adapter({
-    window: { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: 'Windows NT' } },
-    document: {
-      documentElement,
-      getElementById(id) {
-        if (!nodes.has(id)) nodes.set(id, { hidden: true, dataset: { i18nAria: 'window.maximize' }, addEventListener() {} });
-        return nodes.get(id);
-      }
-    },
-    MutationObserver: class { observe() {} },
-    invoke: async command => {
-      if (command === 'set_window_backdrop') return true;
-      if (command === 'startup_paths') return ['/docs/start.md', '/docs/queued.md'];
-    },
-    listen: async () => {},
-    getCurrentWindow: () => ({
-      onDragDropEvent: async () => {}, onCloseRequested: async () => {},
-      onResized: async () => {}, isMaximized: async () => false,
-      show: async () => {
-        assert.equal(documentElement.dataset.windowsTitlebar, '');
-        assert.equal(nodes.get('captionButtons').hidden, false);
-        calls.push('show');
-      }
-    })
+for (const [platform, glass, tint] of [
+  ['Windows NT', true, ''],
+  ['X11; Linux x86_64', true, 'tinted'],
+  ['X11; Linux x86_64', false, undefined]
+]) {
+  test(`${platform} reveals the shared title bar before opening launch documents (glass: ${glass})`, async () => {
+    const calls = [];
+    const nodes = new Map();
+    const documentElement = { dataset: { theme: 'dark' } };
+    const { native } = adapter({
+      window: { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: platform } },
+      document: {
+        documentElement,
+        getElementById(id) {
+          if (!nodes.has(id)) nodes.set(id, { hidden: true, dataset: { i18nAria: 'window.maximize' }, addEventListener() {} });
+          return nodes.get(id);
+        }
+      },
+      MutationObserver: class { observe() {} },
+      invoke: async command => {
+        if (command === 'set_window_backdrop') return glass;
+        if (command === 'startup_paths') return ['/docs/start.md', '/docs/queued.md'];
+      },
+      listen: async () => {},
+      getCurrentWindow: () => ({
+        onDragDropEvent: async () => {}, onCloseRequested: async () => {},
+        onResized: async () => {}, isMaximized: async () => false,
+        show: async () => {
+          assert.equal(documentElement.dataset.desktopTitlebar, '');
+          assert.equal(documentElement.dataset.windowGlass, tint);
+          assert.equal(nodes.get('captionButtons').hidden, false);
+          calls.push('show');
+        }
+      })
+    });
+    await native.initialize({ openPath: async path => { calls.push(path); } });
+    assert.deepEqual(calls, ['show', '/docs/start.md', '/docs/queued.md']);
   });
-  await native.initialize({ openPath: async path => { calls.push(path); } });
-  assert.deepEqual(calls, [['data-window-glass', true], 'show', '/docs/start.md', '/docs/queued.md']);
-});
+}
 test('desktop open paths use the scoped Rust resolver, content URIs remain direct', async () => {
   const commands = [];
   const { native } = adapter({ invoke: async (command, args) => {
@@ -235,7 +239,7 @@ test('a later unaccepted disk read cannot advance the document revision used for
 test('Android Back waits for close/save decision and serializes repeated presses', async () => {
   let back, finishDecision, exited = 0, decisions = 0;
   const errors = [];
-  const androidWindow = { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: 'Android' } };
+  const androidWindow = { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: 'Linux; Android' } };
   const { native } = adapter({
     window: androidWindow,
     listen: async () => {},
