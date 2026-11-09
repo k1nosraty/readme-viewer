@@ -125,7 +125,20 @@ jobs:
         timeout-minutes: 5
       - name: Build Linux packages
         timeout-minutes: 15
-        run: npm run native:build -- --bundles deb,appimage
+        run: npm run native:build -- --bundles deb
+      - name: Bundle Linux AppImage
+        timeout-minutes: 10
+        run: |
+          # AppImage bundling downloads tools from GitHub release assets.
+          for attempt in 1 2 3; do
+            if npm run tauri -- bundle --bundles appimage; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 10))"
+          done
       - name: Sign Linux updater packages
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -218,8 +231,12 @@ jobs:
       - run: npm ci
       - name: Initialize Tauri Android project
         run: npm run android:init -- --ci
-      - name: Use stable Android SDK 36 for the debug preview
+      - name: Configure Android SDK and Gradle wrapper
         run: node scripts/configure-native-android.js
+      - name: Download Gradle before building the APKs
+        timeout-minutes: 5
+        working-directory: src-tauri/gen/android
+        run: ./gradlew --version
       - name: Restore stable Android Preview signing identity
         env:
           ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
