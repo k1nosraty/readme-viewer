@@ -123,7 +123,8 @@ for (const [platform, glass, tint] of [
   ['X11; Linux x86_64', false, undefined]
 ]) {
   test(`${platform} reveals the shared title bar before opening launch documents (glass: ${glass})`, async () => {
-    const calls = [];
+    const calls = [], timers = new Map();
+    let onResize, stateReads = 0, timerId = 0;
     const nodes = new Map();
     const documentElement = { dataset: { theme: 'dark' } };
     const { native } = adapter({
@@ -136,6 +137,8 @@ for (const [platform, glass, tint] of [
         }
       },
       MutationObserver: class { observe() {} },
+      setTimeout(callback) { timers.set(++timerId, callback); return timerId; },
+      clearTimeout(id) { timers.delete(id); },
       invoke: async command => {
         if (command === 'set_window_backdrop') return glass;
         if (command === 'startup_paths') return ['/docs/start.md', '/docs/queued.md'];
@@ -143,7 +146,8 @@ for (const [platform, glass, tint] of [
       listen: async () => {},
       getCurrentWindow: () => ({
         onDragDropEvent: async () => {}, onCloseRequested: async () => {},
-        onResized: async () => {}, isMaximized: async () => false,
+        onResized: async callback => { onResize = callback; },
+        isMaximized: async () => { stateReads++; return false; },
         show: async () => {
           assert.equal(documentElement.dataset.desktopTitlebar, '');
           assert.equal(documentElement.dataset.windowGlass, tint);
@@ -154,6 +158,11 @@ for (const [platform, glass, tint] of [
     });
     await native.initialize({ openPath: async path => { calls.push(path); } });
     assert.deepEqual(calls, ['show', '/docs/start.md', '/docs/queued.md']);
+    for (let i = 0; i < 20; i++) onResize();
+    assert.equal(stateReads, 1, 'resize events do not poll the window while dragging');
+    assert.equal(timers.size, 1);
+    await timers.values().next().value();
+    assert.equal(stateReads, 2, 'one window state read after resizing');
   });
 }
 test('desktop open paths use the scoped Rust resolver, content URIs remain direct', async () => {

@@ -127,7 +127,6 @@
 
       'menu.label': 'Application menus',
       'window.minimize': 'Minimize',
-      'window.actions': 'File and edit shortcuts',
       'window.maximize': 'Maximize',
       'window.restore': 'Restore down',
       'window.close': 'Close window',
@@ -145,6 +144,8 @@
       'linkMenu.browser': 'Open in browser',
       'linkMenu.browserUnavailable': 'Local browser previews are available in the desktop app.',
       'reading.title': 'Reading',
+      'reading.settings': 'Reading settings',
+      'reading.focusShort': 'Focus',
       'reading.focus': 'Distraction-free reading',
       'reading.exitFocus': 'Exit reading mode (Esc)',
       'reading.saving': 'Saving recovery copy…',
@@ -453,7 +454,6 @@
 
       'menu.label': 'منوهای برنامه',
       'window.minimize': 'کمینه کردن',
-      'window.actions': 'میان‌برهای فایل و ویرایش',
       'window.maximize': 'بیشینه کردن',
       'window.restore': 'بازگرداندن اندازه',
       'window.close': 'بستن پنجره',
@@ -471,6 +471,8 @@
       'linkMenu.browser': 'بازکردن در مرورگر',
       'linkMenu.browserUnavailable': 'پیش\u200cنمایش فایل محلی در مرورگر در نسخهٔ دسکتاپ در دسترس است.',
       'reading.title': 'مطالعه',
+      'reading.settings': 'تنظیمات مطالعه',
+      'reading.focusShort': 'تمرکز',
       'reading.focus': 'مطالعهٔ بدون حواس‌پرتی',
       'reading.exitFocus': 'بازگشت به محیط کار (Esc)',
       'reading.saving': 'در حال ذخیرهٔ نسخهٔ بازیابی…',

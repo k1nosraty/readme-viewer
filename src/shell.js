@@ -3,7 +3,6 @@
   'use strict';
   var RV = window.RV = window.RV || {}, actions = null, openSub = null;
   var menuButton, nav, toolbar, tocButton, overflowButton, overflowPanel, toolbarGroups, rankedGroups;
-  var titlebarActions, titlebarUndo;
   var toolbarPrefs = { show: true, hidden: [] };
   var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'direction', 'font', 'appearance', 'theme', 'wrap', 'sync', 'export', 'help'];
   function hideSub(focus) {
@@ -55,23 +54,15 @@
   }
   function layoutToolbar() {
     var focus = document.activeElement;
-    // Leave space for tabs and caption buttons before moving file controls up.
-    var fileToolsInTitlebar = document.documentElement.hasAttribute('data-desktop-titlebar') && innerWidth >= 760;
-    titlebarActions.hidden = !fileToolsInTitlebar;
     // Measure every group in its row styling before deciding what fits.
-    var next = overflowButton, nextTitlebar = titlebarUndo;
+    var next = overflowButton;
     for (var i = toolbarGroups.length - 1; i >= 0; i--) {
       var group = toolbarGroups[i];
-      if (fileToolsInTitlebar && group.dataset.toolbarItem === 'files') {
-        if (group.nextElementSibling !== nextTitlebar) titlebarActions.insertBefore(group, nextTitlebar);
-        nextTitlebar = group;
-        continue;
-      }
       if (group.nextElementSibling !== next) toolbar.insertBefore(group, next);
       next = group;
     }
     if (!toolbar.hidden && toolbar.clientWidth) fitToolbar();
-    if (!toolbar.contains(focus) && !titlebarActions.contains(focus)) return;
+    if (!toolbar.contains(focus)) return;
     if (overflowPanel.hidden && overflowPanel.contains(focus)) focus = overflowButton;
     if (focus.closest('[hidden]')) focus = toolbar.hidden ? menuButton : tocButton;
     if (focus !== document.activeElement) focus.focus({ preventScroll: true });
@@ -124,8 +115,6 @@
   function initToolbar() {
     toolbar = document.getElementById('toolbar');
     tocButton = document.getElementById('btnToc');
-    titlebarActions = document.getElementById('titlebarActions');
-    titlebarUndo = document.getElementById('btnTitlebarUndo');
     overflowButton = document.getElementById('btnToolbarMore');
     overflowPanel = document.getElementById('toolbarOverflow');
     toolbarGroups = Array.from(toolbar.querySelectorAll(':scope > .tgroup'));
@@ -157,7 +146,7 @@
     applyToolbar(false);
     if (typeof ResizeObserver === 'function') new ResizeObserver(scheduleToolbarLayout).observe(toolbar);
     new MutationObserver(scheduleToolbarLayout).observe(document.documentElement, {
-      attributeFilter: ['lang', 'dir', 'style', 'data-density', 'data-desktop-titlebar']
+      attributeFilter: ['lang', 'dir', 'style', 'data-density']
     });
     if (document.fonts) document.fonts.addEventListener('loadingdone', scheduleToolbarLayout);
   }
@@ -199,9 +188,7 @@
     menuButton = document.getElementById('brandMark');
     nav = document.getElementById('appMenuPanel');
     initToolbar();
-    titlebarUndo.addEventListener('click', function () {
-      if (!titlebarUndo.disabled) actions.undo();
-    });
+    document.getElementById('btnToolbarUndo').addEventListener('click', actions.undo);
     function openAppMenu(focus) {
       closeOverflow();
       refresh();

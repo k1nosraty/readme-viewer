@@ -67,7 +67,7 @@
           <button class="menu-command" type="button" data-command="btnToc"><span data-i18n="toggle.toc">Table of contents</span></button>
           <button class="menu-command" type="button" id="btnVerticalTabs" data-shell-action="verticalTabs" aria-pressed="false"><span data-i18n="tabs.vertical">Vertical tabs</span></button>
           <button class="menu-command" type="button" data-command="btnCompare"><span data-i18n="compare.toggle">Two documents</span></button>
-          <button class="menu-command" type="button" id="btnReadingFocus" aria-pressed="false"><span data-i18n="reading.focus">Distraction-free reading</span><kbd>F8</kbd></button>
+          <button class="menu-command" type="button" id="btnReadingFocus" data-command="btnFocus" aria-pressed="false"><span data-i18n="reading.focus">Distraction-free reading</span><kbd>F8</kbd></button>
           <button class="menu-command" type="button" data-command="btnWrap"><span data-i18n="toggle.wrap">Wrap long lines</span></button>
           <button class="menu-command" type="button" data-command="btnSync"><span data-i18n="toggle.sync">Sync scrolling</span></button>
           <hr class="">
@@ -113,9 +113,6 @@
     <div class="brand" hidden="">
       <span class="brand-text"><span class="brand-name" id="fileName" title="">README Viewer</span><span class="brand-sub" id="fileState" data-state="empty"></span></span>
     </div>
-    <div class="titlebar-actions" id="titlebarActions" role="group" data-i18n-aria="window.actions" aria-label="File and edit shortcuts" hidden>
-      <button type="button" class="btn btn-icon" id="btnTitlebarUndo" data-shell-action="undo" data-i18n-title="menu.undo" data-i18n-aria="menu.undo" disabled><i data-icon="undo" data-size="16"></i></button>
-    </div>
     <div class="titlebar-tabs" id="titlebarTabs" hidden></div>
     <div class="titlebar-drag" id="titlebarDrag" data-tauri-drag-region hidden></div>
     <div class="caption-buttons" id="captionButtons" hidden>
@@ -134,6 +131,7 @@
     <div class="tgroup file-extra-tools" data-toolbar-item="files">
       <button type="button" class="btn btn-icon" id="btnSaveAs" data-i18n-title="action.saveAs" disabled=""><i data-icon="saveAs" data-size="16"></i></button>
       <button type="button" class="btn btn-icon" id="btnReload" data-i18n-title="action.reload" disabled=""><i data-icon="reload" data-size="16"></i></button>
+      <button type="button" class="btn btn-icon" id="btnToolbarUndo" data-shell-action="undo" data-i18n-title="menu.undo" data-i18n-aria="menu.undo" disabled><i data-icon="undo" data-size="16"></i></button>
     </div>
     <div class="tgroup navigation-tools" data-toolbar-item="navigation">
       <button type="button" class="btn btn-icon" id="btnBack" data-i18n-title="action.back" data-i18n-aria="action.back" disabled=""><i data-icon="back" data-size="16"></i></button>
@@ -175,8 +173,9 @@
   <div class="workspacebar">
     <div id="documentTabs" class="document-tabs" role="tablist" data-i18n-aria="tabs.label" aria-label="Documents"></div>
     <button type="button" class="btn btn-icon new-tab" id="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="18"></i></button>
+    <button type="button" class="btn reading-focus" id="btnFocus" aria-pressed="false" aria-keyshortcuts="F8" data-i18n-title="reading.focus"><i data-icon="eye" data-size="16"></i><span data-i18n="reading.focusShort">Focus</span></button>
     <details class="reading-options" id="readingOptions">
-      <summary data-i18n-title="reading.title"><i data-icon="eye" data-size="16"></i><span data-i18n="reading.title">Reading</span></summary>
+      <summary data-i18n-aria="reading.settings" data-i18n-title="reading.settings"><i data-icon="settings" data-size="16"></i></summary>
       <div class="reading-panel">
         <label for="readingWidth" data-i18n="reading.width">Text width</label>
         <select id="readingWidth"><option value="auto" data-i18n="reading.auto">Adaptive</option><option value="full" data-i18n="reading.full">Full width</option><option value="comfortable" data-i18n="reading.comfortable">Reading width</option></select>

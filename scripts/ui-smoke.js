@@ -183,30 +183,22 @@ async function assertTabsCentered(page, state) {
           return bounds.left >= r.left - 1 && bounds.right <= r.right + 1;
         });
       }), true, 'both tabs fit with their close buttons at ' + width);
-      assert.equal(await page.locator('#btnOpen').evaluate(button => button.closest('#titlebarActions, #toolbar').id),
-        width >= 760 ? 'titlebarActions' : 'toolbar');
-      if (width >= 760) assert.equal(await page.locator('#titlebarActions').evaluate(actions =>
-        actions.getBoundingClientRect().right < document.getElementById('titlebarTabs').getBoundingClientRect().left), true);
+      assert.equal(await page.locator('#btnOpen').evaluate(button => button.closest('#toolbar') !== null),
+        true, 'file tools stay out of the tab strip');
+      assert.equal(await page.locator('#btnFocus').isVisible(), true, 'Focus remains visible at ' + width);
     }
     for (const theme of ['light', 'dark']) {
       await page.evaluate(theme => document.querySelector('[data-theme-choice="' + theme + '"]').click(), theme);
-      assert.equal(await page.evaluate(() => {
-        const glass = getComputedStyle(document.querySelector('.tools-island')).backgroundImage;
-        const selectors = ['#btnNewTab', '#titlebarTabs .document-tab:not(.is-active)', '#titlebarActions', '.statusbar'];
-        return glass !== 'none' && selectors.every(selector => getComputedStyle(document.querySelector(selector)).backgroundImage === glass);
-      }), true, 'inactive tabs, New Tab, title controls and status share the toolbar material in ' + theme);
-      assert.equal(await page.locator('#btnNewTab').evaluate(button => {
-        const box = button.getBoundingClientRect();
-        return box.width === box.height && getComputedStyle(button).borderTopLeftRadius === '50%';
-      }), true, 'New Tab is circular in ' + theme);
-      assert.equal(await page.locator('#toolbar').evaluate(toolbar => {
-        const controls = toolbar.querySelectorAll(':scope > .tgroup, .btn, .seg');
-        return [...controls].every(node => {
-          const style = getComputedStyle(node);
-          return style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.backgroundImage === 'none' &&
-            parseFloat(style.borderTopLeftRadius) >= 100;
-        });
-      }), true, 'toolbar groups and controls have round outlines and transparent fills in ' + theme);
+      assert.equal(await page.locator('.tools-island').evaluate(node => {
+        const style = getComputedStyle(node);
+        return style.backgroundImage === 'none' && style.borderRadius === '0px' && style.boxShadow === 'none';
+      }), true, 'toolbar sits flush with the workspace in ' + theme);
+      assert.equal(await page.locator('#toolbar').evaluate(toolbar =>
+        [...toolbar.querySelectorAll(':scope > .tgroup')].every(group => {
+          const style = getComputedStyle(group);
+          return style.borderBlockStartWidth === '0px' && style.borderRadius === '0px';
+        })
+      ), true, 'toolbar groups use separators without outlines in ' + theme);
     }
     await page.evaluate(() => {
       RVApp.newTab('# Long document name', 'a-document-name-that-needs-truncating.md');
@@ -217,9 +209,9 @@ async function assertTabsCentered(page, state) {
       const style = getComputedStyle(tab);
       const inactive = getComputedStyle(tab.parentElement.querySelector('.document-tab:not(.is-active)'));
       return bounds.left >= rail.left - 1 && bounds.right <= rail.right + 1 &&
-        parseFloat(style.borderBottomRightRadius) >= 6 && getComputedStyle(tab, '::before').content === 'none' &&
+        style.borderBottomColor !== inactive.borderBottomColor && style.borderBottomWidth === '2px' &&
         style.backgroundImage === 'none' && Number(style.fontWeight) > Number(inactive.fontWeight);
-    }), true, 'the selected tab fits at minimum width and stands out without an accent marker');
+    }), true, 'the selected tab fits at minimum width and stands out with an underline');
     await assertTabsCentered(page, 'scrolling tab strip');
     await page.locator('#titlebarTabs [aria-selected="true"]').press('Control+Tab');
     assert.equal(await page.locator('#titlebarTabs .is-active').evaluate(tab => {
@@ -260,16 +252,19 @@ async function assertTabsCentered(page, state) {
     await page.locator('#toolbar > .display-tools #btnWrap').waitFor();
     assert.notEqual(await page.locator('#btnWrap').getAttribute('aria-pressed'), beforeWrap);
 
-    const titleTools = page.locator('#titlebarActions');
-    for (const id of ['btnOpen', 'btnSave', 'btnSaveAs', 'btnReload']) await titleTools.locator('#' + id).waitFor();
+    const toolbar = page.locator('#toolbar');
+    for (const id of ['btnOpen', 'btnSave', 'btnSaveAs', 'btnReload']) await toolbar.locator('#' + id).waitFor();
     await page.evaluate(() => RVApp.setDoc('# Before undo', 'undo.md'));
     await page.locator('#editor').fill('# Edited');
-    await titleTools.locator('#btnTitlebarUndo').click();
+    await toolbar.locator('#btnToolbarUndo').click();
     assert.equal(await page.locator('#editor').inputValue(), '# Before undo');
     await toggle.click();
     const rail = page.locator('#verticalTabs');
-    assert.equal(await rail.evaluate(node => getComputedStyle(node).backgroundImage),
-      await page.locator('.tools-island').evaluate(node => getComputedStyle(node).backgroundImage));
+    const focus = page.getByRole('button', { name: 'Focus', exact: true });
+    await focus.click();
+    await page.getByRole('button', { name: 'Exit reading mode (Esc)' }).waitFor();
+    await page.keyboard.press('Escape');
+    assert.equal(await focus.evaluate(button => button === document.activeElement), true, 'Focus returns to its toolbar button');
     const beforeCount = (await order()).length;
     assert.equal(await page.locator('.menu-line .new-tab').count(), 0);
     await rail.locator('#btnNewTab').click();
@@ -295,6 +290,6 @@ async function assertTabsCentered(page, state) {
     assert.equal(await width(), savedWidth, 'vertical tab width survives reload');
 
     assert.deepEqual(errors, []);
-    console.log('UI smoke passed: responsive menus, font suggestions, title-bar tools, horizontal tabs, and persistent vertical tab width.');
+    console.log('UI smoke passed: responsive menus, font suggestions, flat toolbar, Focus, horizontal tabs, and persistent vertical tab width.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

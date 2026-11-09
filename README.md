@@ -106,8 +106,8 @@ Mermaid diagrams, fonts and the updated sample document are included in the v1.5
 - **Opt-in recovery for large drafts** — File → Session → Restore open documents keeps transactional
   recovery copies on this device, including unsaved edits. Failed updates preserve the previous
   copy; recovered documents ask where to save.
-- **Distraction-free reading** — View → Distraction-free reading, or `F8`, hides the application
-  chrome and centers the document. Press `Esc` or the visible exit button to restore your workspace.
+- **Distraction-free reading** — Click Focus or press `F8` to hide the application
+  chrome and center the document. Press `Esc` or the visible exit button to restore your workspace.
 - **Save conflict protection** — external file changes offer Overwrite, Save as or Cancel; desktop
   native saves stage and flush a sibling file before replacing the destination.
 - **Incremental preview updates** — unchanged blocks retain their DOM, expanded details and diagrams;

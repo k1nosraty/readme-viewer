@@ -489,14 +489,14 @@
     return handle.getFile().then(function (file) { return openFileTab(file, handle); });
   }
 
-  var comparison = { visible: false, id: null, md: null, signature: '', version: 0, urls: [], split: 50 };
+  var comparison = { visible: false, id: null, md: null, signature: null, version: 0, urls: [], split: 50 };
   function comparisonTab() {
-    return tabs.filter(function (tab) { return tab.id === comparison.id && tab !== activeTab; })[0];
+    return tabs.find(function (tab) { return tab.id === comparison.id && tab !== activeTab; });
   }
   function showComparison(id) {
-    var other = tabs.filter(function (tab) { return tab !== activeTab && (!id || tab.id === id); })[0];
+    var other = tabs.find(function (tab) { return tab !== activeTab && (!id || tab.id === id); });
     if (!other) return false;
-    comparison.visible = true; comparison.id = other.id; comparison.signature = '';
+    comparison.visible = true; comparison.id = other.id; comparison.signature = null;
     refreshComparison(); return true;
   }
   function hideComparison() {
@@ -522,7 +522,7 @@
     var other = tabs.filter(function (tab) { return tab !== activeTab; });
     var toggle = $('btnCompare');
     if (toggle) { toggle.disabled = !other.length; toggle.setAttribute('aria-pressed', comparison.visible ? 'true' : 'false'); }
-    if (!comparisonTab() && comparison.visible) comparison.id = other.length ? other[0].id : null;
+    if (comparison.visible && !comparisonTab()) comparison.id = other.length ? other[0].id : null;
     if (!comparison.id) comparison.visible = false;
     pane.hidden = !comparison.visible;
     if (divider) {
@@ -532,7 +532,7 @@
     views.setAttribute('data-compare', comparison.visible ? 'true' : 'false');
     views.style.setProperty('--compare-split', comparison.split + '%');
     var select = $('comparisonSelect');
-    if (select) {
+    if (select && comparison.visible) {
       var options = other.map(function (tab) {
         var location = tabLocation(tab);
         return [tab.id, tabLabel(tab, location), tab.dirty, location];
@@ -552,16 +552,18 @@
     }
     var preview = $('comparisonPreview');
     if (!comparison.visible || !preview) {
-      if (!comparison.visible) {
-        comparison.version++; comparison.signature = '';
+      if (!comparison.visible && comparison.signature) {
+        comparison.version++; comparison.signature = null;
         comparison.urls.forEach(function (url) { URL.revokeObjectURL(url); }); comparison.urls = [];
         if (preview) preview.textContent = '';
       }
       return;
     }
     var tab = comparisonTab();
-    var signature = JSON.stringify([tab.id, tab.source, tab.baseUrl, state.dirMode, I18n.getLocale()]);
-    if (signature === comparison.signature) return;
+    var signature = [tab.id, tab.source, tab.baseUrl, state.dirMode, I18n.getLocale()];
+    if (comparison.signature && signature.every(function (value, index) {
+      return value === comparison.signature[index];
+    })) return;
     comparison.signature = signature;
     var version = ++comparison.version;
     comparison.urls.forEach(function (url) { URL.revokeObjectURL(url); }); comparison.urls = [];
@@ -1014,8 +1016,8 @@
 
   function updateChrome() {
     if (state.readingFocus && !state.hasDocument) { setReadingFocus(false); return; }
-    el.btnReadingFocus.disabled = !state.hasDocument;
-    el.btnReadingFocus.setAttribute('aria-pressed', state.readingFocus ? 'true' : 'false');
+    el.btnFocus.disabled = !state.hasDocument;
+    el.btnFocus.setAttribute('aria-pressed', String(state.readingFocus));
     renderTabs();
     refreshComparison();
     var name = state.hasDocument ? state.name : t('app.name');
@@ -2326,7 +2328,7 @@
   /* ------------------------------------------------------------------ wiring */
 
   function wireToolbar() {
-    el.btnReadingFocus.addEventListener('click', function () { setReadingFocus(!state.readingFocus); });
+    el.btnFocus.addEventListener('click', function () { setReadingFocus(!state.readingFocus); });
     el.btnExitReadingFocus.addEventListener('click', function () { setReadingFocus(false); });
     el.btnOpen.addEventListener('click', pickOpen);
     el.btnSave.addEventListener('click', function () { save(false); });
@@ -3453,7 +3455,7 @@
       'btnFontDown', 'btnHelp', 'btnHelpClose', 'btnHelpDone', 'btnConfirmSave', 'btnBack', 'btnForward',
       'btnConfirmDiscard', 'btnConfirmCancel', 'btnEmptyOpen', 'btnEmptySample', 'fontValue',
       'findBar', 'findInput', 'findCount', 'findPrev', 'findNext', 'findClose',
-      'statusLink', 'recentList', 'btnReadingFocus', 'btnExitReadingFocus'];
+      'statusLink', 'recentList', 'btnFocus', 'btnExitReadingFocus'];
     for (var i = 0; i < ids.length; i++) el[ids[i]] = $(ids[i]);
   }
 

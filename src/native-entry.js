@@ -47,9 +47,13 @@ async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
   if (windows) {
     new MutationObserver(() => syncBackdrop().catch(report)).observe(documentRoot, { attributeFilter: ['data-theme'] });
   }
+  let resizeTimer;
   await Promise.all([
     syncBackdrop(),
-    window.onResized(() => syncMaximized().catch(report)),
+    window.onResized(() => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => syncMaximized().catch(report), 80);
+    }),
     syncMaximized()
   ].map(task => task.catch(report)));
 }
