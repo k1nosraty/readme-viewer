@@ -191,8 +191,8 @@ async function assertTabsCentered(page, state) {
       await page.evaluate(theme => document.querySelector('[data-theme-choice="' + theme + '"]').click(), theme);
       assert.equal(await page.locator('.tools-island').evaluate(node => {
         const style = getComputedStyle(node);
-        return style.backgroundImage === 'none' && style.borderRadius === '0px' && style.boxShadow === 'none';
-      }), true, 'toolbar sits flush with the workspace in ' + theme);
+        return style.backgroundImage === 'none' && parseFloat(style.borderRadius) > 0 && style.boxShadow === 'none';
+      }), true, 'toolbar keeps its rounded outer edge in ' + theme);
       assert.equal(await page.locator('#toolbar').evaluate(toolbar =>
         [...toolbar.querySelectorAll(':scope > .tgroup')].every(group => {
           const style = getComputedStyle(group);
@@ -224,22 +224,23 @@ async function assertTabsCentered(page, state) {
       const r = rail.getBoundingClientRect();
       return rail.scrollLeft > 0 && r.left > toggle.getBoundingClientRect().right && r.right < add.getBoundingClientRect().left;
     }), true, 'scrolled tabs stay clear of the title-bar controls');
-    assert.equal(await page.evaluate(() => {
-      const title = getComputedStyle(document.querySelector('.menu-line'));
-      return title.backgroundColor === getComputedStyle(document.body).backgroundColor && title.backgroundImage === 'none';
-    }), true, 'title bar exposes the same backdrop as the gaps between islands');
-    await page.evaluate(() => { document.documentElement.dataset.windowGlass = 'tinted'; });
-    assert.equal(await page.evaluate(() => {
-      const body = getComputedStyle(document.body);
-      return body.backgroundColor.includes('/ 0.84') && body.backdropFilter === 'none' &&
-        getComputedStyle(document.querySelector('.menu-line')).backgroundColor === 'rgba(0, 0, 0, 0)';
-    }), true, 'Linux tint exposes the backdrop without a blur filter');
+    await page.locator('#brandMark').click();
+    await page.locator('#menuView > summary').click();
+    await page.locator('#btnAppearance').click();
+    const opacity = page.locator('#appearanceOpacity');
+    await opacity.press('Home');
+    const backdrop = () => page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor);
+    assert.match(await backdrop(), /\/ 0\)|rgba\(0, 0, 0, 0\)/, 'minimum opacity exposes the backdrop');
+    await opacity.press('End');
+    assert.equal(await page.locator('#appearanceOpacityValue').textContent(), '100%');
+    assert.doesNotMatch(await backdrop(), /\//, 'maximum opacity makes the title bar opaque');
+    await page.locator('#appearanceCancel').click();
+    assert.match(await backdrop(), /\/ 0\.7\)/, 'Cancel restores the previous opacity');
     await page.emulateMedia({ forcedColors: 'active' });
     assert.equal(await page.evaluate(() =>
       getComputedStyle(document.body).getPropertyValue('--window-base') ===
       getComputedStyle(document.body).getPropertyValue('--bg-inset')), true, 'forced colors disable the glass tint');
     await page.emulateMedia({ forcedColors: null });
-    await page.evaluate(() => { document.documentElement.dataset.windowGlass = ''; });
     const more = page.locator('#btnToolbarMore');
     await more.click();
     const wrap = page.locator('#toolbarOverflow #btnWrap');

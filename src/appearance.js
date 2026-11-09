@@ -4,7 +4,7 @@
   var RV = window.RV = window.RV || {}, api, snapshot, returnFocus;
   var fontFields = ['fontLatin', 'fontPersian', 'fontUi'];
   var fontCatalog = [], fontKeys = new Set(), fontLoad, fontInput, suggestions, selectedFont = 0, fontPreviewTimer;
-  var defaults = { accent: '#0969da', surface: 'neutral', density: 'comfortable', standardLinks: false, fonts: { latin: '', persian: '', ui: '' } };
+  var defaults = { accent: '#0969da', surface: 'neutral', density: 'comfortable', opacity: 70, standardLinks: false, fonts: { latin: '', persian: '', ui: '' } };
   var presets = [['blue', '#0969da'], ['emerald', '#12805c'], ['teal', '#087f8c'], ['violet', '#8250df'],
     ['indigo', '#5364cf'], ['orange', '#ce620e'], ['rose', '#c93671'], ['copper', '#a45a37']];
   var palettes = {
@@ -29,7 +29,9 @@
     value = value && typeof value === 'object' ? value : {};
     return { accent: hex(value.accent) || defaults.accent,
       surface: ['warm', 'cool'].indexOf(value.surface) >= 0 ? value.surface : 'neutral',
-      density: value.density === 'compact' ? 'compact' : 'comfortable', standardLinks: value.standardLinks === true, fonts: RV.Fonts.normalize(value.fonts) };
+      density: value.density === 'compact' ? 'compact' : 'comfortable',
+      opacity: Number.isInteger(value.opacity) && value.opacity >= 0 && value.opacity <= 100 ? value.opacity : defaults.opacity,
+      standardLinks: value.standardLinks === true, fonts: RV.Fonts.normalize(value.fonts) };
   }
   var prefs = normalize(null);
   try { prefs = normalize(JSON.parse(localStorage.getItem('rv.appearance'))); } catch (e) { void 0; }
@@ -67,7 +69,11 @@
     ['--bg', '--bg-subtle', '--bg-inset', '--border', '--border-muted', '--border-strong'].forEach(function (key, i) { vars[key] = p[i]; });
     Object.keys(vars).forEach(function (key) { root.style.setProperty(key, vars[key]); });
     root.dataset.surface = prefs.surface; root.dataset.density = prefs.density;
+    applyOpacity();
     RV.Fonts.apply(prefs.fonts);
+  }
+  function applyOpacity() {
+    document.body.style.setProperty('--titlebar-opacity', prefs.opacity + '%');
   }
   function fields() { return { theme: byId('appearanceTheme').value, font: Number(byId('appearanceFont').value),
     width: byId('appearanceWidth').value, spacing: byId('appearanceSpacing').value }; }
@@ -77,6 +83,8 @@
     byId('appearanceFontValue').textContent = state.font;
     byId('appearanceWidth').value = state.width; byId('appearanceSpacing').value = state.spacing;
     byId('appearanceSurface').value = prefs.surface; byId('appearanceDensity').value = prefs.density;
+    byId('appearanceOpacity').value = prefs.opacity;
+    byId('appearanceOpacityValue').textContent = prefs.opacity + '%';
     byId('appearanceStandardLinks').checked = prefs.standardLinks;
     byId('accentPicker').value = prefs.accent; byId('accentHex').value = prefs.accent.toUpperCase();
     byId('accentHex').setAttribute('aria-invalid', 'false'); byId('accentError').hidden = true;
@@ -266,8 +274,16 @@
     fontStatus();
   }
   function preview(event) {
-    if (event.isComposing || !validateFonts()) return;
-    var input = event.target, color = prefs.accent;
+    if (event.isComposing) return;
+    var input = event.target;
+    if (input.id === 'appearanceOpacity') {
+      prefs.opacity = Number(input.value);
+      byId('appearanceOpacityValue').textContent = prefs.opacity + '%';
+      applyOpacity();
+      return;
+    }
+    if (!validateFonts()) return;
+    var color = prefs.accent;
     if (/^font(?:Latin|Persian|Ui)(?:Choice)?$/.test(input.id)) {
       var customInput = fontFields.indexOf(input.id) >= 0;
       if (customInput && byId(input.id + 'Choice').value !== '__custom__') syncFontChoice(input);
@@ -286,7 +302,7 @@
     }
     if (input.id !== 'accentHex') { byId('accentHex').setAttribute('aria-invalid', 'false'); byId('accentError').hidden = true; byId('appearanceApply').disabled = false; }
     prefs = { accent: color, surface: byId('appearanceSurface').value, density: byId('appearanceDensity').value,
-      standardLinks: byId('appearanceStandardLinks').checked, fonts: RV.Fonts.normalize(fontValues()) };
+      opacity: prefs.opacity, standardLinks: byId('appearanceStandardLinks').checked, fonts: RV.Fonts.normalize(fontValues()) };
     api.preview(fields()); apply(); validateFonts();
     // Keep partially entered HEX text intact while the user types.
     byId('accentPicker').value = prefs.accent;

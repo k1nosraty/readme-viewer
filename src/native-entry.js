@@ -41,7 +41,7 @@ async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
     const revision = ++backdropRevision;
     const glass = await invoke('set_window_backdrop', { dark: documentRoot.dataset.theme === 'dark' });
     if (revision !== backdropRevision) return;
-    if (glass) documentRoot.dataset.windowGlass = windows ? '' : 'tinted';
+    if (glass) documentRoot.dataset.windowGlass = '';
     else delete documentRoot.dataset.windowGlass;
   };
   if (windows) {

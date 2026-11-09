@@ -23,6 +23,8 @@ test('appearance preview, cancel, reset and focus preserve the document and save
   a.api.setDoc('# Original\n\n[Link](https://example.com)', 'README.md');
   a.open();
   a.set('accentHex', '#dd2266'); a.set('appearanceSurface', 'warm'); a.set('appearanceDensity', 'compact');
+  a.set('appearanceOpacity', 0);
+  assert.equal(a.document.body.style.getPropertyValue('--titlebar-opacity'), '0%');
   a.set('appearanceTheme', 'dark'); a.set('appearanceFont', 22); a.set('appearanceWidth', 'comfortable'); a.set('appearanceSpacing', 'relaxed');
   assert.equal(a.api.state.font, 22); assert.equal(a.api.state.theme, 'dark');
   assert.equal(a.document.documentElement.dataset.surface, 'warm');
@@ -30,6 +32,7 @@ test('appearance preview, cancel, reset and focus preserve the document and save
   assert.equal(a.storage.has('rv.settings'), false);
   assert.equal(a.storage.has('rv.reading.options'), false);
   a.click('appearanceCancel');
+  assert.equal(a.document.body.style.getPropertyValue('--titlebar-opacity'), '70%');
   assert.equal(a.api.state.font, 16); assert.equal(a.api.state.theme, 'auto');
   assert.equal(a.document.documentElement.dataset.surface, 'neutral');
   assert.equal(a.document.documentElement.dataset.readingWidth, 'full');
@@ -89,9 +92,11 @@ test('appearance applies persistently, validates HEX and keeps standard links in
   a.open(); a.set('accentHex', '#nope');
   assert.equal(a.document.getElementById('appearanceApply').disabled, true);
   a.set('accentHex', '#b0f'); a.set('appearanceSurface', 'cool'); a.set('appearanceStandardLinks', true);
+  a.set('appearanceOpacity', 100);
   a.set('appearanceFont', 20); a.set('appearanceSpacing', 'relaxed'); a.click('appearanceApply');
   assert.equal(JSON.parse(storage.get('rv.appearance')).accent, '#bb00ff');
   const b = await load(t, storage);
+  assert.equal(b.document.body.style.getPropertyValue('--titlebar-opacity'), '100%');
   assert.equal(b.api.state.font, 20); assert.equal(b.document.documentElement.dataset.surface, 'cool');
   assert.equal(b.document.documentElement.dataset.readingSpacing, 'relaxed');
   const style = b.document.documentElement.style;

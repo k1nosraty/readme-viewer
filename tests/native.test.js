@@ -119,7 +119,7 @@ test('startup, native-open, drop and close confirmation share app hooks', async 
 
 for (const [platform, glass, tint] of [
   ['Windows NT', true, ''],
-  ['X11; Linux x86_64', true, 'tinted'],
+  ['X11; Linux x86_64', true, ''],
   ['X11; Linux x86_64', false, undefined]
 ]) {
   test(`${platform} reveals the shared title bar before opening launch documents (glass: ${glass})`, async () => {
