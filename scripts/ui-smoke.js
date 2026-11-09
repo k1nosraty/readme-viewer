@@ -261,6 +261,14 @@ async function assertTabsCentered(page, state) {
     assert.equal(await page.locator('#editor').inputValue(), '# Before undo');
     await toggle.click();
     const rail = page.locator('#verticalTabs');
+    assert.equal(await page.locator('#layout').evaluate(layout => {
+      const panels = layout.querySelectorAll('.sidebar, .vertical-tabs');
+      return getComputedStyle(layout).borderRadius === '10px' &&
+        [...panels].every(panel => {
+          const style = getComputedStyle(panel);
+          return style.borderRadius === '0px' && style.backgroundColor.includes('/ 0.62');
+        });
+    }), true, 'the workspace has one rounded frame and straight tinted side panels');
     const focus = page.getByRole('button', { name: 'Focus', exact: true });
     await focus.click();
     await page.getByRole('button', { name: 'Exit reading mode (Esc)' }).waitFor();

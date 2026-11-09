@@ -1636,6 +1636,7 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 [data-desktop-titlebar] body { --window-base: var(--bg-inset); background: var(--window-base); }
 [data-desktop-titlebar][data-window-glass] body {
   --window-base: color-mix(in srgb, var(--bg-inset) var(--titlebar-opacity, 70%), transparent);
+  --workspace-rail: color-mix(in srgb, var(--bg-subtle) 62%, transparent);
 }
 :root:not([data-window-glass]) .titlebar-opacity { display: none; }
 [data-desktop-titlebar] .topbar {
@@ -1680,7 +1681,10 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   gap: 4px;
   padding-inline: 8px;
 }
-.titlebar-tabs .document-tab.is-active { background: color-mix(in srgb, var(--bg-inset) 88%, var(--accent)); }
+.titlebar-tabs .document-tab.is-active,
+[data-desktop-titlebar] .vertical-tabs .document-tab.is-active {
+  background: color-mix(in srgb, var(--bg-inset) 88%, var(--accent));
+}
 .titlebar-tabs .new-tab { margin: 0; }
 .titlebar-tabs :focus-visible { outline-offset: -2px; }
 .titlebar-drag { flex: 1 0 var(--titlebar-drag-min); align-self: stretch; user-select: none; }
@@ -1714,7 +1718,13 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 [data-desktop-titlebar] .workspacebar .reading-options { margin-inline-start: 0; }
 [data-desktop-titlebar] .toolbar[hidden] + .workspacebar { grid-column: 1 / -1; min-height: 36px; }
 @media screen {
-  [data-desktop-titlebar] .layout { overflow: hidden; }
+  [data-desktop-titlebar] .layout {
+    margin-inline: var(--shell-inset);
+    border: 1px solid var(--border-muted);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  [data-desktop-titlebar] .vertical-tabs { background: var(--workspace-rail, var(--bg-subtle)); }
   [data-desktop-titlebar] .workspace-views { background: var(--bg); }
   [data-desktop-titlebar] :is(#statusFile, #statusPos, #statusCount, #statusTasks, #statusEncoding, #statusPerf):not(:empty) {
     display: block;
@@ -1728,11 +1738,17 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   }
   [data-desktop-titlebar] .statusbar :is(.sb-link, #statusFile, #statusCount, #statusTasks, #statusPerf) { flex-shrink: 1; }
 }
+@media screen and (min-width: 901px) {
+  [data-desktop-titlebar] .sidebar { background: var(--workspace-rail, var(--bg-subtle)); }
+}
 [data-desktop-titlebar] body[data-reading-focus="1"] { grid-template-rows: auto minmax(0, 1fr); }
 [data-desktop-titlebar] body[data-reading-focus="1"] :is(.brand-mark, .app-menubar, .tab-layout-toggle, .titlebar-tabs, .tools-island) { display: none; }
 [data-desktop-titlebar] .focus-exit { inset-block-start: 52px; }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-  [data-desktop-titlebar][data-window-glass] body { --window-base: var(--bg-inset); }
+  [data-desktop-titlebar][data-window-glass] body {
+    --window-base: var(--bg-inset);
+    --workspace-rail: var(--bg-subtle);
+  }
   .titlebar-opacity { display: none; }
 }
 @media (641px <= width <= 1340px) {
