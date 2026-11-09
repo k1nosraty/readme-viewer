@@ -1,6 +1,6 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "windows-titlebar",
+  "identifier": "desktop-titlebar",
   "description": "Window controls for the desktop title bar.",
   "platforms": ["windows", "linux"],
   "windows": ["main"],
