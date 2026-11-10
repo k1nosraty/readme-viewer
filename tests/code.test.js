@@ -31,6 +31,8 @@ test('identifies common source extensions, well-known names and executable scrip
   assert.equal(language('tools', '#!/usr/bin/env python3\nprint(1)'), 'python');
   assert.equal(language('view.m', '#import <Foundation/Foundation.h>'), 'objectivec');
   assert.equal(language('plot.m', 'function y = f(x)'), 'matlab');
+  assert.equal(language('locale.ts', '<?xml version="1.0"?><TS version="2.1">'), 'xml');
+  assert.equal(language('terrain.tsx', '<tileset version="1.10">'), 'xml');
   assert.equal(language('config.cfg', '[Appearance]\nMode=Dark'), '');
   assert.equal(language('README.md', '#!/usr/bin/env python3\nprint(1)'), '');
 });

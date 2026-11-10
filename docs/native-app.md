@@ -10,9 +10,12 @@ access.
 Open a Markdown file with **Open**, make changes, then **Save**. **Save as** chooses another
 location. On desktop, Save writes back to the opened file. On Android, the file returned by
 Open has read-only access: your first Save asks for a destination and writes a copy, leaving the
-source file unchanged. Later saves update that chosen copy. Desktop packages declare `.md`, `.markdown`, `.mdown` and `.mkd` associations; your
-system may require choosing README Viewer with **Open with**. Drop a document onto the desktop
-window to open it. Save changes before replacing a document or closing the app.
+source file unchanged. Later saves update that chosen copy. The Windows installer registers
+README Viewer as an **Open with** option for Markdown, configuration and common source extensions.
+The Linux launcher advertises supported MIME types and passes the selected file to the app.
+Integrate the AppImage with your desktop to expose its launcher in the file manager.
+Drop a document onto the desktop window to open it. Save changes before replacing a document
+or closing the app.
 
 Desktop saves write a temporary file beside the destination, flush its contents, then replace
 the destination. A failed staging write leaves the original file intact. Unix permissions and

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name={{name}}
+Comment={{comment}}
+Exec={{exec}} %f
+Icon={{icon}}
+StartupWMClass={{exec}}
+Terminal=false
+Categories={{categories}}
+MimeType=text/plain;text/markdown;application/json;application/schema+json;application/jsonl;application/x-ndjson;text/x-ini;application/x-ini;application/toml;application/yaml;application/x-yaml;text/yaml;text/x-yaml;application/xml;text/xml;application/xhtml+xml;text/html;text/css;text/x-scss;text/javascript;application/javascript;text/jsx;text/typescript;text/x-typescript;application/x-typescript;text/vnd.trolltech.linguist;application/x-tiled-tsx;text/x-java;text/x-kotlin;application/vnd.dart;text/x-dart;text/x-go;text/rust;text/x-rust;text/x-python;text/x-python3;text/x-csrc;text/x-chdr;text/x-c++src;text/x-c++hdr;text/x-csharp;application/x-shellscript;text/x-shellscript;text/x-ruby;text/x-php;application/x-php;text/x-lua;application/sql;text/x-sql;text/x-swift;text/x-scala;text/x-elixir;text/x-haskell;text/x-patch;text/x-diff;

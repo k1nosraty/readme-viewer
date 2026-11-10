@@ -15,5 +15,12 @@
         "dragDropEnabled": true
       }
     ]
+  },
+  "bundle": {
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/open-with.nsh"
+      }
+    }
   }
 }

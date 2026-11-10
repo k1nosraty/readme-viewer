@@ -45,9 +45,10 @@ app first; uninstalling can remove local drafts.
 No Node.js or Python is needed to use native packages. Click **Open**, choose your Markdown,
 turn on **Edit in preview** to change task checkboxes, then click **Save**. Desktop Save writes
 back to the opened file. Android's first Save asks where to write a copy; the source stays
-unchanged, and later saves update your chosen copy. Desktop packages
-register Markdown file associations; choose README Viewer in your system's **Open with** menu
-if needed. You can also drop a file onto the desktop app.
+unchanged, and later saves update your chosen copy. On Windows and Linux, choose **README Viewer**
+from **Open with** for Markdown, JSON, INI and common source files. Linux AppImage users can
+integrate the AppImage with their desktop to expose its launcher in that menu. You can also drop
+a file onto the desktop app.
 
 See [native setup, builds and limitations](docs/native-app.md). The Java Android Preview in
 [android/README.md](android/README.md) belongs to the historical 1.0.2 release.

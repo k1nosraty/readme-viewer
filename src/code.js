@@ -37,6 +37,8 @@
     var file = name.toLowerCase();
     var ext = file.slice(file.lastIndexOf('.') + 1);
     if (Object.prototype.hasOwnProperty.call(FILENAMES, file)) return FILENAMES[file];
+    // Qt translations and Tiled tilesets also use the .ts/.tsx extensions.
+    if ((ext === 'ts' || ext === 'tsx') && /^\s*(?:<\?xml[\s?]|<TS[\s>]|<tileset[\s>])/.test(source.slice(0, 8192))) return 'xml';
     if (file.indexOf('.') >= 0 && Object.prototype.hasOwnProperty.call(EXTENSIONS, ext)) return EXTENSIONS[ext];
     if (/^readme(?:\.txt)?$|\.(?:md|markdown|mdown|mdwn|mkd|ini|json)$/i.test(file)) return '';
     var header = source.slice(0, 8192);
