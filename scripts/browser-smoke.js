@@ -231,6 +231,8 @@ const { chromium } = require('playwright');
       node.textContent.includes('workspace') && getComputedStyle(node).display === 'flex'));
     await branch.press('Enter');
     await page.locator('#preview .structured-key').filter({ hasText: 'restoreTabs' }).waitFor();
+    await page.locator('#preview .structured-key').filter({ hasText: 'restoreTabs' }).click();
+    assert.equal(await page.locator('#preview .structured-path output').textContent(), '$.workspace.restoreTabs');
     await page.locator('#structuredFind').click();
     await page.locator('#findInput').fill('theme');
     assert.equal(await page.locator('#preview mark.current').textContent(), 'theme');
@@ -249,6 +251,8 @@ const { chromium } = require('playwright');
     });
     const codeFold = page.locator('#preview .code-fold');
     await codeFold.waitFor();
+    await page.locator('#preview .code-indent-guide').click();
+    assert.equal(await page.locator('#preview .is-active-line .code-number').getAttribute('data-line'), '2');
     await codeFold.locator('summary').press('Enter');
     assert.equal(await codeFold.evaluate(node => node.open), false);
     await page.locator('#structuredFind').click();
@@ -257,8 +261,11 @@ const { chromium } = require('playwright');
     await page.keyboard.press('Escape');
     await page.evaluate(() => RVApp.setEditPreview(true));
     const codeEditor = page.locator('#preview .code-editor');
+    await page.locator('.code-edit-colored .hljs-keyword').first().waitFor();
     await codeEditor.evaluate(input => input.setSelectionRange(input.value.indexOf('example'), input.value.indexOf('example') + 7));
     await page.keyboard.insertText('edited');
+    await page.locator('.code-edit-colored .hljs-string').filter({ hasText: 'edited' }).waitFor();
+    assert.equal(await codeEditor.evaluate(input => input.parentElement.style.getPropertyValue('--code-active-line')), '1');
     assert.equal(await page.locator('#editor').inputValue(), 'def open_file():\n    return "edited"\n');
     await page.waitForTimeout(130);
     assert.equal(await codeEditor.evaluate(input => document.activeElement === input), true);
@@ -301,12 +308,25 @@ const { chromium } = require('playwright');
     const codeDownload = await codeDownloading;
     assert.equal(codeDownload.suggestedFilename(), 'Untitled.cpp');
     assert.equal(await fs.readFile(await codeDownload.path(), 'utf8'), 'int main() {\n  return 0;\n}\n');
+    await codeEditor.fill('x'.repeat(17000));
+    assert.equal(await page.locator('.code-edit-colored').count(), 0);
+    assert.equal((await codeEditor.inputValue()).length, 17000);
     await page.evaluate(() => RVApp.setEditPreview(false));
     await page.locator('#fileInput').setInputFiles({
       name: 'main.dart', mimeType: 'text/plain', buffer: Buffer.from('void main() {\n  print("Dart");\n}\n')
     });
     await page.locator('#preview .code-fold .hljs-string').waitFor();
     assert.equal(await page.locator('#preview .structured-format').textContent(), 'Dart');
+    const desktop = await browser.newPage();
+    await desktop.goto(pathToFileURL(path.resolve(__dirname, '../index.html')).href + '?desktop');
+    await desktop.locator('#titlebarTabs [role="tablist"]').waitFor();
+    for (const width of [1200, 900, 390]) {
+      await desktop.setViewportSize({ width, height: 720 });
+      await desktop.locator(width === 900 ? '.menu-line > #workspaceActions' : '#workspaceBar > #workspaceActions').waitFor();
+      assert.equal(await desktop.locator('#titlebarTabs #documentTabs').isVisible(), true);
+      assert.ok(await desktop.locator('.topbar').evaluate(header =>
+        header.clientHeight < 115 && document.documentElement.scrollWidth <= innerWidth), 'desktop header remains two rows');
+    }
     assert.deepEqual(errors, []);
     console.log('Chromium smoke test passed: offline open, Persian/CRLF, task editing, responsive layout, HTML export, structured preview.');
   } finally { await browser.close(); }

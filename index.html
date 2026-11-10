@@ -181,10 +181,11 @@
     <button type="button" class="btn btn-icon" id="btnToolbarMore" aria-expanded="false" aria-controls="toolbarOverflow" data-i18n-title="toolbar.more" data-i18n-aria="toolbar.more" aria-label="More tools" hidden><i data-icon="more" data-size="18"></i></button>
     <div class="menu-panel toolbar-overflow" id="toolbarOverflow" role="group" data-i18n-aria="toolbar.more" aria-label="More tools" hidden></div>
   </div>
-  <div class="workspacebar">
+  <div class="workspacebar" id="workspaceBar">
     <div id="documentTabs" class="document-tabs" role="tablist" data-i18n-aria="tabs.label" aria-label="Documents"></div>
     <button type="button" class="btn btn-icon new-tab" id="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="18"></i></button>
-    <button type="button" class="btn reading-focus" id="btnFocus" aria-pressed="false" aria-keyshortcuts="F8" data-i18n-title="reading.focus"><i data-icon="eye" data-size="16"></i><span data-i18n="reading.focusShort">Focus</span></button>
+    <div class="workspace-actions" id="workspaceActions">
+    <button type="button" class="btn reading-focus" id="btnFocus" aria-pressed="false" aria-keyshortcuts="F8" data-i18n-aria="reading.focusShort" data-i18n-title="reading.focus"><i data-icon="eye" data-size="16"></i><span data-i18n="reading.focusShort">Focus</span></button>
     <details class="reading-options" id="readingOptions">
       <summary data-i18n-aria="reading.settings" data-i18n-title="reading.settings"><i data-icon="settings" data-size="16"></i></summary>
       <div class="reading-panel">
@@ -195,7 +196,8 @@
         <label class="reading-check"><input type="checkbox" id="hideCompleted"><span data-i18n="reading.hideDone">Hide completed tasks</span></label>
       </div>
     </details>
-    <button type="button" class="btn workspace-compare" id="btnCompare" aria-pressed="false" data-i18n-title="compare.toggle"><i data-icon="documents" data-size="16"></i><span data-i18n="compare.toggle">Two documents</span></button>
+    <button type="button" class="btn workspace-compare" id="btnCompare" aria-pressed="false" data-i18n-aria="compare.toggle" data-i18n-title="compare.toggle"><i data-icon="documents" data-size="16"></i><span data-i18n="compare.toggle">Two documents</span></button>
+    </div>
   </div>
   </div>
 </header>

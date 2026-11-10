@@ -146,12 +146,12 @@
   }
   function applyTabLayout() {
     var bar = $('documentTabs'), add = $('btnNewTab');
-    var titlebar = $('titlebarTabs'), side = $('verticalTabs'), reading = $('readingOptions');
+    var titlebar = $('titlebarTabs'), side = $('verticalTabs'), workspace = $('workspaceBar');
     var inTitlebar = !state.verticalTabs && document.documentElement.hasAttribute('data-desktop-titlebar');
-    var destination = state.verticalTabs ? side : inTitlebar ? titlebar : reading.parentNode;
+    var destination = state.verticalTabs ? side : inTitlebar ? titlebar : workspace;
     var focus = document.activeElement;
     if (bar.parentNode !== destination) {
-      var before = inTitlebar ? $('btnAllTabs') : destination === reading.parentNode ? reading : null;
+      var before = inTitlebar ? $('btnAllTabs') : destination === workspace ? $('workspaceActions') : null;
       destination.insertBefore(bar, before);
       destination.insertBefore(add, state.verticalTabs ? bar : before);
     }
@@ -167,6 +167,17 @@
     toggle.innerHTML = Icons.svg(state.verticalTabs ? 'tabsHorizontal' : 'tabsVertical', 16);
     if (bar.contains(focus) || focus === add) focus.focus({ preventScroll: true });
     scrollTabIntoView(bar);
+    placeWorkspaceActions();
+  }
+  function placeWorkspaceActions() {
+    var actions = $('workspaceActions'), caption = $('captionButtons');
+    var compact = document.documentElement.hasAttribute('data-desktop-titlebar') &&
+      window.innerWidth > 640 && window.innerWidth <= 1000;
+    var destination = compact ? caption.parentNode : $('workspaceBar');
+    if (actions.parentNode === destination) return;
+    var focus = document.activeElement;
+    destination.insertBefore(actions, compact ? caption : null);
+    if (actions.contains(focus)) focus.focus({ preventScroll: true });
   }
   function toggleTabLayout() {
     state.verticalTabs = !state.verticalTabs;
@@ -1904,6 +1915,7 @@
       view.input.rows = clamp(src.split('\n', 28).length + 1, 8, 28);
     } else inlineCodeView = null;
     reconcileBlocks([{ nodes: [view.element] }]);
+    if (view.refresh) view.refresh();
     previewBlocks = [];
     el.preview.setAttribute('dir', 'ltr');
     updateFileOutline(view);
@@ -2486,6 +2498,7 @@
     var cursor = structuredPreview && structuredPreview.input === document.activeElement ? structuredPreview.input : el.editor;
     var upto = src.slice(0, cursor.selectionStart);
     var row = upto.split('\n').length;
+    if (structuredPreview && structuredPreview.activateLine && document.activeElement === el.editor) structuredPreview.activateLine(row);
     var col = upto.length - (upto.lastIndexOf('\n') + 1) + 1;
     el.statusPos.textContent = t('status.line', { line: row, col: col });
 
@@ -3383,7 +3396,7 @@
     while (walker.nextNode()) nodes.push(walker.currentNode);
     for (var i = 0; i < nodes.length && find.hits.length < 1000; i++) {
       var node = nodes[i];
-      if (node.parentElement.closest('.preview-edit-control, .code-hidden-count')) continue;
+      if (node.parentElement.closest('.preview-edit-control, .code-hidden-count, .structured-path')) continue;
       var match = pattern.exec(node.nodeValue);
       while (match && find.hits.length < 1000) {
         var hit = node.splitText(match.index);
@@ -3678,6 +3691,7 @@
 
     var resizeQueued = false;
     window.addEventListener('resize', function () {
+      placeWorkspaceActions();
       refreshComparison();
       applySidebar();
       el.gutterInner.style.transform = 'translateY(' + (-el.editor.scrollTop) + 'px)';
@@ -3933,6 +3947,9 @@
     var newButton = $('btnNewTab');
     if (newButton) newButton.addEventListener('click', function () { newTab(); });
     $('btnTabLayout').addEventListener('click', toggleTabLayout);
+    if (!nativeAvailable() && /(?:^|[?&])desktop(?:-plain)?(?:[=&]|$)/.test(window.location.search)) {
+      document.documentElement.dataset.desktopTitlebar = '';
+    }
     applyTabLayout();
     newTab();
     markGutterCursor();

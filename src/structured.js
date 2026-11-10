@@ -54,7 +54,7 @@
       }
       colon.lastIndex = tokens.lastIndex;
       if (text[0] === '"' && colon.test(source)) {
-        parent.key = { text: text.slice(1, -1) || '""', line: line };
+        parent.key = { raw: text, text: text.slice(1, -1) || '""', line: line };
         continue;
       }
       if (++count > MAX_ROWS || stack.length > MAX_DEPTH) return null;
@@ -63,6 +63,10 @@
         line: parent.key ? parent.key.line : line, endLine: line, text: text, start: match.index, end: tokens.lastIndex,
         type: text[0] === '"' ? 'string' : (/^[-0-9]/.test(text) ? 'number' : 'literal')
       };
+      if (parent.key) {
+        var raw = parent.key.raw;
+        row.segment = /^"[A-Za-z_$][\w$]*"$/.test(raw) ? '.' + row.label : '[' + raw + ']';
+      } else row.segment = parent.text === '[' ? '[' + parent.children.length + ']' : '';
       parent.key = null;
       parent.children.push(row);
       if (text === '{' || text === '[') { row.children = []; stack.push(row); }
@@ -122,6 +126,26 @@
     add(heading, 'span', format.toUpperCase(), 'structured-format');
     if (options.detected) add(heading, 'span', t('structured.detected'), 'structured-meta');
     if (options.edit) options.edit(heading, 0, source.length, t('previewEdit.file'));
+    var paths, pathOutput, activeRow;
+    if (!ini && rows) {
+      paths = new WeakMap();
+      var pathBar = add(element, 'div', undefined, 'structured-path');
+      add(pathBar, 'span', t('structured.path'));
+      pathOutput = add(pathBar, 'output', '$');
+      function showPath(event) {
+        var group = event.target.closest('.structured-row');
+        if (!group || !paths.has(group) || group === activeRow) return;
+        var segments = [];
+        for (var trail = paths.get(group); trail; trail = trail.parent) segments.push(trail.segment);
+        if (activeRow) activeRow.removeAttribute('aria-current');
+        group.setAttribute('aria-current', 'true');
+        activeRow = group;
+        pathOutput.textContent = '$' + segments.reverse().join('');
+        pathOutput.scrollLeft = pathOutput.scrollWidth;
+      }
+      element.addEventListener('click', showPath);
+      element.addEventListener('focusin', showPath);
+    }
     var surface = add(element, 'div', undefined, 'structured-surface');
     if (!rows) {
       add(element, 'p', t(error ? 'structured.invalid' : 'structured.large'), 'structured-meta');
@@ -129,13 +153,19 @@
     }
 
     var firstBranch = rows && rows.findIndex(function (row) { return row.children && row.children.length; });
-    function draw(parent, list, path, top) {
+    function draw(parent, list, path, top, trail) {
       list.forEach(function (row, index) {
         var key = path + '/' + index;
         var expandable = row.children && (ini || row.children.length);
         var detail = expandable && add(parent, 'details', undefined, 'structured-details');
         var group = add(detail || parent, detail ? 'summary' : 'div', undefined,
           row.type === 'comment' ? 'structured-comment' : 'structured-row');
+        var location;
+        if (paths) {
+          location = { parent: trail, segment: row.segment };
+          paths.set(group, location);
+          if (!detail) group.tabIndex = 0;
+        }
         var label = ini && detail ? '[' + row.label + ']' : row.label;
         if (label) add(group, 'bdi', label, 'structured-key');
         if (top) {
@@ -161,7 +191,7 @@
         function populate() {
           if (populated) return;
           populated = true;
-          draw(add(detail, 'div', undefined, 'structured-branch'), row.children, key, false);
+          draw(add(detail, 'div', undefined, 'structured-branch'), row.children, key, false, location);
         }
         pending.push(populate);
         if (options.folds) detail.dataset.previewFold = key;

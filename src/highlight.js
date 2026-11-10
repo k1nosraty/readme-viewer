@@ -70,13 +70,13 @@
       cacheBytes += size;
     }
 
-    function loadLang(name, node, ready) {
+    function loadLang(name, node, retry) {
       if (requested[name]) {
-        if (requested[name] !== true) requested[name].set(node, ready);
+        if (requested[name] !== true) requested[name].set(node, retry);
         return;
       }
       if (typeof document === 'undefined') { requested[name] = true; return; }
-      var waiting = new Map([[node, ready]]);
+      var waiting = new Map([[node, retry]]);
       requested[name] = waiting;
       var script = document.createElement('script');
       script.src = basePath + encodeURIComponent(name) + '.min.js';
@@ -84,7 +84,7 @@
       script.onload = function () {
         script.remove();
         requested[name] = true;
-        waiting.forEach(function (notify, pending) { if (pending.isConnected) block(pending, notify); });
+        waiting.forEach(function (retry, pending) { if (pending.isConnected) retry(); });
         waiting.clear();
       };
       // Leave it un-highlighted rather than retrying on every keystroke.
@@ -92,24 +92,24 @@
       document.head.appendChild(script);
     }
 
-    function block(node, ready) {
+    function block(node, ready, skipCache) {
       if (!hljs || !node || langOf(node) === 'mermaid') return;
       var lang = resolve(langOf(node));
       if (!lang || !hljs.getLanguage(lang)) {
-        if (lang) loadLang(lang, node, ready);
+        if (lang) loadLang(lang, node, function () { block(node, ready, skipCache); });
         return;
       }
       var code = node.textContent || '';
       if (!code.trim()) { if (ready) ready(); return; }
-      var key = lang + '\u0000' + code;
-      var html = cache.get(key);
+      var key = !skipCache && lang + '\u0000' + code;
+      var html = key ? cache.get(key) : undefined;
       if (html === undefined) {
         try {
           html = hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
         } catch (e) {
           html = null;
         }
-        cacheSet(key, html);
+        if (key) cacheSet(key, html);
       }
       if (html === null) return;
       node.innerHTML = html;

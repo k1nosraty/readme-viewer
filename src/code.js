@@ -32,6 +32,9 @@
   var CONFIG = /\.(?:conf|cfg|cnf|properties)$/i;
   var MAX_CHARS = 160 * 1024;
   var MAX_LINES = 2500;
+  var EDIT_MAX_CHARS = 16 * 1024;
+  var EDIT_MAX_LINES = 320;
+  var BIDI_TEXT = /[\u0590-\u08ff\u200e-\u200f\u202a-\u202e\u2066-\u2069\ufb1d-\ufeff]/;
   var FILE_NAMES = Object.assign(Object.create(null), {
     cmake: 'CMakeLists.txt', dockerfile: 'Dockerfile', makefile: 'Makefile', nginx: 'nginx.conf'
   });
@@ -197,6 +200,103 @@
     return { lines: lines, mask: mask, continuations: continuations };
   }
 
+  function indentColumns(line) {
+    var columns = 0;
+    for (var i = 0; i < line.length; i++) {
+      if (line[i] === ' ') columns++;
+      else if (line[i] === '\t') columns += 4 - columns % 4;
+      else break;
+    }
+    return columns;
+  }
+
+  function setIndentGuides(surface, lines) {
+    var previous = 0, counts = [0, 0, 0, 0, 0], unit = 4;
+    var columns = lines.map(function (line) {
+      var indent = indentColumns(line);
+      if (!line.trim()) return indent;
+      var step = indent - previous;
+      if (step >= 2 && step <= 4) counts[step]++;
+      previous = indent;
+      return indent;
+    });
+    for (var step = 2; step < 4; step++) if (counts[step] > counts[unit]) unit = step;
+    surface.style.setProperty('--code-indent', unit + 'ch');
+    return columns;
+  }
+
+  function guide(line, indent) {
+    if (!indent) return;
+    line.classList.add('code-indent-guide');
+    line.style.setProperty('--code-leading', indent);
+  }
+
+  function inlineSyntax(surface, input, lang, highlight, add) {
+    var layer = add(surface, 'div', 'code-edit-layer');
+    layer.setAttribute('aria-hidden', 'true');
+    var mirror = add(layer, 'pre', 'code-edit-text');
+    var stage = add(mirror, 'code', lang ? 'language-' + lang : '');
+    var painted = null, frame = 0, composing = false, slow = false;
+    var doc = input.ownerDocument;
+
+    function syncScroll() {
+      mirror.style.transform = 'translate(' + (-input.scrollLeft) + 'px, ' + (-input.scrollTop) + 'px)';
+      surface.style.setProperty('--code-edit-scroll', input.scrollTop + 'px');
+    }
+    function activeLine() {
+      var caret = input.selectionDirection === 'backward' ? input.selectionStart : input.selectionEnd;
+      var offset = 0, line = 0;
+      while ((offset = input.value.indexOf('\n', offset)) >= 0 && offset < caret) { offset++; line++; }
+      surface.style.setProperty('--code-active-line', line);
+    }
+    function refresh() {
+      if (painted !== input.value || input.wrap === 'soft' || composing) surface.classList.remove('code-edit-colored');
+      if (frame) return;
+      frame = requestAnimationFrame(function () {
+        frame = 0;
+        if (!input.isConnected) return;
+        activeLine();
+        syncScroll();
+        var source = input.value;
+        if (input.wrap === 'soft' || composing || slow || source.length > EDIT_MAX_CHARS || BIDI_TEXT.test(source)) return;
+        if (source === painted) { surface.classList.add('code-edit-colored'); return; }
+        var lines = source.split('\n', EDIT_MAX_LINES + 1);
+        if (lines.length > EDIT_MAX_LINES) return;
+        var start = performance.now();
+        stage.textContent = source;
+        function draw() {
+          if (input.value !== source || composing || input.wrap === 'soft' || !input.isConnected) return;
+          var colored = coloredLines(doc, stage, lang).lines;
+          var indents = setIndentGuides(surface, lines);
+          var fragment = doc.createDocumentFragment();
+          colored.forEach(function (content, index) {
+            var row = add(fragment, 'span', 'code-edit-line');
+            guide(row, indents[index]);
+            row.appendChild(content);
+          });
+          stage.replaceChildren(fragment);
+          painted = source;
+          surface.classList.add('code-edit-colored');
+        }
+        if (lang && highlight) highlight.block(stage, draw, true);
+        else draw();
+        // A costly grammar yields to the native editor for the rest of this edit session.
+        if ((source.length > 4096 || lines.length > 100) && performance.now() - start > 24) {
+          slow = true;
+          surface.classList.remove('code-edit-colored');
+          stage.replaceChildren();
+        }
+      });
+    }
+    input.addEventListener('scroll', syncScroll, { passive: true });
+    ['input', 'click', 'keyup', 'select', 'focus'].forEach(function (type) {
+      input.addEventListener(type, refresh);
+    });
+    input.addEventListener('compositionstart', function () { composing = true; refresh(); });
+    input.addEventListener('compositionend', function () { composing = false; refresh(); });
+    return refresh;
+  }
+
   function create(doc, format, source, name, t, highlight, options) {
     options = options || {};
     var mode = format.slice(5), entries = [];
@@ -228,8 +328,23 @@
       input.autocomplete = 'off';
       input.setAttribute('autocorrect', 'off');
       input.setAttribute('aria-label', t('previewEdit.file'));
-      return { element: element, entries: entries, input: input, lineCount: lineCount };
+      var refresh = inlineSyntax(body, input, lang, highlight, add);
+      return { element: element, entries: entries, input: input, lineCount: lineCount, refresh: refresh };
     }
+    var codeRows = [], activeRow;
+    function activateLine(line) {
+      var row = codeRows[line - 1];
+      if (!row || row === activeRow) return;
+      if (activeRow) activeRow.classList.remove('is-active-line');
+      row.classList.add('is-active-line');
+      activeRow = row;
+    }
+    function activateRow(event) {
+      var row = event.target.closest('.code-line');
+      if (row) activateLine(Number(row.firstElementChild.dataset.line));
+    }
+    body.addEventListener('click', activateRow);
+    body.addEventListener('focusin', activateRow);
     var lineTotal = source.split('\n', MAX_LINES + 1).length;
     if (lineTotal <= MAX_LINES) lineCount.textContent = t('code.lineCount', { count: lineTotal });
     var pre = add(body, 'pre', 'code-raw');
@@ -242,6 +357,7 @@
         var colored = coloredLines(doc, code, lang);
         var ranges = code.classList.contains('hljs') ? foldRanges(colored.mask, lang, html, colored.continuations) : new Map();
         var raw = source.split('\n'), stack = [];
+        var indents = setIndentGuides(body, raw);
         pre.remove();
         body.style.setProperty('--code-digits', String(raw.length).length + 'ch');
         colored.lines.forEach(function (fragment, index) {
@@ -251,11 +367,14 @@
           var collapsible = end !== undefined && stack.length < 48 && (!stack.length || end <= stack[stack.length - 1].end);
           var detail = collapsible && add(parent, 'details', 'code-fold');
           var row = add(detail || parent, detail ? 'summary' : 'div', 'code-line');
+          codeRows.push(row);
           var number = add(row, 'span', 'code-number');
           number.dataset.line = index + 1;
           number.setAttribute('aria-hidden', 'true');
           add(row, 'span', 'code-marker').setAttribute('aria-hidden', 'true');
-          add(row, 'code', 'code-line-text').appendChild(fragment);
+          var line = add(row, 'code', 'code-line-text');
+          guide(line, indents[index]);
+          line.appendChild(fragment);
           if (detail) {
             add(row, 'span', 'code-hidden-count', t('code.hidden', { count: end - index }));
             if (!stack.length) {
@@ -278,7 +397,7 @@
       else draw();
       building = false;
     }
-    return { element: element, entries: entries };
+    return { element: element, entries: entries, activateLine: activateLine };
   }
 
   return { languages: languages, language: language, suggestedName: suggestedName, create: create, foldRanges: foldRanges };
