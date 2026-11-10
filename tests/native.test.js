@@ -104,6 +104,26 @@ test('configuration files use the unrestricted picker without granting their par
   const mobile = adapter({ open: async () => 'content://provider/document/primary%3ADocuments%2Fsettings.ini' }).native;
   assert.equal((await mobile.pickOpen()).name, 'settings.ini');
 });
+
+test('recent code files use the scoped open path and can be reselected after restarting', async () => {
+  const path = '/docs/example.cpp', picks = [];
+  let allowed = true;
+  const { native } = adapter({
+    invoke: async command => {
+      assert.equal(command, 'resolve_document_path');
+      if (!allowed) throw 'Select a document using Open first';
+      return path;
+    },
+    open: async options => { picks.push(options); return path; }
+  });
+  assert.equal((await native.openRecent(path)).name, 'example.cpp');
+  assert.equal(picks.length, 0);
+  allowed = false;
+  assert.equal((await native.openRecent(path)).name, 'example.cpp');
+  assert.equal(picks[0].defaultPath, path);
+  assert.equal(picks[0].pickerMode, 'document');
+  assert.equal(picks[0].filters, undefined);
+});
 test('startup, native-open, drop and close confirmation share app hooks', async () => {
   const events = {}, opened = [], drags = [];
   let destroyed = 0, confirmation = false, prevented = 0;

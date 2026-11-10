@@ -61,6 +61,7 @@
     name: '',
     format: 'markdown',
     formatOverride: '',
+    draftName: false,
     saved: '',
     dirty: false,
     needsSave: false,
@@ -103,7 +104,7 @@
   var manualBaseUrl = '';
   var mobileSidebar = false;
   var documentFields = ['handle', 'name', 'saved', 'dirty', 'needsSave', 'hasDocument', 'bom', 'eol',
-    'encoding', 'diskBytes', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'curLine', 'format', 'formatOverride'];
+    'encoding', 'diskBytes', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'curLine', 'format', 'formatOverride', 'draftName'];
 
   function tabText(key, fallback) { var value = t(key); return value === key ? fallback : value; }
   function captureTab() {
@@ -378,6 +379,7 @@
     var tab = tabs.filter(function (item) { return item.id === id; })[0];
     if (!tab || (!internal && (pendingSave || pendingDiscard))) return false;
     if (tab === activeTab) return true;
+    closePreviewFormat();
     var previous = activeTab;
     if (previous) previous.editType = null;
     tab.editType = null;
@@ -420,12 +422,12 @@
     return tabs.map(function (tab) { return { id: tab.id, name: tab.name, source: tab.source,
       dirty: tab.dirty, hasDocument: tab.hasDocument, needsSave: tab.needsSave, active: tab === activeTab, handle: tab.handle, saved: tab.saved,
       bom: tab.bom, eol: tab.eol, encoding: tab.encoding, baseUrl: tab.baseUrl, autoBase: tab.autoBase,
-      format: tab.format, formatOverride: tab.formatOverride }; });
+      format: tab.format, formatOverride: tab.formatOverride, draftName: tab.draftName }; });
   }
   function restoreTab(snapshot) {
     if (!snapshot || typeof snapshot.source !== 'string') return false;
     var metadata = { bom: !!snapshot.bom, eol: snapshot.eol === '\r\n' ? '\r\n' : '\n', encoding: 'utf-8',
-      format: snapshot.format, formatOverride: snapshot.formatOverride };
+      format: snapshot.format, formatOverride: snapshot.formatOverride, draftName: snapshot.draftName };
     var name = typeof snapshot.name === 'string' ? snapshot.name : 'README.md';
     var id;
     if (tabs.length === 1 && !state.hasDocument && !el.editor.value && !pendingSave && !pendingDiscard) {
@@ -1055,7 +1057,6 @@
     el.btnSaveAs.disabled = !state.hasDocument;
     el.btnReload.disabled = !state.handle;
     el.btnExport.disabled = !state.hasDocument;
-    $('btnPreviewFormat').disabled = !state.hasDocument;
 
     el.statusFile.textContent = state.hasDocument ? state.name : t('status.ready');
     el.statusFile.setAttribute('data-dirty', state.dirty ? '1' : '0');
@@ -1135,6 +1136,7 @@
   }
 
   function setDoc(text, name, handle, meta) {
+    closePreviewFormat();
     state.documentId++;
     if (activeTab) { activeTab.tocCollapsed = []; activeTab.structuredFolds = null; }
     var oldEditor = el.editor;
@@ -1142,6 +1144,7 @@
     resetUndo();
     if (!tabs.some(function (tab) { return tab.editor === oldEditor; }) && oldEditor.parentNode) oldEditor.parentNode.removeChild(oldEditor);
     state.name = name || '';
+    state.draftName = !!(meta && meta.draftName);
     state.formatOverride = formatChoice(meta && meta.formatOverride);
     var previousFormat = formatChoice(meta && meta.format);
     state.format = state.formatOverride || (previousFormat === 'json' || previousFormat === 'ini' ? previousFormat : documentFormat(state.name, text));
@@ -1167,6 +1170,7 @@
   }
 
   function setEmpty() {
+    closePreviewFormat();
     state.documentId++;
     if (activeTab) activeTab.tocCollapsed = [];
     var oldEditor = el.editor;
@@ -1174,6 +1178,7 @@
     resetUndo();
     if (!tabs.some(function (tab) { return tab.editor === oldEditor; }) && oldEditor.parentNode) oldEditor.parentNode.removeChild(oldEditor);
     state.name = '';
+    state.draftName = true;
     state.format = 'markdown';
     state.formatOverride = '';
     state.saved = '';
@@ -1313,11 +1318,14 @@
 
   function openNativePath(path, fromLink, inNewTab) {
     if (inNewTab) return RV.Native.openPath(path).then(openHandleTab).catch(function (err) { reportOpen(err, path); return false; });
+    return replaceFromPath(path, fromLink && RV.Native.openLink ? RV.Native.openLink : RV.Native.openPath);
+  }
+
+  function replaceFromPath(path, opener) {
     return confirmDiscard().then(function (proceed) {
       if (!proceed) return false;
       var documentId = state.documentId;
       var source = el.editor.value;
-      var opener = fromLink && RV.Native.openLink ? RV.Native.openLink : RV.Native.openPath;
       return opener(path).then(function (h) {
         if (!h || state.documentId !== documentId || el.editor.value !== source) return false;
         return readHandle(h);
@@ -1383,6 +1391,7 @@
       if (state.documentId !== documentId) return true;
       state.saved = text;
       state.needsSave = false;
+      state.draftName = false;
       state.handle = handle || null;
       state.diskBytes = bytes || null;
       state.name = handle ? handle.name : name;
@@ -1463,7 +1472,7 @@
     return chooseSave();
     function chooseSave() {
       if (nativeAvailable()) {
-        return RV.Native.pickSave(name || 'README.md', state.format === 'markdown' ? undefined : mime).then(function (h) {
+        return RV.Native.pickSave(name, mime).then(function (h) {
           return h ? writeTo(h) : false;
         }).catch(function (err) {
           if (err && err.name === 'AbortError') return false;
@@ -1474,8 +1483,7 @@
 
       if (typeof window.showSaveFilePicker === 'function') {
         return window.showSaveFilePicker({
-          suggestedName: name || 'README.md',
-          types: state.format === 'markdown' ? [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown', '.txt'] } }] : []
+          suggestedName: name
         }).then(function (h) {
           return h ? writeTo(h) : false;
         }).catch(function (err) {
@@ -1495,16 +1503,13 @@
     if (structuredPreview && structuredPreview.complete) structuredPreview.complete();
     var src = el.editor.value;
     var snapshot = el.preview.cloneNode(true);
+    if (structuredPreview && structuredPreview.input) snapshot.replaceChildren(createFileView(state, src).element);
     var exportName = state.name, exportTheme = isDark() ? 'dark' : 'light';
     var exportDir = state.dirMode === 'auto' ? Direction.dominantDir(src) : state.dirMode;
     var fontSnapshot = RV.Fonts ? RV.Fonts.snapshot() : {};
     if (RV.Fonts && (fontSnapshot.latin || fontSnapshot.persian)) await RV.Fonts.ready();
     var exportFonts = RV.Fonts ? RV.Fonts.exportCss(fontSnapshot) : '';
     if (RV.Diagrams && snapshot.querySelector('.code-block[data-lang="mermaid"]')) { await RV.Diagrams.render(snapshot); RV.Diagrams.cleanExport(snapshot); }
-    eachNode('button.code-number', function (node) {
-      var number = document.createElement('span'); number.className = 'code-number'; number.dataset.line = node.dataset.line;
-      node.replaceWith(number);
-    }, snapshot);
     eachNode('.section-tools, .preview-edit-tools, .preview-edit-control', function (node) { node.remove(); }, snapshot);
     eachNode('[data-preview-fold]', function (node) { node.removeAttribute('data-preview-fold'); }, snapshot);
     eachNode('.section-folded', function (node) { node.classList.remove('section-folded'); }, snapshot);
@@ -1759,6 +1764,7 @@
   }
 
   var structuredPreview = null;
+  var inlineCodeView = null;
   var structuredMeasureFrame = 0;
   var previewEditTargets = new WeakMap();
   var previewEdit = null;
@@ -1835,11 +1841,41 @@
     });
   }
 
+  function wireInlineCode(input, documentId) {
+    function syncSelection() {
+      el.editor.setSelectionRange(input.selectionStart, input.selectionEnd, input.selectionDirection);
+    }
+    input.addEventListener('beforeinput', function (event) {
+      if (documentId !== state.documentId) return;
+      if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
+        event.preventDefault();
+        undoEdit(event.inputType === 'historyRedo');
+        return;
+      }
+      syncSelection();
+      if (activeTab.lastEdit && activeTab.lastEdit.source === el.editor.value) activeTab.lastEdit = editorSnapshot();
+    });
+    input.addEventListener('input', function (event) {
+      if (documentId !== state.documentId || !input.isConnected) return;
+      if (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak') autoIndentAfterNewline(input);
+      el.editor.value = input.value;
+      syncSelection();
+      markDirtyFromValue(event.inputType);
+      scheduleRender();
+    });
+    ['click', 'keyup', 'select'].forEach(function (type) {
+      input.addEventListener(type, updateStatsSoon);
+    });
+  }
+
   function renderStructured(src) {
     var start = now();
     var folds = activeTab.structuredFolds || (activeTab.structuredFolds = new Map());
     var documentId = state.documentId;
-    structuredPreview = createFileView(state, src, { folds: folds, layout: function (populated) {
+    var inlineEdit = state.editPreview && (state.format === 'text' || state.format.startsWith('code:'));
+    var key = inlineEdit && JSON.stringify([documentId, state.name, state.format, I18n.getLocale()]);
+    structuredPreview = key && inlineCodeView && inlineCodeView.key === key ? inlineCodeView.view
+      : createFileView(state, src, { inlineEdit: inlineEdit, folds: folds, layout: function (populated) {
       if (documentId !== state.documentId || !view.element.isConnected) return;
       if (populated) {
         updateFileOutline(view);
@@ -1855,6 +1891,18 @@
       return previewEditButton(parent, { start: from, end: to, label: label, type: type, source: src, documentId: documentId });
     } : null });
     var view = structuredPreview;
+    if (inlineEdit) {
+      if (!inlineCodeView || inlineCodeView.view !== view) {
+        inlineCodeView = { key: key, view: view };
+        wireInlineCode(view.input, documentId);
+      }
+      if (view.input.value !== src) {
+        view.input.value = src;
+        view.input.setSelectionRange(el.editor.selectionStart, el.editor.selectionEnd, el.editor.selectionDirection);
+      }
+      view.input.wrap = state.wrap ? 'soft' : 'off';
+      view.input.rows = clamp(src.split('\n', 28).length + 1, 8, 28);
+    } else inlineCodeView = null;
     reconcileBlocks([{ nodes: [view.element] }]);
     previewBlocks = [];
     el.preview.setAttribute('dir', 'ltr');
@@ -1863,6 +1911,7 @@
     state.tasksOk = true;
     state.taskReason = '';
     state.lines = src.split('\n').length;
+    if (view.lineCount && inlineEdit) view.lineCount.textContent = t('code.lineCount', { count: state.lines });
     if (!el.findBar.hidden && el.findInput.value) runFind(true);
     measureParts();
     buildGutter();
@@ -1893,7 +1942,7 @@
     el.preview.classList.toggle('structured-preview', structured);
     $('structuredFind').hidden = !structured;
     if (structured) { renderStructured(el.editor.value); return; }
-    structuredPreview = null;
+    structuredPreview = inlineCodeView = null;
     if (!state.hasDocument && !el.editor.value) {
       reconcileBlocks([]); previewBlocks = [];
       state.anchors = [];
@@ -2434,7 +2483,8 @@
 
   function updateStats(src, ms) {
     var lines = src ? src.split('\n') : [''];
-    var upto = src.slice(0, el.editor.selectionStart);
+    var cursor = structuredPreview && structuredPreview.input === document.activeElement ? structuredPreview.input : el.editor;
+    var upto = src.slice(0, cursor.selectionStart);
     var row = upto.split('\n').length;
     var col = upto.length - (upto.lastIndexOf('\n') + 1) + 1;
     el.statusPos.textContent = t('status.line', { line: row, col: col });
@@ -2534,16 +2584,19 @@
   }
 
   function setEditPreview(on) {
+    var wasInline = structuredPreview && structuredPreview.input === document.activeElement;
     state.editPreview = !!on;
     if (!state.tasksOk) applyTaskMode();
     else render({ immediate: true });
+    if (on && state.mode !== 'write' && structuredPreview && structuredPreview.input) structuredPreview.input.focus({ preventScroll: true });
+    else if (wasInline) el.previewScroll.focus({ preventScroll: true });
     saveSettings();
     toast(state.editPreview
       ? (state.tasksOk ? t('info.editOn') : t('edit.unavailable', { reason: state.taskReason }))
       : t('info.editOff'), state.editPreview && !state.tasksOk ? 'warning' : 'info');
   }
 
-  var formatChoices = null, formatDocument = 0;
+  var formatChoices = null, formatDocument = 0, formatAnchor = null;
   function fillPreviewFormats(selected) {
     var list = $('previewFormat'), query = $('previewFormatSearch').value.trim().toLowerCase().replace(/^\./, '');
     var choices = [['', t('structured.auto'), 'auto'], ['markdown', 'Markdown', 'md'],
@@ -2552,8 +2605,8 @@
     if (query) {
       choices = choices.map(function (choice) {
         var label = choice[1].toLowerCase(), keys = choice[2].split(' ');
-        var rank = label === query || keys.includes(query) ? 0 : label.startsWith(query) ? 1
-          : (label + ' ' + choice[2]).includes(query) ? 2 : -1;
+        var rank = label === query ? 0 : keys.includes(query) ? 1 : label.startsWith(query) ? 2
+          : (label + ' ' + choice[2]).includes(query) ? 3 : -1;
         return { choice: choice, rank: rank };
       }).filter(function (item) { return item.rank >= 0; })
         .sort(function (a, b) { return a.rank - b.rank; })
@@ -2566,6 +2619,8 @@
       options.appendChild(option);
     });
     list.replaceChildren(options);
+    list.size = clamp(choices.length, 2, 9);
+    list.hidden = !choices.length;
     if (selected !== undefined) list.value = selected;
     if (list.selectedIndex < 0 && list.options.length) list.selectedIndex = 0;
     $('previewFormatApply').disabled = !list.options.length;
@@ -2573,36 +2628,51 @@
   }
 
   function openPreviewFormat() {
-    var dialog = $('previewFormatDialog');
-    if (!state.hasDocument || dialog.open || $('previewEditDialog').open ||
+    var panel = $('previewFormatPanel'), trigger = $('btnPreviewFormat');
+    if (pendingSave || pendingDiscard || $('previewEditDialog').open ||
         !$('appearancePanel').hidden || !$('serviceModal').hidden) return;
-    if (RV.Shell) RV.Shell.close();
+    if (!panel.hidden) { closePreviewFormat(true); return; }
+    if (state.readingFocus) setReadingFocus(false);
+    RV.Shell.close(!!trigger.closest('#toolbarOverflow:not([hidden])'));
+    formatAnchor = trigger.getClientRects().length ? trigger : $('btnToolbarMore');
+    if (!formatAnchor.getClientRects().length) formatAnchor = $('brandMark');
     if (!formatChoices) {
-      var labels = { ini: 'TOML / INI syntax', json: 'JSON / JSONC syntax', markdown: 'Markdown syntax', xml: 'HTML / XML' };
+      var labels = { ini: 'INI syntax', json: 'JSON syntax', markdown: 'Markdown syntax', xml: 'XML' };
       formatChoices = Code.languages.filter(function (entry) { return entry[0] !== 'plaintext'; }).map(function (entry) {
         return ['code:' + entry[0], labels[entry[0]] || entry[1], entry[0] + ' ' + (entry[2] || '')];
-      }).sort(function (a, b) { return a[1].localeCompare(b[1]); });
+      }).concat([['code:html', 'HTML', 'html htm'], ['code:toml', 'TOML', 'toml'],
+        ['code:jsonc', 'JSONC', 'jsonc'], ['code:json5', 'JSON5', 'json5']])
+        .sort(function (a, b) { return a[1].localeCompare(b[1]); });
     }
     formatDocument = state.documentId;
-    $('previewFormatFile').textContent = state.name;
+    $('previewFormatFile').textContent = state.name || t('tabs.untitled');
     $('previewFormatSearch').value = '';
     fillPreviewFormats(state.formatOverride);
-    if (typeof dialog.showModal === 'function') dialog.showModal();
-    else dialog.setAttribute('open', '');
+    RV.Shell.setPopup(formatAnchor, panel, true);
     $('previewFormatSearch').focus();
   }
 
+  function closePreviewFormat(focus) {
+    if (!formatAnchor) return;
+    var anchor = formatAnchor;
+    formatAnchor = null;
+    RV.Shell.setPopup(anchor, $('previewFormatPanel'), false);
+    if (focus) anchor.focus({ preventScroll: true });
+  }
+
   function wirePreviewFormat() {
-    var dialog = $('previewFormatDialog'), list = $('previewFormat');
-    function close() {
-      if (typeof dialog.close === 'function') dialog.close();
-      else dialog.removeAttribute('open');
-    }
-    $('previewFormatCancel').addEventListener('click', close);
-    dialog.addEventListener('cancel', function (event) { event.preventDefault(); close(); });
-    dialog.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
+    var panel = $('previewFormatPanel'), list = $('previewFormat'), trigger = $('btnPreviewFormat');
+    trigger.addEventListener('click', openPreviewFormat);
+    $('previewFormatCancel').addEventListener('click', function () { closePreviewFormat(true); });
+    panel.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closePreviewFormat(true); }
     });
+    ['pointerdown', 'focusin'].forEach(function (type) {
+      document.addEventListener(type, function (event) {
+        if (!panel.contains(event.target) && !trigger.contains(event.target)) closePreviewFormat();
+      });
+    });
+    window.addEventListener('resize', function () { closePreviewFormat(panel.contains(document.activeElement)); });
     $('previewFormatSearch').addEventListener('input', function () { fillPreviewFormats(); });
     $('previewFormatSearch').addEventListener('keydown', function (event) {
       if (event.key === 'ArrowDown' && list.options.length) { event.preventDefault(); list.focus(); }
@@ -2615,10 +2685,15 @@
       event.preventDefault();
       if (list.selectedIndex < 0) return;
       var selected = list.value;
-      close();
-      if (formatDocument !== state.documentId || !state.hasDocument) return;
+      closePreviewFormat(true);
+      if (formatDocument !== state.documentId || pendingSave || pendingDiscard) return;
+      if (!state.hasDocument) {
+        if (!selected) return;
+        setDoc('', 'README.md', null, { draftName: true });
+      }
       state.formatOverride = formatChoice(selected);
-      state.format = state.formatOverride || documentFormat(state.name, el.editor.value);
+      state.format = state.formatOverride || documentFormat(state.draftName ? 'README.md' : state.name, el.editor.value);
+      if (state.draftName) state.name = Code.suggestedName(state.format);
       activeTab.structuredFolds = null;
       if (state.mode === 'write') setMode('preview');
       render({ immediate: true });
@@ -2767,7 +2842,8 @@
 
     document.addEventListener('keydown', function (e) {
       var key = shortcutKey(e);
-      if (el.confirmModal.hidden && el.helpModal.hidden && (e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
+      if (el.confirmModal.hidden && el.helpModal.hidden && (e.ctrlKey || e.metaKey) && !e.altKey &&
+          !$('previewFormatPanel').contains(e.target) && !$('previewEditDialog').contains(e.target) && (key === 'z' || key === 'y')) {
         e.preventDefault(); e.stopPropagation(); undoEdit(key === 'y' || e.shiftKey); return;
       }
       if (e.key === 'Tab') {
@@ -2818,7 +2894,7 @@
         return;
       }
       if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') {
-        autoIndentAfterNewline();
+        autoIndentAfterNewline(el.editor);
       }
       markDirtyFromValue(e.inputType);
       scheduleRender();
@@ -2882,14 +2958,14 @@
     scheduleRender();
   }
 
-  function autoIndentAfterNewline() {
-    var ed = el.editor;
+  function autoIndentAfterNewline(ed) {
     var pos = ed.selectionStart;
     var v = ed.value;
     if (pos !== ed.selectionEnd || v.charAt(pos - 1) !== '\n') return;
     var ls = v.lastIndexOf('\n', pos - 2) + 1;
     var line = v.slice(ls, pos - 1);
-    var m = /^([ \t]*)(?:([-*+]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?|(>)[ \t]?)?/.exec(line);
+    var m = (state.format === 'markdown' ? /^([ \t]*)(?:([-*+]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?|(>)[ \t]?)?/
+      : /^([ \t]*)/).exec(line);
     if (!m) return;
     var indent = m[1];
     if (m[2]) indent += m[2] + ' ';
@@ -3236,7 +3312,7 @@
       var b = e.target.closest ? e.target.closest('[data-path]') : null;
       if (!b) return;
       var path = b.getAttribute('data-path');
-      openNativePath(path, true);
+      replaceFromPath(path, RV.Native.openRecent);
     });
   }
 
@@ -3291,6 +3367,17 @@
     if (!q) { el.findCount.textContent = ''; return; }
     if (structuredPreview && structuredPreview.complete) structuredPreview.complete();
     var pattern = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu');
+    if (structuredPreview && structuredPreview.input) {
+      var input = structuredPreview.input;
+      var matches = new RegExp(pattern.source, 'giu'), result;
+      while (find.hits.length < 1000 && (result = matches.exec(input.value))) {
+        find.hits.push({ start: result.index, end: matches.lastIndex });
+      }
+      if (!find.hits.length) { el.findCount.textContent = t('find.none'); return; }
+      find.index = keepIndex && previous >= 0 ? Math.min(previous, find.hits.length - 1) : 0;
+      showFindHit(!keepIndex);
+      return;
+    }
     var walker = document.createTreeWalker(el.preview, NodeFilter.SHOW_TEXT, null);
     var nodes = [];
     while (walker.nextNode()) nodes.push(walker.currentNode);
@@ -3315,9 +3402,18 @@
   }
 
   function showFindHit(scroll) {
-    for (var i = 0; i < find.hits.length; i++) find.hits[i].classList.toggle('current', i === find.index);
     el.findCount.textContent = (find.index + 1) + ' / ' + find.hits.length;
     var cur = find.hits[find.index];
+    if (structuredPreview && structuredPreview.input) {
+      if (scroll) {
+        var input = structuredPreview.input;
+        input.setSelectionRange(cur.start, cur.end);
+        var row = input.value.slice(0, cur.start).split('\n').length - 1;
+        input.scrollTop = row * parseFloat(getComputedStyle(input).lineHeight);
+      }
+      return;
+    }
+    for (var i = 0; i < find.hits.length; i++) find.hits[i].classList.toggle('current', i === find.index);
     if (structuredPreview && cur) {
       for (var detail = cur.closest('details'); detail; detail = detail.parentElement.closest('details')) openPreviewDetails(detail);
     }
@@ -3529,8 +3625,15 @@
 
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
-      if (!el.confirmModal.hidden || !el.helpModal.hidden || $('previewEditDialog').open || $('previewFormatDialog').open) return;
+      if (!el.confirmModal.hidden || !el.helpModal.hidden || $('previewEditDialog').open) return;
       if (e.isComposing || e.keyCode === 229) return;
+      if (formatAnchor) {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && shortcutKey(e) === 'l') {
+          e.preventDefault();
+          closePreviewFormat(true);
+        }
+        return;
+      }
       if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         cycleDocumentTabs(e.shiftKey);
@@ -3557,7 +3660,7 @@
       if (key === 's') { e.preventDefault(); save(e.shiftKey); return; }
       if (key === 'o') { e.preventDefault(); pickOpen(); return; }
       if (key === 'f' && e.shiftKey) { e.preventDefault(); openFind(); return; }
-      if (key === 'l' && e.shiftKey && state.hasDocument) { e.preventDefault(); openPreviewFormat(); return; }
+      if (key === 'l' && e.shiftKey) { e.preventDefault(); openPreviewFormat(); return; }
       if (key === 'e') { e.preventDefault(); setEditPreview(!state.editPreview); return; }
       if (key === '1') { e.preventDefault(); setMode('write'); return; }
       if (key === '2') { e.preventDefault(); setMode('split'); return; }
@@ -3838,7 +3941,7 @@
       undo: function () { undoEdit(false); el.editor.focus(); },
       redo: function () { undoEdit(true); el.editor.focus(); },
       getTheme: function () { return state.theme; }, setTheme: setTheme,
-      find: openFind, filterContents: focusContentsFilter, previewFormat: openPreviewFormat,
+      find: openFind, filterContents: focusContentsFilter,
       close: function () { closeTab(activeTab.id); },
       verticalTabs: toggleTabLayout,
       canUndo: function () { return !!(activeTab && activeTab.undo.length); },

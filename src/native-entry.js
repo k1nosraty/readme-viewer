@@ -11,7 +11,6 @@ import { check } from '@tauri-apps/plugin-updater';
 const root = window;
 const available = () => !!root.__TAURI_INTERNALS__;
 const abort = () => new DOMException('Save cancelled.', 'AbortError');
-const filters = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mdwn', 'mkd', 'txt'] }];
 
 async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
   const byId = id => document.getElementById(id);
@@ -137,8 +136,8 @@ const Native = {
   },
   checkUpdate() { return check({ timeout: 15000 }); },
   restart() { return invoke('restart_app'); },
-  async pickOpen() {
-    const path = await open({ multiple: false, directory: false });
+  async pickOpen(defaultPath) {
+    const path = await open({ multiple: false, directory: false, pickerMode: 'document', defaultPath });
     if (!path) return null;
     const local = !/^content:/i.test(path);
     if (local && !(await stat(path)).isFile) throw new Error('Expected a document file.');
@@ -147,14 +146,21 @@ const Native = {
   async pickSave(name, mime) {
     const saveFilters = mime && /^text\/html(?:;|$)/i.test(mime)
       ? [{ name: 'HTML', extensions: ['html', 'htm'] }]
-      : mime && /^image\/svg\+xml(?:;|$)/i.test(mime) ? [{ name: 'SVG image', extensions: ['svg'] }]
-      : mime && /^(application\/json|text\/plain)(?:;|$)/i.test(mime) ? undefined : filters;
+      : mime && /^image\/svg\+xml(?:;|$)/i.test(mime) ? [{ name: 'SVG image', extensions: ['svg'] }] : undefined;
     const path = await save({ defaultPath: name, filters: saveFilters });
-    return path ? handle(path, /^content:/i.test(path) ? name : undefined, false, true, !!saveFilters) : null;
+    const markdown = !mime || /^text\/markdown(?:;|$)/i.test(mime);
+    return path ? handle(path, /^content:/i.test(path) ? name : undefined, false, true, markdown || !!saveFilters) : null;
   },
   async openPath(path) {
     if (/^content:/i.test(path)) return handle(path, undefined, true, false);
     return handle(await invoke('resolve_document_path', { path }));
+  },
+  async openRecent(path) {
+    try { return await Native.openPath(path); }
+    catch (error) {
+      if (error !== 'Select a document using Open first') throw error;
+      return Native.pickOpen(path);
+    }
   },
   async download(payload, name, mime) {
     const target = await Native.pickSave(name, mime);

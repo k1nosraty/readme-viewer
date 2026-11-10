@@ -68,7 +68,7 @@ test('INI keeps duplicate sections and comments, and the per-tab override surviv
   assert.equal(await app.openFileTab(file('Document', source)), true);
   function openFormat() {
     document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'l', ctrlKey: true, shiftKey: true, bubbles: true }));
-    assert.equal(document.querySelector('#previewFormatDialog').open, true);
+    assert.equal(document.querySelector('#previewFormatPanel').hidden, false);
   }
   const option = document.querySelector('#previewFormat');
   openFormat();

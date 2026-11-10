@@ -46,7 +46,7 @@
               <p id="sessionStatus" role="status" aria-live="polite"></p>
               <button type="button" class="btn" id="clearSession" data-i18n="reading.clear">Clear saved session</button>
               <hr>
-              <button type="button" class="menu-command" data-command="btnPreviewFormat" data-i18n="structured.choose">Preview format…</button>
+              <button type="button" class="menu-command" data-command="btnPreviewFormat"><span data-i18n="structured.choose">Preview format…</span><kbd>Ctrl+Shift+L</kbd></button>
               <label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label>
               <input type="text" id="baseUrl" dir="ltr" spellcheck="false" data-i18n-placeholder="baseUrl.placeholder" placeholder="https://github.com/user/repo/blob/main/">
             </div>
@@ -68,7 +68,6 @@
           <button class="menu-command" type="button" data-mode-btn="write"><span data-i18n="mode.source">Source</span><kbd>Ctrl+1</kbd></button>
           <button class="menu-command" type="button" data-mode-btn="split"><span data-i18n="mode.split">Split</span><kbd>Ctrl+2</kbd></button>
           <button class="menu-command" type="button" data-mode-btn="preview"><span data-i18n="mode.preview">Preview</span><kbd>Ctrl+3</kbd></button>
-          <button class="menu-command" type="button" id="btnPreviewFormat" data-shell-action="previewFormat" aria-haspopup="dialog" aria-keyshortcuts="Control+Shift+L Meta+Shift+L"><span data-i18n="structured.choose">Preview format…</span><kbd>Ctrl+Shift+L</kbd></button>
           <hr>
           <button type="button" class="menu-command" id="btnAppearance" data-i18n="appearance.title">Appearance…</button>
           <button class="menu-command" type="button" id="btnReadingFocus" data-command="btnFocus" aria-pressed="false"><span data-i18n="reading.focus">Distraction-free reading</span><kbd>F8</kbd></button>
@@ -134,8 +133,8 @@
   <div class="toolbar" role="toolbar" aria-label="Tools" id="toolbar">
     <button type="button" class="btn btn-icon" id="btnToc" aria-pressed="true" data-i18n-title="toggle.toc" data-i18n-aria="toggle.toc"><i data-icon="toc" data-size="16"></i></button>
     <div class="tgroup file-tools" data-toolbar-item="files" data-toolbar-priority="1">
-      <button type="button" class="btn" id="btnOpen" data-i18n-title="action.open"><i data-icon="open" data-size="16"></i><span class="btn-label" data-i18n="action.open">Open</span></button>
-      <button type="button" class="btn" id="btnSave" data-i18n-title="action.save" disabled=""><i data-icon="save" data-size="16"></i><span class="btn-label" data-i18n="action.save">Save</span></button>
+      <button type="button" class="btn" id="btnOpen" data-i18n-title="action.open" data-i18n-aria="action.open"><i data-icon="open" data-size="16"></i><span class="btn-label" data-i18n="action.open">Open</span></button>
+      <button type="button" class="btn" id="btnSave" data-i18n-title="action.save" data-i18n-aria="action.save" disabled=""><i data-icon="save" data-size="16"></i><span class="btn-label" data-i18n="action.save">Save</span></button>
     </div>
     <div class="tgroup file-extra-tools" data-toolbar-item="files">
       <button type="button" class="btn btn-icon" id="btnSaveAs" data-i18n-title="action.saveAs" disabled=""><i data-icon="saveAs" data-size="16"></i></button>
@@ -153,6 +152,9 @@
     </div>
     <div class="tgroup edit-tools" data-toolbar-item="editing" data-toolbar-priority="4">
       <button type="button" class="btn btn-accent" id="btnEdit" aria-pressed="false" data-i18n-title="toggle.edit"><i data-icon="taskOn" data-size="16"></i><span class="btn-label" data-i18n="toggle.edit">Edit in preview</span></button>
+    </div>
+    <div class="tgroup format-tools" data-toolbar-item="previewFormat" data-toolbar-priority="2">
+      <button type="button" class="btn btn-icon" id="btnPreviewFormat" aria-haspopup="dialog" aria-expanded="false" aria-controls="previewFormatPanel" aria-keyshortcuts="Control+Shift+L Meta+Shift+L" data-i18n-aria="structured.format" data-i18n-title="structured.choose"><i data-icon="fileCode" data-size="16"></i><i data-icon="chevronDown" data-size="10"></i></button>
     </div>
     <div class="tgroup direction-tools" role="group" data-i18n-aria="dir.label" data-toolbar-item="direction">
       <button type="button" class="seg seg-icon" data-dir="auto" data-i18n-title="dir.auto.hint"><i data-icon="globe" data-size="16"></i><span class="seg-label" data-i18n="dir.auto">Auto</span></button>
@@ -256,7 +258,7 @@
         <div class="empty-state" id="emptyState">
           <span class="empty-icon"><i data-icon="file" data-size="34"></i></span>
           <h2 data-i18n="empty.title">No document open</h2>
-          <p data-i18n="empty.body">Open a Markdown file, or drop one anywhere in this window.</p>
+          <p data-i18n="empty.body">Open a text, configuration or source file, or drop it here.</p>
           <div class="empty-actions">
             <button type="button" class="btn btn-primary" id="btnEmptyOpen">
               <i data-icon="open" data-size="16"></i><span data-i18n="action.openFile">Open file…</span>
@@ -307,7 +309,7 @@
 
 <input type="file" id="fileInput" hidden>
 
-<dialog id="previewFormatDialog" class="preview-edit-dialog preview-format-dialog" aria-labelledby="previewFormatTitle">
+<div id="previewFormatPanel" class="menu-panel preview-format-panel" role="dialog" aria-labelledby="previewFormatTitle" hidden>
   <form id="previewFormatForm">
     <h2 id="previewFormatTitle" data-i18n="structured.format">Preview format</h2>
     <p id="previewFormatFile" dir="auto"></p>
@@ -321,7 +323,7 @@
       <button class="btn btn-primary" id="previewFormatApply" type="submit" data-i18n="structured.apply">Apply format</button>
     </div>
   </form>
-</dialog>
+</div>
 
 <dialog id="previewEditDialog" class="preview-edit-dialog" aria-labelledby="previewEditTitle">
   <form id="previewEditForm">

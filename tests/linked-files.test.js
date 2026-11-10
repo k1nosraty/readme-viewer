@@ -96,7 +96,7 @@ test('cancelling a recent-file open preserves the recent list and unsaved docume
   let opened = 0;
   const recent = ['/docs/old.md'];
   const { window, document, storage } = await app(t, {
-    openLink: async () => { opened++; return null; }
+    openRecent: async () => { opened++; return null; }
   }, recent);
   window.RVApp.setDoc('original', 'current.md', null, {});
   const editor = document.getElementById('editor');

@@ -32,6 +32,24 @@
   var CONFIG = /\.(?:conf|cfg|cnf|properties)$/i;
   var MAX_CHARS = 160 * 1024;
   var MAX_LINES = 2500;
+  var FILE_NAMES = Object.assign(Object.create(null), {
+    cmake: 'CMakeLists.txt', dockerfile: 'Dockerfile', makefile: 'Makefile', nginx: 'nginx.conf'
+  });
+  var SAVE_EXTENSIONS = Object.assign(Object.create(null), {
+    apache: 'conf', c: 'c', cpp: 'cpp', excel: 'txt', go: 'go', http: 'http', ini: 'ini', java: 'java',
+    json: 'json', lua: 'lua', markdown: 'md', matlab: 'm', nix: 'nix', objectivec: 'm', pgsql: 'sql',
+    powershell: 'ps1', qml: 'qml', tcl: 'tcl', text: 'txt', xml: 'xml'
+  });
+  var GRAMMAR_IDS = Object.assign(Object.create(null), { html: 'xml', toml: 'ini', jsonc: 'json', json5: 'json' });
+
+  function suggestedName(format) {
+    if (format === 'markdown') return 'README.md';
+    var id = format.replace(/^code:/, '');
+    var entry = languages.find(function (entry) { return entry[0] === id; });
+    var alias = entry && entry[2] && entry[2].split(' ')[0];
+    var extension = SAVE_EXTENSIONS[id] || (alias && /^[a-z0-9]+$/.test(alias) ? alias : id);
+    return FILE_NAMES[id] || 'Untitled.' + extension;
+  }
 
   function language(name, source) {
     var file = name.toLowerCase();
@@ -181,7 +199,8 @@
 
   function create(doc, format, source, name, t, highlight, options) {
     options = options || {};
-    var lang = format.slice(5), entries = [];
+    var mode = format.slice(5), entries = [];
+    var lang = GRAMMAR_IDS[mode] || mode;
     function add(parent, tag, className, text) {
       var node = doc.createElement(tag);
       node.className = className || '';
@@ -193,22 +212,36 @@
     element.dir = 'ltr';
     var head = add(element, 'div', 'structured-heading');
     add(head, 'bdi', 'structured-name', name);
-    var html = HTML.test(name) || HTML_START.test(source.slice(0, 8192));
+    var html = mode === 'html' || HTML.test(name) || HTML_START.test(source.slice(0, 8192));
     var label = lang === 'xml' ? (html ? 'HTML' : 'XML') : LABELS[lang];
+    if (lang === 'ini' && (mode === 'toml' || /\.toml$/i.test(name))) label = 'TOML';
+    if (lang === 'json' && (mode === 'jsonc' || /\.jsonc$/i.test(name))) label = 'JSONC';
+    if (lang === 'json' && (mode === 'json5' || /\.json5$/i.test(name))) label = 'JSON5';
     add(head, 'span', 'structured-format', lang ? label || lang.toUpperCase() : t('structured.text'));
-    if (options.edit) options.edit(head, 0, source.length, t('previewEdit.file'));
+    var lineCount = add(head, 'span', 'structured-meta');
     var body = add(element, 'div', 'code-surface');
+    if (options.inlineEdit) {
+      body.classList.add('code-edit-surface');
+      var input = add(body, 'textarea', 'code-editor');
+      input.spellcheck = false;
+      input.autocapitalize = 'off';
+      input.autocomplete = 'off';
+      input.setAttribute('autocorrect', 'off');
+      input.setAttribute('aria-label', t('previewEdit.file'));
+      return { element: element, entries: entries, input: input, lineCount: lineCount };
+    }
+    var lineTotal = source.split('\n', MAX_LINES + 1).length;
+    if (lineTotal <= MAX_LINES) lineCount.textContent = t('code.lineCount', { count: lineTotal });
     var pre = add(body, 'pre', 'code-raw');
     var code = add(pre, 'code', lang ? 'language-' + lang : '', source);
-    if (source.length > MAX_CHARS || source.split('\n', MAX_LINES + 1).length > MAX_LINES) {
+    if (source.length > MAX_CHARS || lineTotal > MAX_LINES) {
       add(head, 'span', 'structured-meta', t('code.large'));
     } else {
       var building = true;
       var draw = function () {
         var colored = coloredLines(doc, code, lang);
         var ranges = code.classList.contains('hljs') ? foldRanges(colored.mask, lang, html, colored.continuations) : new Map();
-        var raw = source.split('\n'), stack = [], offsets = [0];
-        raw.forEach(function (line, index) { offsets.push(offsets[index] + line.length + 1); });
+        var raw = source.split('\n'), stack = [];
         pre.remove();
         body.style.setProperty('--code-digits', String(raw.length).length + 'ch');
         colored.lines.forEach(function (fragment, index) {
@@ -218,16 +251,11 @@
           var collapsible = end !== undefined && stack.length < 48 && (!stack.length || end <= stack[stack.length - 1].end);
           var detail = collapsible && add(parent, 'details', 'code-fold');
           var row = add(detail || parent, detail ? 'summary' : 'div', 'code-line');
-          var number = options.edit ? options.edit(row, offsets[index], offsets[index + 1] - 1, t('previewEdit.line', { line: index + 1 })) : add(row, 'span', '');
-          number.classList.add('code-number');
+          var number = add(row, 'span', 'code-number');
           number.dataset.line = index + 1;
-          if (options.edit) {
-            number.classList.remove('btn');
-            number.textContent = '';
-          } else number.setAttribute('aria-hidden', 'true');
+          number.setAttribute('aria-hidden', 'true');
           add(row, 'span', 'code-marker').setAttribute('aria-hidden', 'true');
           add(row, 'code', 'code-line-text').appendChild(fragment);
-          if (options.edit && detail) options.edit(row, offsets[index], offsets[end + 1] - 1, t('previewEdit.block'));
           if (detail) {
             add(row, 'span', 'code-hidden-count', t('code.hidden', { count: end - index }));
             if (!stack.length) {
@@ -253,5 +281,5 @@
     return { element: element, entries: entries };
   }
 
-  return { languages: languages, language: language, create: create, foldRanges: foldRanges };
+  return { languages: languages, language: language, suggestedName: suggestedName, create: create, foldRanges: foldRanges };
 }));

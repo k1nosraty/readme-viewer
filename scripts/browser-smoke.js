@@ -220,7 +220,7 @@ const { chromium } = require('playwright');
     assert.equal(await exported.locator('input').isChecked(), true);
     assert.equal(await exported.locator('input').isDisabled(), true);
     await page.setViewportSize({ width: 1100, height: 720 });
-    await page.evaluate(() => RVApp.setMode('preview'));
+    await page.evaluate(() => { RVApp.setMode('preview'); RVApp.setEditPreview(false); });
     await page.locator('#fileInput').setInputFiles({
       name: 'viewer.config', mimeType: 'text/plain',
       buffer: Buffer.from('{"appearance":{"theme":"dark"},"workspace":{"restoreTabs":true}}')
@@ -239,7 +239,12 @@ const { chromium } = require('playwright');
       name: 'settings.conf', mimeType: 'text/plain', buffer: Buffer.from('[Appearance]\nmode=dark\n')
     });
     await page.locator('#preview .structured-ini').waitFor();
-    await page.locator('#fileInput').setInputFiles({
+    await page.evaluate(() => { window.showOpenFilePicker = undefined; });
+    const choosingCode = page.waitForEvent('filechooser');
+    await page.locator('#btnOpen').click();
+    const codeChooser = await choosingCode;
+    assert.equal(await codeChooser.element().getAttribute('accept'), null);
+    await codeChooser.setFiles({
       name: 'viewer.py', mimeType: 'text/plain', buffer: Buffer.from('def open_file():\n    return "example"\n')
     });
     const codeFold = page.locator('#preview .code-fold');
@@ -251,14 +256,30 @@ const { chromium } = require('playwright');
     assert.equal(await codeFold.evaluate(node => node.open), true);
     await page.keyboard.press('Escape');
     await page.evaluate(() => RVApp.setEditPreview(true));
-    await page.locator('#preview button[data-line="2"]').click();
-    await page.locator('#previewEditInput').fill('    return "edited"');
-    await page.locator('#previewEditForm button[type=submit]').click();
+    const codeEditor = page.locator('#preview .code-editor');
+    await codeEditor.evaluate(input => input.setSelectionRange(input.value.indexOf('example'), input.value.indexOf('example') + 7));
+    await page.keyboard.insertText('edited');
     assert.equal(await page.locator('#editor').inputValue(), 'def open_file():\n    return "edited"\n');
+    await page.waitForTimeout(130);
+    assert.equal(await codeEditor.evaluate(input => document.activeElement === input), true);
+    await page.keyboard.press('Control+z');
+    assert.match(await codeEditor.inputValue(), /example/);
+    await page.keyboard.press('Control+Shift+z');
+    assert.match(await codeEditor.inputValue(), /edited/);
+    assert.equal(await page.locator('#previewEditDialog').isVisible(), false);
     await page.locator('#brandMark').click();
     await page.locator('.app-menu-categories [aria-controls="menuView"]').click();
-    await page.locator('#btnPreviewFormat').click();
+    assert.equal(await page.locator('#menuView [data-command="btnPreviewFormat"]').count(), 0);
+    await page.locator('.app-menu-categories [aria-controls="menuFile"]').click();
+    await page.locator('[data-submenu="fileSettingsMenu"]').click();
+    await page.locator('#fileSettingsMenu [data-command="btnPreviewFormat"]').click();
     const formatSearch = page.locator('#previewFormatSearch');
+    assert.equal(await formatSearch.isVisible(), true);
+    await page.keyboard.press('Escape');
+    await page.locator('#btnPreviewFormat').click();
+    const formatTrigger = await page.locator('#btnPreviewFormat').boundingBox();
+    const formatPanel = await page.locator('#previewFormatPanel').boundingBox();
+    assert.ok(formatPanel.y >= formatTrigger.y + formatTrigger.height && formatPanel.y - formatTrigger.y < 70);
     await formatSearch.fill('golang');
     assert.equal(await page.locator('#previewFormat').inputValue(), 'code:go');
     await page.locator('#previewFormatApply').click();
@@ -267,7 +288,20 @@ const { chromium } = require('playwright');
     await formatSearch.fill('no-such-language');
     assert.equal(await page.locator('#previewFormatApply').isDisabled(), true);
     await page.keyboard.press('Escape');
-    assert.equal(await page.locator('#previewFormatDialog').isVisible(), false);
+    assert.equal(await page.locator('#previewFormatPanel').isVisible(), false);
+    await page.locator('#btnNewTab').click();
+    await page.locator('#btnPreviewFormat').click();
+    await formatSearch.fill('.cpp');
+    assert.equal(await page.locator('#previewFormat').inputValue(), 'code:cpp');
+    await page.locator('#previewFormatApply').click();
+    await codeEditor.fill('int main() {\n  return 0;\n}\n');
+    await page.evaluate(() => { window.showSaveFilePicker = undefined; });
+    const codeDownloading = page.waitForEvent('download');
+    await page.keyboard.press('Control+s');
+    const codeDownload = await codeDownloading;
+    assert.equal(codeDownload.suggestedFilename(), 'Untitled.cpp');
+    assert.equal(await fs.readFile(await codeDownload.path(), 'utf8'), 'int main() {\n  return 0;\n}\n');
+    await page.evaluate(() => RVApp.setEditPreview(false));
     await page.locator('#fileInput').setInputFiles({
       name: 'main.dart', mimeType: 'text/plain', buffer: Buffer.from('void main() {\n  print("Dart");\n}\n')
     });

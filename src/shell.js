@@ -5,7 +5,7 @@
   var menuButton, nav, toolbar, tocButton, overflowButton, overflowPanel, toolbarGroups, rankedGroups;
   var allTabsButton, allTabsPanel, menuCategories;
   var toolbarPrefs = { show: true, hidden: [] };
-  var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'direction', 'font', 'appearance', 'theme', 'wrap', 'sync', 'export', 'help'];
+  var toolbarKeys = ['files', 'navigation', 'modes', 'editing', 'previewFormat', 'direction', 'font', 'appearance', 'theme', 'wrap', 'sync', 'export', 'help'];
   function hideSub(focus) {
     if (!openSub) return;
     var trigger = openSub; openSub = null;
@@ -31,7 +31,7 @@
   }
   function setPopup(trigger, panel, open) {
     panel.hidden = !open;
-    trigger.setAttribute('aria-expanded', String(open));
+    if (trigger.getAttribute('aria-controls') === panel.id) trigger.setAttribute('aria-expanded', String(open));
     if (!open) return;
     var rect = trigger.getBoundingClientRect();
     var top = rect.bottom + 5;
@@ -190,7 +190,7 @@
     setPopup(menuButton, nav, false);
     if (focus) menuButton.focus();
   }
-  function close() { closeAppMenu(); closeOverflow(); closeAllTabs(); }
+  function close(keepOverflow) { closeAppMenu(); if (!keepOverflow) closeOverflow(); closeAllTabs(); }
   function refresh() {
     if (!actions) return;
     document.querySelectorAll('[data-command]').forEach(function (button) {
@@ -341,7 +341,8 @@
     });
     function closeOutside(event) {
       if (!nav.hidden && !nav.contains(event.target) && !menuButton.contains(event.target)) closeAppMenu();
-      if (!overflowPanel.contains(event.target) && !overflowButton.contains(event.target)) closeOverflow();
+      if (!overflowPanel.contains(event.target) && !overflowButton.contains(event.target) &&
+          !event.target.closest('#previewFormatPanel')) closeOverflow();
       if (!allTabsPanel.contains(event.target) && !allTabsButton.contains(event.target)) closeAllTabs();
     }
     document.addEventListener('pointerdown', closeOutside);
@@ -366,5 +367,5 @@
     });
     refresh();
   }
-  RV.Shell = { close: close, init: init, refresh: refresh, popupFocusTarget: popupFocusTarget, fitTabs: fitTabs };
+  RV.Shell = { close: close, init: init, refresh: refresh, popupFocusTarget: popupFocusTarget, fitTabs: fitTabs, setPopup: setPopup };
 }());
