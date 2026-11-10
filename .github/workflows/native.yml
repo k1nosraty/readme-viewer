@@ -331,15 +331,20 @@ jobs:
               checksum = asset.with_name(name + '.sha256')
               if not checksum.is_file():
                   raise SystemExit(f'Missing checksum: {name}')
-              if (dest / name).exists():
-                  raise SystemExit(f'Duplicate release asset: {name}')
-              shutil.copy2(asset, dest / name)
-              shutil.copy2(checksum, dest / checksum.name)
+              # Use the public GitHub asset name in the updater URL and checksum.
+              publish_name = name.replace(' ', '.')
+              if (dest / publish_name).exists():
+                  raise SystemExit(f'Duplicate release asset: {publish_name}')
+              digest, _, listed_name = checksum.read_text(encoding='utf-8-sig').strip().partition('  ')
+              if listed_name != name:
+                  raise SystemExit(f'Checksum refers to a different file: {name}')
+              shutil.copy2(asset, dest / publish_name)
+              (dest / (publish_name + '.sha256')).write_text(f'{digest}  {publish_name}\n', encoding='utf-8')
               if kind != 'android':
                   signature = asset.with_name(name + '.sig')
                   if not signature.is_file():
                       raise SystemExit(f'Missing update signature: {name}')
-                  shutil.copy2(signature, dest / signature.name)
+                  shutil.copy2(signature, dest / (publish_name + '.sig'))
               counts[kind] += 1
           if not all(counts.values()):
               raise SystemExit(f'Missing native platform assets: {counts}')

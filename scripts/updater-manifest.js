@@ -13,6 +13,7 @@ function manifest(directory, version, notes, date = new Date().toISOString()) {
     const matches = names.filter(name => pattern.test(name));
     if (matches.length !== 1) throw new Error('Expected one updater asset for ' + target);
     const name = matches[0];
+    if (!/^[A-Za-z0-9._-]+$/.test(name)) throw new Error('Updater assets must use their public GitHub names: ' + name);
     const signature = fs.readFileSync(path.join(directory, name + '.sig'), 'utf8').trim();
     if (!signature || !/^[A-Za-z0-9+/=]+$/.test(signature)) throw new Error('Invalid signature for ' + name);
     platforms[target] = { signature, url: 'https://github.com/k1nosraty/readme-viewer/releases/download/v' + version + '/' + encodeURIComponent(name) };

@@ -102,13 +102,19 @@ test('Android selects the matching ABI and ignores foreign asset URLs', async t 
 test('release manifests require every signed desktop installer and preserve safe download paths', t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'readme-updates-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  for (const name of ['README Viewer_1.5.0_x64-setup.exe', 'README Viewer_1.5.0_amd64.AppImage', 'README Viewer_1.5.0_amd64.deb']) {
+  for (const name of ['README.Viewer_1.5.0_x64-setup.exe', 'README.Viewer_1.5.0_amd64.AppImage', 'README.Viewer_1.5.0_amd64.deb']) {
     fs.writeFileSync(path.join(directory, name), 'installer'); fs.writeFileSync(path.join(directory, name + '.sig'), 'c2lnbmF0dXJl');
   }
   const value = manifest(directory, '1.5.0', 'notes');
   assert.equal(Object.keys(value.platforms).length, 3);
-  assert.match(value.platforms['linux-x86_64-deb'].url, /README%20Viewer/);
-  fs.unlinkSync(path.join(directory, 'README Viewer_1.5.0_amd64.deb.sig'));
+  assert.equal(value.platforms['linux-x86_64-deb'].url,
+    'https://github.com/k1nosraty/readme-viewer/releases/download/v1.5.0/README.Viewer_1.5.0_amd64.deb');
+  const deb = path.join(directory, 'README.Viewer_1.5.0_amd64.deb');
+  const spacedDeb = path.join(directory, 'README Viewer_1.5.0_amd64.deb');
+  fs.renameSync(deb, spacedDeb);
+  assert.throws(() => manifest(directory, '1.5.0', ''), /public GitHub names/);
+  fs.renameSync(spacedDeb, deb);
+  fs.unlinkSync(deb + '.sig');
   assert.throws(() => manifest(directory, '1.5.0', ''), /ENOENT/);
   assert.throws(() => manifest(directory, '1.5.0-beta', ''), /stable/);
 });

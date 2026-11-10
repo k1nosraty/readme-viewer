@@ -11,6 +11,7 @@
 - Open supported text files from the native file picker and recent files. Register README Viewer in the Windows and Linux Open with lists while preserving existing defaults.
 - Keep horizontal desktop tabs in the top row. Move reading and comparison controls into that row at intermediate widths to keep the header at two rows.
 - Find phrases across syntax tokens and retain syntax colors and folds in standalone HTML exports. Handle unsupported fence languages safely and skip building the hidden source gutter in Preview.
+- Use published asset names in desktop updater links and SHA-256 files so downloads and checksum verification work directly from GitHub Releases.
 
 ## 1.6.0 — 2026-11-09
 
