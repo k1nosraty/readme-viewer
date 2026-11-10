@@ -23,6 +23,7 @@
   var Encoding = RV.Encoding;
   var Tasks = RV.Tasks;
   var Markdown = RV.Markdown;
+  var Structured = RV.Structured;
   var Highlight = RV.Highlight;
   var Exporter = RV.Export;
   function nativeAvailable() { return !!(RV.Native && RV.Native.available()); }
@@ -57,6 +58,8 @@
     ready: false,
     handle: null,
     name: '',
+    format: 'markdown',
+    formatOverride: '',
     saved: '',
     dirty: false,
     needsSave: false,
@@ -99,7 +102,7 @@
   var manualBaseUrl = '';
   var mobileSidebar = false;
   var documentFields = ['handle', 'name', 'saved', 'dirty', 'needsSave', 'hasDocument', 'bom', 'eol',
-    'encoding', 'diskBytes', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'curLine'];
+    'encoding', 'diskBytes', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'curLine', 'format', 'formatOverride'];
 
   function tabText(key, fallback) { var value = t(key); return value === key ? fallback : value; }
   function captureTab() {
@@ -415,11 +418,13 @@
     captureTab();
     return tabs.map(function (tab) { return { id: tab.id, name: tab.name, source: tab.source,
       dirty: tab.dirty, hasDocument: tab.hasDocument, needsSave: tab.needsSave, active: tab === activeTab, handle: tab.handle, saved: tab.saved,
-      bom: tab.bom, eol: tab.eol, encoding: tab.encoding, baseUrl: tab.baseUrl, autoBase: tab.autoBase }; });
+      bom: tab.bom, eol: tab.eol, encoding: tab.encoding, baseUrl: tab.baseUrl, autoBase: tab.autoBase,
+      format: tab.format, formatOverride: tab.formatOverride }; });
   }
   function restoreTab(snapshot) {
     if (!snapshot || typeof snapshot.source !== 'string') return false;
-    var metadata = { bom: !!snapshot.bom, eol: snapshot.eol === '\r\n' ? '\r\n' : '\n', encoding: 'utf-8' };
+    var metadata = { bom: !!snapshot.bom, eol: snapshot.eol === '\r\n' ? '\r\n' : '\n', encoding: 'utf-8',
+      format: snapshot.format, formatOverride: snapshot.formatOverride };
     var name = typeof snapshot.name === 'string' ? snapshot.name : 'README.md';
     var id;
     if (tabs.length === 1 && !state.hasDocument && !el.editor.value && !pendingSave && !pendingDiscard) {
@@ -561,13 +566,20 @@
       return;
     }
     var tab = comparisonTab();
-    var signature = [tab.id, tab.source, tab.baseUrl, state.dirMode, I18n.getLocale()];
+    var signature = [tab.id, tab.source, tab.name, tab.format, tab.formatOverride, tab.baseUrl, state.dirMode, I18n.getLocale()];
     if (comparison.signature && signature.every(function (value, index) {
       return value === comparison.signature[index];
     })) return;
     comparison.signature = signature;
     var version = ++comparison.version;
     comparison.urls.forEach(function (url) { URL.revokeObjectURL(url); }); comparison.urls = [];
+    preview.classList.toggle('structured-preview', tab.format !== 'markdown');
+    if (tab.format !== 'markdown') {
+      preview.textContent = '';
+      preview.setAttribute('dir', 'ltr');
+      preview.appendChild(Structured.create(document, tab.format, tab.source, tab.name, t, null, null, detectedFormat(tab)).element);
+      return;
+    }
     if (!comparison.md) comparison.md = Markdown.create({ marked: window.marked, purify: window.DOMPurify,
       icons: Icons.svg }, { strings: I18n.t });
     var renderer = comparison.md;
@@ -709,21 +721,30 @@
         return file.arrayBuffer().then(async function (buffer) {
           var decoded = Encoding.decode(new Uint8Array(buffer));
           if (decoded.binary) { toast(t('error.binary', { name: file.name || '' }), 'error'); return false; }
-          var renderer = Markdown.create({ marked: window.marked, purify: window.DOMPurify, icons: Icons.svg }, { strings: I18n.t });
-          renderer.reset(); var tokens = renderer.lexer(decoded.text);
+          var name = file.name || handle.name || 'README';
+          var format = Structured.detect(name, decoded.text);
           var preview = document.createElement('div');
-          preview.innerHTML = tokens.map(function (token) { return renderer.renderBlock(token, tokens.links); }).join('');
-          eachNode('a[href],img[src]', function (node) {
-            var image = node.tagName === 'IMG', attr = image ? 'src' : 'href';
-            var href = node.getAttribute(attr) || '';
-            if (/^(https?:|mailto:|#)/i.test(href) || (image && /^data:image\//i.test(href))) return;
-            var resolved = RV.Native.resolveLocalUrl(href, handle, !image);
-            if (resolved) node.setAttribute(attr, fileBrowserUrl(resolved)); else node.removeAttribute(attr);
-          }, preview);
-          eachNode('input[type=checkbox]', function (box) { box.disabled = true; box.removeAttribute('data-rv-task'); }, preview);
-          if (RV.Diagrams) { await RV.Diagrams.render(preview); RV.Diagrams.cleanExport(preview); }
+          if (format !== 'markdown') {
+            var view = Structured.create(document, format, decoded.text, name, t, null, null,
+              detectedFormat({ name: name, format: format }));
+            view.complete();
+            preview.appendChild(view.element);
+          } else {
+            var renderer = Markdown.create({ marked: window.marked, purify: window.DOMPurify, icons: Icons.svg }, { strings: I18n.t });
+            renderer.reset(); var tokens = renderer.lexer(decoded.text);
+            preview.innerHTML = tokens.map(function (token) { return renderer.renderBlock(token, tokens.links); }).join('');
+            eachNode('a[href],img[src]', function (node) {
+              var image = node.tagName === 'IMG', attr = image ? 'src' : 'href';
+              var href = node.getAttribute(attr) || '';
+              if (/^(https?:|mailto:|#)/i.test(href) || (image && /^data:image\//i.test(href))) return;
+              var resolved = RV.Native.resolveLocalUrl(href, handle, !image);
+              if (resolved) node.setAttribute(attr, fileBrowserUrl(resolved)); else node.removeAttribute(attr);
+            }, preview);
+            eachNode('input[type=checkbox]', function (box) { box.disabled = true; box.removeAttribute('data-rv-task'); }, preview);
+            if (RV.Diagrams) { await RV.Diagrams.render(preview); RV.Diagrams.cleanExport(preview); }
+          }
           if (RV.Fonts) await RV.Fonts.ready();
-          return Promise.resolve(RV.Native.previewInBrowser(Exporter.build({ title: file.name || handle.name || 'README', html: preview.innerHTML, fontCss: RV.Fonts ? RV.Fonts.exportCss() : '',
+          return Promise.resolve(RV.Native.previewInBrowser(Exporter.build({ title: name, html: preview.innerHTML, structured: format !== 'markdown', fontCss: RV.Fonts ? RV.Fonts.exportCss() : '',
             theme: state.theme === 'auto' ? (isDark() ? 'dark' : 'light') : state.theme,
             lang: Direction.detectLanguage(decoded.text), dir: Direction.dominantDir(decoded.text) }))).then(function () { return true; });
         });
@@ -1034,6 +1055,8 @@
     el.btnSaveAs.disabled = !state.hasDocument;
     el.btnReload.disabled = !state.handle;
     el.btnExport.disabled = !state.hasDocument;
+    $('previewFormat').disabled = !state.hasDocument;
+    $('previewFormat').value = state.formatOverride;
 
     el.statusFile.textContent = state.hasDocument ? state.name : t('status.ready');
     el.statusFile.setAttribute('data-dirty', state.dirty ? '1' : '0');
@@ -1090,14 +1113,23 @@
     if (previous !== editor && !tabs.some(function (tab) { return tab.editor === previous; }) && previous.parentNode) previous.parentNode.removeChild(previous);
   }
 
+  function formatChoice(format) {
+    return format === 'markdown' || format === 'json' || format === 'ini' ? format : '';
+  }
+  function detectedFormat(doc) {
+    return doc.format === 'json' && !doc.formatOverride && !/\.json$/i.test(doc.name);
+  }
+
   function setDoc(text, name, handle, meta) {
     state.documentId++;
-    if (activeTab) activeTab.tocCollapsed = [];
+    if (activeTab) { activeTab.tocCollapsed = []; activeTab.structuredFolds = null; }
     var oldEditor = el.editor;
     mountEditor(null, text);
     resetUndo();
     if (!tabs.some(function (tab) { return tab.editor === oldEditor; }) && oldEditor.parentNode) oldEditor.parentNode.removeChild(oldEditor);
     state.name = name || '';
+    state.formatOverride = formatChoice(meta && meta.formatOverride);
+    state.format = state.formatOverride || formatChoice(meta && meta.format) || Structured.detect(state.name, text);
     state.saved = text;
     state.needsSave = false;
     state.handle = handle || null;
@@ -1127,6 +1159,8 @@
     resetUndo();
     if (!tabs.some(function (tab) { return tab.editor === oldEditor; }) && oldEditor.parentNode) oldEditor.parentNode.removeChild(oldEditor);
     state.name = '';
+    state.format = 'markdown';
+    state.formatOverride = '';
     state.saved = '';
     state.needsSave = false;
     state.handle = null;
@@ -1234,6 +1268,9 @@
         toast(t('error.binary', { name: file.name || '' }), 'error');
         return false;
       }
+      if (handle && state.handle === handle) {
+        decoded.formatOverride = state.formatOverride;
+      }
       setDoc(decoded.text, file.name || 'README.md', handle || null, decoded);
       trackModified();
       if (quiet) return true;
@@ -1253,8 +1290,7 @@
   function pickOpen() {
     if (nativeAvailable()) return RV.Native.pickOpen().then(openHandleTab).catch(reportOpen);
     if (typeof window.showOpenFilePicker === 'function') {
-      return window.showOpenFilePicker({ multiple: false, types: [{ description: 'Markdown',
-        accept: { 'text/markdown': ['.md', '.markdown', '.txt'] } }] })
+      return window.showOpenFilePicker({ multiple: false })
         .then(function (handles) { return openHandleTab(handles && handles[0]); }).catch(reportOpen);
     }
     el.fileInput.click();
@@ -1324,7 +1360,8 @@
     var documentId = state.documentId;
     var name = state.name;
     var payload = Encoding.encode(text, { bom: state.bom, eol: state.eol });
-    var payloadBlob = new Blob([payload], { type: 'text/markdown;charset=utf-8' });
+    var mime = (state.format === 'json' ? 'application/json' : state.format === 'ini' ? 'text/plain' : 'text/markdown') + ';charset=utf-8';
+    var payloadBlob = new Blob([payload], { type: mime });
     var originalHandle = state.handle, diskBytes = state.diskBytes;
 
     var finish = function (handle, bytes) {
@@ -1334,8 +1371,9 @@
       state.handle = handle || null;
       state.diskBytes = bytes || null;
       state.name = handle ? handle.name : name;
+      if (state.name !== name && !state.formatOverride) state.format = Structured.detect(state.name, text);
       applyHandleBase(handle);
-      if (handle && handle.baseUrl) render({ immediate: true });
+      if (state.name !== name || (handle && handle.baseUrl)) render({ immediate: true });
       state.encoding = 'utf-8';
       trackModified();
       setDirty(el.editor.value !== text);
@@ -1345,7 +1383,7 @@
     };
 
     function fallback() {
-      return download(payload, name || 'README.md', 'text/markdown;charset=utf-8')
+      return download(payload, name || 'README.md', mime)
         .then(function () { return finish(null); })
         .catch(function (error) {
           toast(t('error.save', { name: name, reason: error.message }), 'error');
@@ -1410,7 +1448,7 @@
     return chooseSave();
     function chooseSave() {
       if (nativeAvailable()) {
-        return RV.Native.pickSave(name || 'README.md').then(function (h) {
+        return RV.Native.pickSave(name || 'README.md', state.format === 'markdown' ? undefined : mime).then(function (h) {
           return h ? writeTo(h) : false;
         }).catch(function (err) {
           if (err && err.name === 'AbortError') return false;
@@ -1422,7 +1460,7 @@
       if (typeof window.showSaveFilePicker === 'function') {
         return window.showSaveFilePicker({
           suggestedName: name || 'README.md',
-          types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown', '.txt'] } }]
+          types: state.format === 'markdown' ? [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown', '.txt'] } }] : []
         }).then(function (h) {
           return h ? writeTo(h) : false;
         }).catch(function (err) {
@@ -1438,6 +1476,8 @@
   async function exportHtml() {
     if (!state.hasDocument) return;
     render({ immediate: true });
+    var structured = !!structuredPreview;
+    if (structuredPreview) structuredPreview.complete();
     var src = el.editor.value;
     var snapshot = el.preview.cloneNode(true);
     var exportName = state.name, exportTheme = isDark() ? 'dark' : 'light';
@@ -1456,6 +1496,7 @@
     var doc = Exporter.build({
       title: exportName || 'README',
       html: snapshot.innerHTML,
+      structured: structured,
       fontCss: exportFonts,
       theme: exportTheme,
       lang: Direction.detectLanguage(src),
@@ -1696,8 +1737,47 @@
     });
   }
 
+  var structuredPreview = null;
+  var structuredMeasureFrame = 0;
+  function renderStructured(src) {
+    var start = now();
+    var folds = activeTab.structuredFolds || (activeTab.structuredFolds = new Map());
+    structuredPreview = Structured.create(document, state.format, src, state.name, t, folds, function () {
+      if (structuredMeasureFrame) return;
+      structuredMeasureFrame = requestAnimationFrame(function () {
+        structuredMeasureFrame = 0;
+        measureParts(); markActiveToc();
+      });
+    }, detectedFormat(state));
+    reconcileBlocks([{ nodes: [structuredPreview.element] }]);
+    previewBlocks = [];
+    el.preview.setAttribute('dir', 'ltr');
+    state.anchors = structuredPreview.entries;
+    state.toc = state.anchors.filter(function (part) { return part.outline; }).map(function (part) {
+      return { id: part.id, depth: 1, text: part.text, line: part.line, part: part };
+    });
+    state.tasks = [];
+    state.tasksOk = true;
+    state.taskReason = '';
+    state.lines = src.split('\n').length;
+    if (!el.findBar.hidden && el.findInput.value) runFind(true);
+    measureParts();
+    buildGutter();
+    renderToc();
+    markActiveToc();
+    applyTaskMode();
+    updateTaskStats();
+    updateStats(src, now() - start);
+    if (RV.Reading) RV.Reading.refresh();
+  }
+
   function render(opts) {
     opts = opts || {};
+    var structured = state.hasDocument && state.format !== 'markdown';
+    el.preview.classList.toggle('structured-preview', structured);
+    $('structuredFind').hidden = !structured;
+    if (structured) { renderStructured(el.editor.value); return; }
+    structuredPreview = null;
     if (!state.hasDocument && !el.editor.value) {
       reconcileBlocks([]); previewBlocks = [];
       state.anchors = [];
@@ -1954,6 +2034,9 @@
   var tocNodes = [];
   function renderToc() {
     var root = document.createElement('ul'), stack = [];
+    var filterLabel = t(state.format === 'markdown' ? 'toc.filter' : 'structured.filter');
+    el.tocFilter.placeholder = filterLabel;
+    el.tocFilter.setAttribute('aria-label', filterLabel);
     tocNodes = [];
     if (activeTab && !activeTab.tocCollapsed) activeTab.tocCollapsed = [];
     state.toc.forEach(function (item, index) {
@@ -2146,6 +2229,7 @@
 
     if (id) {
       var node = byId(id);
+      if (node && node.parentElement.classList.contains('structured-details')) node.parentElement.open = true;
       if (RV.Reading) RV.Reading.reveal(node);
       if (node && typeof node.scrollIntoView === 'function') {
         node.scrollIntoView({ block: 'start' });
@@ -2232,10 +2316,12 @@
     var lang = Direction.detectLanguage(src);
     el.statusLang.textContent = lang;
     el.editor.setAttribute('lang', lang);
-    el.editor.setAttribute('dir', state.dirMode === 'auto' ? Direction.dominantDir(src) : state.dirMode);
+    var direction = state.dirMode;
+    if (direction === 'auto') direction = state.format === 'markdown' ? Direction.dominantDir(src) : 'ltr';
+    el.editor.setAttribute('dir', direction);
 
     el.editorMeta.textContent = t('status.sourceMeta', { lines: lines.length, chars: src.length });
-    el.previewMeta.textContent = state.anchors.length
+    el.previewMeta.textContent = state.format !== 'markdown' ? '' : state.anchors.length
       ? t('status.previewMeta', { count: state.anchors.length, direction: t('dir.' + state.dirMode) })
       : '';
     updateChrome();
@@ -2332,6 +2418,12 @@
     el.btnFocus.addEventListener('click', function () { setReadingFocus(!state.readingFocus); });
     el.btnExitReadingFocus.addEventListener('click', function () { setReadingFocus(false); });
     el.btnOpen.addEventListener('click', pickOpen);
+    $('previewFormat').addEventListener('change', function (event) {
+      state.formatOverride = formatChoice(event.target.value);
+      state.format = state.formatOverride || Structured.detect(state.name, el.editor.value);
+      activeTab.structuredFolds = null;
+      render({ immediate: true });
+    });
     el.btnSave.addEventListener('click', function () { save(false); });
     el.btnSaveAs.addEventListener('click', function () { save(true); });
     el.btnReload.addEventListener('click', reloadFromDisk);
@@ -2985,6 +3077,7 @@
     clearFindMarks();
     var q = el.findBar.hidden ? '' : el.findInput.value;
     if (!q) { el.findCount.textContent = ''; return; }
+    if (structuredPreview) structuredPreview.complete();
     var pattern = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu');
     var walker = document.createTreeWalker(el.preview, NodeFilter.SHOW_TEXT, null);
     var nodes = [];
@@ -3012,6 +3105,9 @@
     for (var i = 0; i < find.hits.length; i++) find.hits[i].classList.toggle('current', i === find.index);
     el.findCount.textContent = (find.index + 1) + ' / ' + find.hits.length;
     var cur = find.hits[find.index];
+    if (structuredPreview && cur) {
+      for (var detail = cur.closest('details'); detail; detail = detail.parentElement.closest('details')) detail.open = true;
+    }
     if (RV.Reading) { RV.Reading.clearFindVisibility(); RV.Reading.reveal(cur); }
     if (scroll && cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ block: 'center' });
   }
@@ -3040,6 +3136,7 @@
   }
 
   function wireFind() {
+    $('structuredFind').addEventListener('click', openFind);
     el.findInput.addEventListener('input', function () { runFind(false); });
     el.findInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); stepFind(e.shiftKey ? -1 : 1); }

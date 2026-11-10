@@ -1238,6 +1238,51 @@ mark.rv-find.current { background: #ff9632; }
 #bookmarkList button:hover { background: var(--bg-hover); }
 [data-reading-width="comfortable"] .markdown-body { max-inline-size: 76ch !important; margin-inline: auto; }
 [data-reading-spacing="relaxed"] .markdown-body { line-height: 1.9; }
+
+.markdown-body.structured-preview { max-inline-size: none !important; }
+.structured-view { overflow-wrap: anywhere; overflow-x: auto; }
+.structured-heading { display: flex; flex-wrap: wrap; align-items: center; margin-block-end: 14px; }
+.structured-heading > * + * { margin-inline-start: 8px; }
+.structured-name { font-weight: 600; }
+.structured-format { color: var(--accent); background: var(--accent-subtle); border-radius: 4px; padding: 1px 6px; font: .75em/1.5 var(--mono); }
+.structured-meta, .structured-comment { color: var(--fg-muted); font-size: .82em; }
+.structured-row, .structured-comment { font-family: var(--mono); }
+.structured-view .structured-row {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  padding: 5px 8px; font-size: .88em; scroll-margin-block-start: 12px;
+}
+.structured-json .structured-row > * + *, summary.structured-row > * + * { margin-inline-start: 8px; }
+.structured-key { font-weight: 600; }
+.structured-value.string { color: var(--success); color: color-mix(in srgb, var(--success) 65%, var(--fg)); }
+.structured-value.number { color: var(--accent); }
+.structured-value.literal { color: var(--fg-muted); }
+.structured-json .structured-row:not(summary) { padding-inline-start: 22px; }
+.structured-json .structured-branch { margin-inline-start: 11px; padding-inline-start: 10px; border-inline-start: 1px solid var(--border-muted); }
+.structured-view .structured-details { margin: 0; }
+summary.structured-row { list-style: none; cursor: pointer; border-radius: 4px; }
+summary.structured-row::-webkit-details-marker { display: none; }
+summary.structured-row::before {
+  content: ""; display: inline-block; flex: 0 0 7px; height: 7px; align-self: center; margin-inline-end: 8px;
+  border-inline-end: 1.5px solid var(--fg-muted); border-block-start: 1.5px solid var(--fg-muted);
+  transform: rotate(45deg);
+}
+.structured-details[open] > summary::before { transform: rotate(135deg); }
+summary.structured-row:hover { background: var(--bg-hover); }
+.structured-ini .structured-details { border-block-start: 1px solid var(--border-muted); }
+.structured-ini summary.structured-row { padding-block: 10px; }
+.structured-ini .structured-branch { padding-block-end: 8px; }
+.structured-ini .structured-row:not(summary) {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); padding-inline-start: 23px;
+}
+.structured-ini .structured-row + .structured-row { border-block-start: 1px solid var(--border-muted); }
+.structured-ini .structured-value:first-child { grid-column: 1 / -1; }
+.structured-comment { padding: 3px 8px 5px 23px; white-space: pre-wrap; }
+.structured-view .structured-raw { white-space: pre-wrap; overflow-wrap: anywhere; }
+#structuredFind { width: 26px; height: 24px; }
+@media (pointer: coarse) {
+  summary.structured-row { min-block-size: 44px; align-items: center; }
+  #structuredFind { width: 44px; height: 44px; }
+}
 .link-context-menu { position: fixed; z-index: 90; min-width: 220px; padding: 5px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow-lg); }
 .link-context-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 12px; border: 0; border-radius: 3px; background: transparent; font-size: 13px; text-align: start; cursor: pointer; }
 .link-context-menu button:hover, .link-context-menu button:focus-visible { background: var(--bg-hover); }
@@ -1282,7 +1327,7 @@ body { grid-template-columns: minmax(0, 1fr); }
 .file-settings .reading-check { display: flex; align-items: center; gap: 8px; }
 .file-settings p, .file-settings label[for] { color: var(--fg-muted); line-height: 1.6; }
 .file-settings label[for] { display: block; margin-block: 6px 4px; }
-.file-settings input[type="text"] { width: 100%; min-height: 32px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
+.file-settings input[type="text"], .file-settings select { width: 100%; min-height: 32px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
 .menu-group-label { padding: 5px 10px 0; color: var(--fg-muted); font-size: 11px; }
 .menu-directions { display: flex; gap: 4px; margin: 4px 6px; }
 .menu-directions .seg { flex: 1; font-size: 12px; }

@@ -7,7 +7,7 @@ function adapter(overrides = {}) {
   const calls = [];
   const window = { __TAURI_INTERNALS__: {}, RV: {} };
   const mocks = {
-    window, DOMException, Blob, console, crypto: require('node:crypto').webcrypto,
+    window, DOMException, Blob, URL, console, crypto: require('node:crypto').webcrypto,
     convertFileSrc: path => `asset:${path}`,
     invoke: async (command, args) => {
       if (command === 'write_document_atomic') {
@@ -18,7 +18,7 @@ function adapter(overrides = {}) {
     },
     readFile: async () => new Uint8Array([239, 187, 191, 97, 13, 10]),
     writeFile: async (path, bytes) => calls.push([path, Array.from(bytes)]),
-    stat: async () => ({ isDirectory: false }),
+    stat: async () => ({ isDirectory: false, isFile: true }),
     readDir: async () => [], join: async (...parts) => parts.join('/'),
     open: async () => '/docs/README.md', save: async () => '/docs/saved.md',
     openUrl: async url => calls.push(url), ...overrides
@@ -90,6 +90,19 @@ test('Android content URI paths pass unchanged to filesystem APIs', async () => 
   assert.equal(calls.length, 0, 'the provider is written only when the writer closes');
   await writer.close();
   assert.equal(calls[0][0], path);
+});
+test('configuration files use the unrestricted picker without granting their parent directory', async () => {
+  const calls = [];
+  const { native } = adapter({
+    open: async options => { calls.push(options.filters); return '/docs/viewer.config'; },
+    invoke: async command => calls.push(command)
+  });
+  assert.equal((await native.pickOpen()).name, 'viewer.config');
+  assert.deepEqual(calls, [undefined]);
+  const special = adapter({ stat: async () => ({ isFile: false }) }).native;
+  await assert.rejects(special.pickOpen(), /Expected a document file/);
+  const mobile = adapter({ open: async () => 'content://provider/document/primary%3ADocuments%2Fsettings.ini' }).native;
+  assert.equal((await mobile.pickOpen()).name, 'settings.ini');
 });
 test('startup, native-open, drop and close confirmation share app hooks', async () => {
   const events = {}, opened = [], drags = [];

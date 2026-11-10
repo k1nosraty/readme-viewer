@@ -118,6 +118,7 @@
       '<title>' + title + '</title>',
       '<style>',
       BASE_CSS,
+      opts.structured ? '.structured-view{font:14px/1.55 ui-monospace,monospace;overflow-wrap:anywhere}.structured-heading,.structured-row,.structured-comment{padding:5px 8px}.structured-heading>*,.structured-row>*{margin-inline-end:.7em}.structured-key,.structured-name{font-weight:600}.structured-format,.structured-meta,.structured-comment{opacity:.75}.structured-branch{margin-inline-start:1em;padding-inline-start:.5em;border-inline-start:1px solid currentColor}.structured-row:not(summary){padding-inline-start:1.5em}.structured-raw{white-space:pre-wrap}' : '',
       String(opts.fontCss || ''),
       '</style>',
       '</head>',

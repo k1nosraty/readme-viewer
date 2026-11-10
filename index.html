@@ -46,6 +46,13 @@
               <p id="sessionStatus" role="status" aria-live="polite"></p>
               <button type="button" class="btn" id="clearSession" data-i18n="reading.clear">Clear saved session</button>
               <hr>
+              <label for="previewFormat" data-i18n="structured.format">Preview format</label>
+              <select id="previewFormat">
+                <option value="" data-i18n="structured.auto">Automatic</option>
+                <option value="markdown">Markdown</option>
+                <option value="json">JSON</option>
+                <option value="ini">INI</option>
+              </select>
               <label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label>
               <input type="text" id="baseUrl" dir="ltr" spellcheck="false" data-i18n-placeholder="baseUrl.placeholder" placeholder="https://github.com/user/repo/blob/main/">
             </div>
@@ -234,6 +241,7 @@
       <div class="pane-head">
         <span class="pane-title" data-i18n="pane.preview">Preview</span>
         <span class="pane-meta" id="previewMeta"></span>
+        <button type="button" class="btn btn-icon" id="structuredFind" data-i18n-title="find.placeholder" data-i18n-aria="find.placeholder" hidden><i data-icon="search" data-size="14"></i></button>
         <span class="edit-badge" id="editBadge" data-kind="off" hidden>
           <i data-icon="taskOn" data-size="13"></i><span data-i18n="edit.badge">Editing</span>
         </span>
@@ -302,8 +310,7 @@
 
 <button type="button" class="btn focus-exit" id="btnExitReadingFocus" data-i18n="reading.exitFocus">Exit reading mode (Esc)</button>
 
-<input type="file" id="fileInput" hidden
-       accept=".md,.markdown,.mdown,.mkd,.mdwn,.txt,text/markdown,text/plain">
+<input type="file" id="fileInput" hidden>
 
 <div class="modal" id="helpModal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
@@ -425,6 +432,7 @@
 <script src="src/encoding.js"></script>
 <script src="src/tasks.js"></script>
 <script src="src/markdown.js"></script>
+<script src="src/structured.js"></script>
 <script src="src/highlight.js"></script>
 <script src="src/diagrams.js"></script>
 <script src="src/export.js"></script>

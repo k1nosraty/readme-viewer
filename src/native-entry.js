@@ -59,18 +59,26 @@ async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
 }
 
 function fileName(path) {
-  let text = path;
-  try { text = decodeURIComponent(text); } catch (_) { /* retain literal filename */ }
-  if (/^content:/i.test(path)) return 'README.md';
-  return text.replace(/\\/g, '/').split('/').pop() || 'README.md';
+  if (/^content:/i.test(path)) {
+    try {
+      const name = decodeURIComponent(new URL(path).pathname).split(/[/:]/).pop();
+      return name && !/^\d+$/.test(name) ? name : 'Document';
+    }
+    catch (_) { return 'Document'; }
+  }
+  return path.replace(/\\/g, '/').split('/').pop() || 'README.md';
 }
 function directory(path) {
   if (/^content:/i.test(path)) return null;
   return path.replace(/\\/g, '/').replace(/\/[^/]*$/, '/');
 }
-async function handle(path, name, authorize = true, writable = true) {
-  if (authorize && !/^content:/i.test(path)) await invoke('authorize_document_directory', { path });
-  const file = { kind: 'file', path, name: name || fileName(path), baseUrl: directory(path), writable };
+async function handle(path, name, authorize = true, writable = true, grantSavedAssets = true) {
+  name = name || fileName(path);
+  const localMarkdown = !/^content:/i.test(path) && /\.(?:md|markdown|mdown|mdwn|mkd|txt)$/i.test(name);
+  if (authorize && localMarkdown) {
+    await invoke('authorize_document_directory', { path });
+  }
+  const file = { kind: 'file', path, name, baseUrl: directory(path), writable };
   let expectedHash = null;
   file.getFile = async () => {
     const bytes = await readFile(path);
@@ -111,7 +119,7 @@ async function handle(path, name, authorize = true, writable = true) {
             throw error;
           }
         }
-        if (!authorize && !/^content:/i.test(path)) {
+        if (!authorize && grantSavedAssets && !/^content:/i.test(path)) {
           try { await invoke('authorize_document_directory', { path }); }
           catch (error) { console.warn('File saved, but local image access could not be enabled.', error); }
         }
@@ -130,15 +138,19 @@ const Native = {
   checkUpdate() { return check({ timeout: 15000 }); },
   restart() { return invoke('restart_app'); },
   async pickOpen() {
-    const path = await open({ multiple: false, directory: false, filters });
-    return path ? handle(path, undefined, true, !/^content:/i.test(path)) : null;
+    const path = await open({ multiple: false, directory: false });
+    if (!path) return null;
+    const local = !/^content:/i.test(path);
+    if (local && !(await stat(path)).isFile) throw new Error('Expected a document file.');
+    return handle(path, undefined, true, local);
   },
   async pickSave(name, mime) {
     const saveFilters = mime && /^text\/html(?:;|$)/i.test(mime)
       ? [{ name: 'HTML', extensions: ['html', 'htm'] }]
-      : mime && /^image\/svg\+xml(?:;|$)/i.test(mime) ? [{ name: 'SVG image', extensions: ['svg'] }] : filters;
+      : mime && /^image\/svg\+xml(?:;|$)/i.test(mime) ? [{ name: 'SVG image', extensions: ['svg'] }]
+      : mime && /^(application\/json|text\/plain)(?:;|$)/i.test(mime) ? undefined : filters;
     const path = await save({ defaultPath: name, filters: saveFilters });
-    return path ? handle(path, /^content:/i.test(path) ? name : undefined, false) : null;
+    return path ? handle(path, /^content:/i.test(path) ? name : undefined, false, true, !!saveFilters) : null;
   },
   async openPath(path) {
     if (/^content:/i.test(path)) return handle(path, undefined, true, false);

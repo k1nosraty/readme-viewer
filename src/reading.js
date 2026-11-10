@@ -78,7 +78,7 @@
     if (task && prefs.hideDone) task.classList.add('find-visible');
   }
   function headingButtons() {
-    if (!current) return;
+    if (!current || app.state.format !== 'markdown') return;
     var data = record();
     app.state.toc.forEach(function (heading) {
       var node = byId(heading.id);
@@ -129,6 +129,7 @@
     return { active: tabs.findIndex(function (tab) { return tab.active; }), documents: tabs.map(function (tab) {
       // Restored documents are detached copies; retaining a second full source is unnecessary.
       return { source: tab.source, name: tab.name, bom: tab.bom, eol: tab.eol, encoding: tab.encoding,
+        format: tab.format, formatOverride: tab.formatOverride,
         reading: JSON.parse(JSON.stringify(records[tabKeys[tab.id]] || {})) };
     }) };
   }
@@ -136,7 +137,7 @@
     return a && b && a.active === b.active && a.documents.length === b.documents.length &&
       a.documents.every(function (doc, i) {
         var other = b.documents[i];
-        return ['source', 'name', 'bom', 'eol', 'encoding'].every(function (key) { return doc[key] === other[key]; }) &&
+        return ['source', 'name', 'bom', 'eol', 'encoding', 'format', 'formatOverride'].every(function (key) { return doc[key] === other[key]; }) &&
           JSON.stringify(doc.reading) === JSON.stringify(other.reading);
       });
   }

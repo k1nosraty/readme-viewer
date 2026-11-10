@@ -219,7 +219,21 @@ const { chromium } = require('playwright');
     await exported.setContent(html);
     assert.equal(await exported.locator('input').isChecked(), true);
     assert.equal(await exported.locator('input').isDisabled(), true);
+    await page.setViewportSize({ width: 1100, height: 720 });
+    await page.evaluate(() => RVApp.setMode('preview'));
+    await page.locator('#fileInput').setInputFiles({
+      name: 'viewer.config', mimeType: 'text/plain',
+      buffer: Buffer.from('{"appearance":{"theme":"dark"},"workspace":{"restoreTabs":true}}')
+    });
+    const branch = page.locator('#preview summary').filter({ hasText: 'workspace' });
+    await branch.waitFor();
+    assert.equal(await branch.evaluate(node => getComputedStyle(node).display), 'flex', 'Markdown styles must not override the tree row');
+    await branch.press('Enter');
+    await page.locator('#preview .structured-key').filter({ hasText: 'restoreTabs' }).waitFor();
+    await page.locator('#structuredFind').click();
+    await page.locator('#findInput').fill('theme');
+    assert.equal(await page.locator('#preview mark.current').textContent(), 'theme');
     assert.deepEqual(errors, []);
-    console.log('Chromium smoke test passed: offline open, Persian/CRLF, task editing, responsive layout, HTML export.');
+    console.log('Chromium smoke test passed: offline open, Persian/CRLF, task editing, responsive layout, HTML export, structured preview.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

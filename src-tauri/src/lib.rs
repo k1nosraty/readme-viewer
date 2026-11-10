@@ -43,13 +43,7 @@ fn document_paths(args: impl Iterator<Item = String>, cwd: &Path) -> Vec<String>
                 cwd.join(path)
             };
             let path = path.canonicalize().ok()?;
-            let extension = path.extension()?.to_str()?.to_ascii_lowercase();
-            (path.is_file()
-                && matches!(
-                    extension.as_str(),
-                    "md" | "markdown" | "mdown" | "mdwn" | "mkd" | "txt"
-                ))
-            .then(|| path.to_string_lossy().into_owned())
+            path.is_file().then(|| path.to_string_lossy().into_owned())
         })
         .collect()
 }
@@ -125,23 +119,15 @@ fn resolve_document_path(app: tauri::AppHandle, path: String) -> Result<String, 
         }
         find_readme(&path, 3).ok_or("No README found within three directory levels")?
     } else {
-        if !app.fs_scope().is_allowed(&path) && !app.asset_protocol_scope().is_allowed(&path) {
+        if !app.fs_scope().is_allowed(&path)
+            && !(is_markdown_document(&path) && app.asset_protocol_scope().is_allowed(&path))
+        {
             return Err("Select a document using Open first".into());
         }
         path
     };
-    let extension = path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    if !path.is_file()
-        || !matches!(
-            extension.as_str(),
-            "md" | "markdown" | "mdown" | "mdwn" | "mkd" | "txt"
-        )
-    {
-        return Err("Expected a Markdown or text document".into());
+    if !path.is_file() {
+        return Err("Expected a document file".into());
     }
     app.fs_scope()
         .allow_file(&path)
@@ -160,7 +146,7 @@ fn startup_paths(app: tauri::AppHandle) -> Vec<String> {
     paths
 }
 
-fn is_document(path: &Path) -> bool {
+fn is_markdown_document(path: &Path) -> bool {
     let extension = path
         .extension()
         .and_then(|s| s.to_str())
@@ -185,7 +171,7 @@ fn open_linked_document(app: tauri::AppHandle, path: String) -> Result<String, S
     } else {
         path
     };
-    if !is_document(&path) {
+    if !is_markdown_document(&path) {
         return Err("Expected a Markdown or text document".into());
     }
     app.fs_scope()
