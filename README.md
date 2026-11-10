@@ -83,8 +83,11 @@ Mermaid diagrams, fonts and the updated sample document are included in the v1.6
 - **Three view modes** — Source, Split, Preview (`Ctrl+1/2/3`), with a draggable divider that is
   remembered between sessions.
 - **JSON and INI previews** — expand JSON objects and arrays or browse INI sections as key/value rows.
-  JSON objects and arrays are detected in text files with unfamiliar extensions. Use **File → File
-  settings → Preview format** to select a format manually, or **Source** to see the original text.
+  JSON and INI-style configuration are detected by content, including `.conf` and `.cfg` files.
+  Use **File → File settings → Preview format** to override detection, or **Source** to see the original text.
+- **Source code preview** — open source files directly for syntax colors, line numbers, and collapsible
+  blocks in supported languages. **Edit in preview** can edit a code line or block, a configuration
+  value, or a Markdown block while retaining the rest of the original source.
 - **Interactive task lists** — optional, explicit, and safe (see below).
 - **Table of contents** — live outline with a filter (`Ctrl+F`) and click-to-jump in both panes.
 - **Synchronized scrolling** — proportional, both directions, per block.

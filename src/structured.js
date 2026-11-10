@@ -8,12 +8,35 @@
   var MAX_ROWS = 1500;
   var MAX_DEPTH = 48;
   var MARKDOWN = /\.(?:md|markdown|mdown|mdwn|mkd)$/i;
+  var SECTION = /^\s*\[([^\]]+)\]\s*([;#].*)?$/;
+  var ASSIGNMENT = /^[ \t]*[\w.\u0080-\uffff-]+(?:[ \t]+[\w.\u0080-\uffff-]+)*[ \t]*[=:]/;
 
   function detect(name, source) {
     if (/\.json$/i.test(name)) return 'json';
     if (/\.ini$/i.test(name)) return 'ini';
-    if (MARKDOWN.test(name) || source.length > MAX_SOURCE || !/^[ \t\r\n]*[\[{]/.test(source)) return 'markdown';
-    try { JSON.parse(source); return 'json'; } catch (error) { return 'markdown'; }
+    if (MARKDOWN.test(name) || /^readme(?:\.txt)?$/i.test(name) || !name) return 'markdown';
+    var config = /\.(?:conf|cfg|cnf|properties)$/i.test(name);
+    if (source.length <= MAX_SOURCE) {
+      if (/^[ \t\r\n]*[\[{]/.test(source)) {
+        try { JSON.parse(source); return 'json'; } catch (error) { /* check for INI below */ }
+      }
+      if ((config || /^[ \t\r\n]*[;#\[]/.test(source)) && looksIni(source, config)) return 'ini';
+    }
+    return /\.txt$/i.test(name) ? 'markdown' : 'text';
+  }
+
+  function looksIni(source, flat) {
+    var lines = source.split('\n'), section = false, count = 0, indent = -1;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (!line.trim() || /^\s*[;#]/.test(line)) continue;
+      if (SECTION.test(line)) { section = true; indent = -1; continue; }
+      var spacing = line.search(/[^ \t]/);
+      if (ASSIGNMENT.test(line)) { count++; indent = spacing; }
+      else if (section && /^[ \t]*[\w.-]+[ \t]*(?:[;#].*)?$/.test(line)) continue;
+      else if (indent < 0 || spacing <= indent) return false;
+    }
+    return count > 0 && (section || flat);
   }
 
   function jsonRows(source) {
@@ -26,7 +49,9 @@
       var text = match[0], parent = stack[stack.length - 1];
       if (/^[ \t\r\n]/.test(text)) { line += text.split('\n').length - 1; continue; }
       if (text === ':' || text === ',') continue;
-      if (text === '}' || text === ']') { stack.pop().endLine = line; continue; }
+      if (text === '}' || text === ']') {
+        var group = stack.pop(); group.endLine = line; group.end = tokens.lastIndex; continue;
+      }
       colon.lastIndex = tokens.lastIndex;
       if (text[0] === '"' && colon.test(source)) {
         parent.key = { text: text.slice(1, -1) || '""', line: line };
@@ -35,7 +60,7 @@
       if (++count > MAX_ROWS || stack.length > MAX_DEPTH) return null;
       var row = {
         label: parent.key ? parent.key.text : (parent.text === '[' ? String(parent.children.length) : ''),
-        line: parent.key ? parent.key.line : line, endLine: line, text: text,
+        line: parent.key ? parent.key.line : line, endLine: line, text: text, start: match.index, end: tokens.lastIndex,
         type: text[0] === '"' ? 'string' : (/^[-0-9]/.test(text) ? 'number' : 'literal')
       };
       parent.key = null;
@@ -49,12 +74,14 @@
   function iniRows(source) {
     var lines = source.split('\n');
     if (lines.length > MAX_ROWS) return null;
-    var rows = [], current = rows, section = null;
+    var rows = [], current = rows, section = null, offset = 0;
     lines.forEach(function (text, index) {
       var line = index + 1;
+      var start = offset;
+      offset += text.length + 1;
       if (!text.trim()) return;
       if (section) section.endLine = line;
-      var heading = /^\s*\[([^\]]+)\]\s*([;#].*)?$/.exec(text);
+      var heading = SECTION.exec(text);
       if (heading) {
         if (section) section.endLine = line - 1;
         section = { label: heading[1], line: line, endLine: line, children: [] };
@@ -67,13 +94,15 @@
       var label = pair ? pair[1].trimEnd() : '';
       var value = label ? pair[2].trimStart() : text;
       current.push({ label: label, text: value, line: line, endLine: line,
+        start: start + text.length - value.length, end: start + text.length,
         type: comment ? 'comment' : label && /^-?\d+(?:\.\d+)?$/.test(value) ? 'number'
           : label && /^(true|false|null)$/i.test(value) ? 'literal' : label ? 'string' : '' });
     });
     return rows;
   }
 
-  function create(doc, format, source, name, t, folds, onLayout, detected) {
+  function create(doc, format, source, name, t, options) {
+    options = options || {};
     var ini = format === 'ini';
     var rows, error;
     try { rows = source.length <= MAX_SOURCE && (ini ? iniRows(source) : jsonRows(source)); }
@@ -91,10 +120,12 @@
     var heading = add(element, 'div', undefined, 'structured-heading');
     add(heading, 'bdi', name, 'structured-name');
     add(heading, 'span', format.toUpperCase(), 'structured-format');
-    if (detected) add(heading, 'span', t('structured.detected'), 'structured-meta');
+    if (options.detected) add(heading, 'span', t('structured.detected'), 'structured-meta');
+    if (options.edit) options.edit(heading, 0, source.length, t('previewEdit.file'));
+    var surface = add(element, 'div', undefined, 'structured-surface');
     if (!rows) {
       add(element, 'p', t(error ? 'structured.invalid' : 'structured.large'), 'structured-meta');
-      add(element, 'pre', source, 'structured-raw');
+      add(surface, 'pre', source, 'structured-raw');
     }
 
     var firstBranch = rows && rows.findIndex(function (row) { return row.children && row.children.length; });
@@ -116,12 +147,16 @@
           if (!ini && label) add(group, 'span', ':', 'structured-meta');
           var value = row.children ? (row.text === '[' ? '[]' : '{}') : row.text;
           add(group, 'bdi', value, 'structured-value ' + (row.type || ''));
+          if (options.edit && row.start !== undefined && (!ini || row.label)) {
+            options.edit(group, row.start, row.end, t('previewEdit.value') + (row.label ? ' · ' + row.label.slice(0, 80) : ''), ini ? 'ini' : 'json');
+          }
           return;
         }
         if (!ini) add(group, 'span', row.text === '[' ? '[ ]' : '{ }', 'structured-meta');
         var count = ini ? row.children.filter(function (item) { return !!item.label; }).length : row.children.length;
         var kind = ini ? 'settings' : row.text === '[' ? 'items' : 'keys';
         add(group, 'span', t('structured.' + kind + (count === 1 ? '.one' : ''), { count: count }), 'structured-meta');
+        if (options.edit && !ini) options.edit(group, row.start, row.end, t('previewEdit.block'), 'json');
         var populated = false;
         function populate() {
           if (populated) return;
@@ -129,17 +164,17 @@
           draw(add(detail, 'div', undefined, 'structured-branch'), row.children, key, false);
         }
         pending.push(populate);
-        var open = folds && folds.get(key);
+        var open = options.folds && options.folds.get(key);
         detail.open = open === undefined ? top && (ini ? index - firstBranch < 3 : index === firstBranch) : open;
         if (detail.open) populate();
         detail.addEventListener('toggle', function () {
-          if (folds) folds.set(key, detail.open);
+          if (options.folds) options.folds.set(key, detail.open);
           if (detail.open) populate();
-          if (onLayout) onLayout();
+          if (options.layout) options.layout();
         });
       });
     }
-    if (rows) draw(element, rows, '', true);
+    if (rows) draw(surface, rows, '', true);
     return { element: element, entries: entries, complete: function () {
       // Find and standalone export need the text in collapsed branches as well.
       for (var i = 0; i < pending.length; i++) pending[i]();

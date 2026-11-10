@@ -19,7 +19,11 @@ test('detects complete JSON with arbitrary extensions and keeps explicitly named
   assert.equal(detect('preferences.INI', 'setting=value'), 'ini');
   assert.equal(detect('broken.JSON', '{broken'), 'json');
   assert.equal(detect('README.md', '[1, 2]'), 'markdown');
-  assert.equal(detect('file.config', '{"ok":true}\n# More text'), 'markdown');
+  assert.equal(detect('file.config', '{"ok":true}\n# More text'), 'text');
+  assert.equal(detect('settings.conf', '# note\n[Appearance]\nopacity=0.85'), 'ini');
+  assert.equal(detect('settings.cfg', 'mode=dark\nopacity: 0.85'), 'ini');
+  assert.equal(detect('settings.dat', '[Appearance]\nopacity=0.85'), 'ini');
+  assert.equal(detect('settings.conf', 'http {\n    server { listen 80; }\n}'), 'text');
 });
 
 test('JSON preview retains lexical values, builds closed branches on demand and finds their text', { skip: !hasDom }, async t => {

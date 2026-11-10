@@ -24,6 +24,7 @@
   var Tasks = RV.Tasks;
   var Markdown = RV.Markdown;
   var Structured = RV.Structured;
+  var Code = RV.Code;
   var Highlight = RV.Highlight;
   var Exporter = RV.Export;
   function nativeAvailable() { return !!(RV.Native && RV.Native.available()); }
@@ -577,7 +578,7 @@
     if (tab.format !== 'markdown') {
       preview.textContent = '';
       preview.setAttribute('dir', 'ltr');
-      preview.appendChild(Structured.create(document, tab.format, tab.source, tab.name, t, null, null, detectedFormat(tab)).element);
+      preview.appendChild(createFileView(tab, tab.source).element);
       return;
     }
     if (!comparison.md) comparison.md = Markdown.create({ marked: window.marked, purify: window.DOMPurify,
@@ -722,12 +723,11 @@
           var decoded = Encoding.decode(new Uint8Array(buffer));
           if (decoded.binary) { toast(t('error.binary', { name: file.name || '' }), 'error'); return false; }
           var name = file.name || handle.name || 'README';
-          var format = Structured.detect(name, decoded.text);
+          var format = documentFormat(name, decoded.text);
           var preview = document.createElement('div');
           if (format !== 'markdown') {
-            var view = Structured.create(document, format, decoded.text, name, t, null, null,
-              detectedFormat({ name: name, format: format }));
-            view.complete();
+            var view = createFileView({ name: name, format: format }, decoded.text);
+            if (view.complete) view.complete();
             preview.appendChild(view.element);
           } else {
             var renderer = Markdown.create({ marked: window.marked, purify: window.DOMPurify, icons: Icons.svg }, { strings: I18n.t });
@@ -1114,10 +1114,25 @@
   }
 
   function formatChoice(format) {
-    return format === 'markdown' || format === 'json' || format === 'ini' ? format : '';
+    return typeof format === 'string' && /^(markdown|json|ini|text|code:[a-z0-9-]+)$/.test(format) ? format : '';
+  }
+  function documentFormat(name, source) {
+    var language = Code.language(name, source);
+    if (language && language !== 'nginx') return 'code:' + language;
+    var detected = Structured.detect(name, source);
+    return language && detected === 'text' ? 'code:' + language : detected;
   }
   function detectedFormat(doc) {
-    return doc.format === 'json' && !doc.formatOverride && !/\.json$/i.test(doc.name);
+    return !doc.formatOverride && (doc.format === 'json' && !/\.json$/i.test(doc.name) ||
+      doc.format === 'ini' && !/\.ini$/i.test(doc.name));
+  }
+  function createFileView(doc, source, options) {
+    options = options || {};
+    if (doc.format === 'ini' || doc.format === 'json') {
+      options.detected = detectedFormat(doc);
+      return Structured.create(document, doc.format, source, doc.name, t, options);
+    }
+    return Code.create(document, doc.format, source, doc.name, t, hl, options);
   }
 
   function setDoc(text, name, handle, meta) {
@@ -1129,7 +1144,8 @@
     if (!tabs.some(function (tab) { return tab.editor === oldEditor; }) && oldEditor.parentNode) oldEditor.parentNode.removeChild(oldEditor);
     state.name = name || '';
     state.formatOverride = formatChoice(meta && meta.formatOverride);
-    state.format = state.formatOverride || formatChoice(meta && meta.format) || Structured.detect(state.name, text);
+    var previousFormat = formatChoice(meta && meta.format);
+    state.format = state.formatOverride || (previousFormat === 'json' || previousFormat === 'ini' ? previousFormat : documentFormat(state.name, text));
     state.saved = text;
     state.needsSave = false;
     state.handle = handle || null;
@@ -1360,7 +1376,7 @@
     var documentId = state.documentId;
     var name = state.name;
     var payload = Encoding.encode(text, { bom: state.bom, eol: state.eol });
-    var mime = (state.format === 'json' ? 'application/json' : state.format === 'ini' ? 'text/plain' : 'text/markdown') + ';charset=utf-8';
+    var mime = (state.format === 'json' ? 'application/json' : state.format === 'markdown' ? 'text/markdown' : 'text/plain') + ';charset=utf-8';
     var payloadBlob = new Blob([payload], { type: mime });
     var originalHandle = state.handle, diskBytes = state.diskBytes;
 
@@ -1371,7 +1387,7 @@
       state.handle = handle || null;
       state.diskBytes = bytes || null;
       state.name = handle ? handle.name : name;
-      if (state.name !== name && !state.formatOverride) state.format = Structured.detect(state.name, text);
+      if (state.name !== name && !state.formatOverride) state.format = documentFormat(state.name, text);
       applyHandleBase(handle);
       if (state.name !== name || (handle && handle.baseUrl)) render({ immediate: true });
       state.encoding = 'utf-8';
@@ -1477,7 +1493,7 @@
     if (!state.hasDocument) return;
     render({ immediate: true });
     var structured = !!structuredPreview;
-    if (structuredPreview) structuredPreview.complete();
+    if (structuredPreview && structuredPreview.complete) structuredPreview.complete();
     var src = el.editor.value;
     var snapshot = el.preview.cloneNode(true);
     var exportName = state.name, exportTheme = isDark() ? 'dark' : 'light';
@@ -1486,7 +1502,11 @@
     if (RV.Fonts && (fontSnapshot.latin || fontSnapshot.persian)) await RV.Fonts.ready();
     var exportFonts = RV.Fonts ? RV.Fonts.exportCss(fontSnapshot) : '';
     if (RV.Diagrams && snapshot.querySelector('.code-block[data-lang="mermaid"]')) { await RV.Diagrams.render(snapshot); RV.Diagrams.cleanExport(snapshot); }
-    eachNode('.section-tools', function (node) { node.parentNode.removeChild(node); }, snapshot);
+    eachNode('button.code-number', function (node) {
+      var number = document.createElement('span'); number.className = 'code-number'; number.dataset.line = node.dataset.line;
+      node.replaceWith(number);
+    }, snapshot);
+    eachNode('.section-tools, .preview-edit-tools, .preview-edit-control', function (node) { node.remove(); }, snapshot);
     eachNode('.section-folded', function (node) { node.classList.remove('section-folded'); }, snapshot);
     eachNode('input[type=checkbox]', function (box) {
       if (box.checked) box.setAttribute('checked', '');
@@ -1569,9 +1589,10 @@
     for (var i = 0; i < tokens.length; i++) {
       var raw = tokens[i].raw || '';
       var idx = raw ? src.indexOf(raw, cursor) : -1;
+      var exact = idx >= 0 && !src.slice(cursor, idx).trim();
       if (idx < 0) idx = cursor;
       line += Tasks.countNewlines(src.slice(cursor, idx));
-      out.push({ line: line, start: idx });
+      out.push({ line: line, start: idx, exact: exact });
       cursor = idx + raw.length;
       line += Tasks.countNewlines(raw);
     }
@@ -1739,23 +1760,105 @@
 
   var structuredPreview = null;
   var structuredMeasureFrame = 0;
+  var previewEditTargets = new WeakMap();
+  var previewEdit = null;
+
+  function previewEditButton(parent, range) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn preview-edit-control';
+    button.title = range.label;
+    button.setAttribute('aria-label', range.label);
+    button.textContent = t('previewEdit.short');
+    parent.appendChild(button);
+    previewEditTargets.set(button, range);
+    return button;
+  }
+
+  function openPreviewEdit(range, trigger) {
+    if (!state.editPreview) return;
+    if (range.documentId !== state.documentId || range.source !== el.editor.value) {
+      toast(t('edit.stale'), 'warning'); scheduleRender(null, 0); return;
+    }
+    previewEdit = { range: range, trigger: trigger };
+    var dialog = $('previewEditDialog'), input = $('previewEditInput');
+    $('previewEditTitle').textContent = range.label;
+    $('previewEditError').hidden = true;
+    input.dir = state.format === 'markdown' ? 'auto' : 'ltr';
+    input.value = range.source.slice(range.start, range.end);
+    input.rows = range.type === 'ini' ? 1 : clamp(input.value.split('\n', 12).length + 1, 2, 12);
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    input.focus();
+    input.setSelectionRange(0, range.type ? input.value.length : 0);
+  }
+
+  function closePreviewEdit() {
+    var dialog = $('previewEditDialog'), trigger = previewEdit && previewEdit.trigger;
+    previewEdit = null;
+    if (typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+    $('previewEditInput').value = '';
+    if (trigger && trigger.isConnected) trigger.focus();
+  }
+
+  function wirePreviewEdit() {
+    var dialog = $('previewEditDialog'), form = $('previewEditForm'), input = $('previewEditInput');
+    $('previewEditCancel').addEventListener('click', closePreviewEdit);
+    dialog.addEventListener('cancel', function (event) { event.preventDefault(); closePreviewEdit(); });
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault(); form.querySelector('[type=submit]').click();
+      }
+    });
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (!previewEdit) return;
+      var range = previewEdit.range, value = Encoding.normalizeNewlines(input.value), error = '';
+      if (range.documentId !== state.documentId || range.source !== el.editor.value) error = t('edit.stale');
+      else if (range.type === 'ini' && value.includes('\n')) error = t('previewEdit.singleLine');
+      else if (range.type === 'json') {
+        try { JSON.parse(value); } catch (err) { error = t('previewEdit.invalidJson'); }
+      }
+      if (error) {
+        $('previewEditError').textContent = error;
+        $('previewEditError').hidden = false;
+        input.focus();
+        return;
+      }
+      var next = range.source.slice(0, range.start) + value + range.source.slice(range.end);
+      closePreviewEdit();
+      if (next === range.source) return;
+      applySourceEdit({ text: next, start: range.start, end: range.end, replacement: value });
+      render({ immediate: true });
+      el.previewScroll.focus({ preventScroll: true });
+    });
+  }
+
   function renderStructured(src) {
     var start = now();
     var folds = activeTab.structuredFolds || (activeTab.structuredFolds = new Map());
-    structuredPreview = Structured.create(document, state.format, src, state.name, t, folds, function () {
+    var documentId = state.documentId;
+    structuredPreview = createFileView(state, src, { folds: folds, layout: function (populated) {
+      if (documentId !== state.documentId || !view.element.isConnected) return;
+      if (populated) {
+        updateFileOutline(view);
+        renderToc();
+        if (!el.findBar.hidden && el.findInput.value) runFind(true);
+      }
       if (structuredMeasureFrame) return;
       structuredMeasureFrame = requestAnimationFrame(function () {
         structuredMeasureFrame = 0;
         measureParts(); markActiveToc();
       });
-    }, detectedFormat(state));
-    reconcileBlocks([{ nodes: [structuredPreview.element] }]);
+    }, edit: state.editPreview ? function (parent, from, to, label, type) {
+      return previewEditButton(parent, { start: from, end: to, label: label, type: type, source: src, documentId: documentId });
+    } : null });
+    var view = structuredPreview;
+    reconcileBlocks([{ nodes: [view.element] }]);
     previewBlocks = [];
     el.preview.setAttribute('dir', 'ltr');
-    state.anchors = structuredPreview.entries;
-    state.toc = state.anchors.filter(function (part) { return part.outline; }).map(function (part) {
-      return { id: part.id, depth: 1, text: part.text, line: part.line, part: part };
-    });
+    updateFileOutline(view);
     state.tasks = [];
     state.tasksOk = true;
     state.taskReason = '';
@@ -1769,6 +1872,13 @@
     updateTaskStats();
     updateStats(src, now() - start);
     if (RV.Reading) RV.Reading.refresh();
+  }
+
+  function updateFileOutline(view) {
+    state.anchors = view.entries;
+    state.toc = state.anchors.filter(function (part) { return part.outline; }).map(function (part) {
+      return { id: part.id, depth: 1, text: part.text, line: part.line, part: part };
+    });
   }
 
   function render(opts) {
@@ -1818,7 +1928,7 @@
     }
 
     var located = locateTokens(tokens, src);
-    var context = JSON.stringify([state.documentId, state.baseUrl, I18n.getLocale(), nativeAvailable()]);
+    var context = JSON.stringify([state.documentId, state.baseUrl, I18n.getLocale(), nativeAvailable(), state.editPreview]);
     var reusable = new Map();
     if (context === previewContext && previewFolder === state.folder && !find.hits.length) {
       previewBlocks.forEach(function (block) {
@@ -1850,6 +1960,19 @@
         enhanceLinks(holder); hl.all(holder);
       }
       var first = block.first;
+      if (state.editPreview && located[i].exact) {
+        var begin = located[i].start, raw = token.raw.replace(/\n+$/, '');
+        var range = { start: begin, end: begin + raw.length, source: src, documentId: state.documentId, label: t('previewEdit.block') };
+        if (!block.editButton) {
+          var tools = document.createElement('div');
+          tools.className = 'preview-edit-tools';
+          block.editButton = previewEditButton(tools, range);
+          block.nodes.unshift(tools);
+        } else previewEditTargets.set(block.editButton, range);
+      } else if (block.editButton) {
+        block.nodes.shift();
+        block.editButton = null;
+      }
       blocks.push(block);
 
       var line = located[i].line + 1;
@@ -1977,13 +2100,13 @@
     scheduleRender({ focusTask: index }, 60);
   }
 
-  /** Replace exactly the marker characters, keeping native undo and the caret where they are. */
+  /** Replace the selected source range and preserve the rest of the file and editor history. */
   function applySourceEdit(result) {
     var ed = el.editor;
-    var marker = result.text.slice(result.start, result.end);
+    var replacement = result.replacement === undefined ? result.text.slice(result.start, result.end) : result.replacement;
     var before = { start: ed.selectionStart, end: ed.selectionEnd };
     if (typeof ed.setRangeText === 'function') {
-      ed.setRangeText(marker, result.start, result.end, 'preserve');
+      ed.setRangeText(replacement, result.start, result.end, 'preserve');
     } else {
       ed.value = result.text;
       try { ed.setSelectionRange(before.start, before.end); } catch (e) { void 0; }
@@ -2034,7 +2157,8 @@
   var tocNodes = [];
   function renderToc() {
     var root = document.createElement('ul'), stack = [];
-    var filterLabel = t(state.format === 'markdown' ? 'toc.filter' : 'structured.filter');
+    var filterLabel = t(state.format === 'markdown' ? 'toc.filter'
+      : state.format.indexOf('code:') === 0 ? 'code.filter' : 'structured.filter');
     el.tocFilter.placeholder = filterLabel;
     el.tocFilter.setAttribute('aria-label', filterLabel);
     tocNodes = [];
@@ -2229,7 +2353,7 @@
 
     if (id) {
       var node = byId(id);
-      if (node && node.parentElement.classList.contains('structured-details')) node.parentElement.open = true;
+      if (node && node.parentElement.tagName === 'DETAILS') node.parentElement.open = true;
       if (RV.Reading) RV.Reading.reveal(node);
       if (node && typeof node.scrollIntoView === 'function') {
         node.scrollIntoView({ block: 'start' });
@@ -2405,7 +2529,8 @@
 
   function setEditPreview(on) {
     state.editPreview = !!on;
-    applyTaskMode();
+    if (!state.tasksOk) applyTaskMode();
+    else render({ immediate: true });
     saveSettings();
     toast(state.editPreview
       ? (state.tasksOk ? t('info.editOn') : t('edit.unavailable', { reason: state.taskReason }))
@@ -2420,7 +2545,7 @@
     el.btnOpen.addEventListener('click', pickOpen);
     $('previewFormat').addEventListener('change', function (event) {
       state.formatOverride = formatChoice(event.target.value);
-      state.format = state.formatOverride || Structured.detect(state.name, el.editor.value);
+      state.format = state.formatOverride || documentFormat(state.name, el.editor.value);
       activeTab.structuredFolds = null;
       render({ immediate: true });
     });
@@ -2709,6 +2834,10 @@
     el.preview.addEventListener('click', function (e) {
       var target = e.target;
       if (!target || typeof target.closest !== 'function') return;
+
+      var edit = target.closest('.preview-edit-control');
+      var editTarget = edit && previewEditTargets.get(edit);
+      if (editTarget) { e.preventDefault(); openPreviewEdit(editTarget, edit); return; }
 
       var box = target.closest('input[data-rv-task]');
       if (box) { e.preventDefault(); toggleTaskFromPreview(box); return; }
@@ -3077,13 +3206,14 @@
     clearFindMarks();
     var q = el.findBar.hidden ? '' : el.findInput.value;
     if (!q) { el.findCount.textContent = ''; return; }
-    if (structuredPreview) structuredPreview.complete();
+    if (structuredPreview && structuredPreview.complete) structuredPreview.complete();
     var pattern = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu');
     var walker = document.createTreeWalker(el.preview, NodeFilter.SHOW_TEXT, null);
     var nodes = [];
     while (walker.nextNode()) nodes.push(walker.currentNode);
     for (var i = 0; i < nodes.length && find.hits.length < 1000; i++) {
       var node = nodes[i];
+      if (node.parentElement.closest('.preview-edit-control, .code-hidden-count')) continue;
       var match = pattern.exec(node.nodeValue);
       while (match && find.hits.length < 1000) {
         var hit = node.splitText(match.index);
@@ -3316,7 +3446,7 @@
 
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
-      if (!el.confirmModal.hidden || !el.helpModal.hidden) return;
+      if (!el.confirmModal.hidden || !el.helpModal.hidden || $('previewEditDialog').open) return;
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
@@ -3375,7 +3505,9 @@
 
     window.addEventListener('beforeunload', function (e) {
       captureTab();
-      if (nativeAvailable() || !tabs.some(function (tab) { return tab.dirty; })) return undefined;
+      var range = previewEdit && previewEdit.range;
+      var unapplied = range && $('previewEditInput').value !== range.source.slice(range.start, range.end);
+      if (nativeAvailable() || (!unapplied && !tabs.some(function (tab) { return tab.dirty; }))) return undefined;
       e.preventDefault();
       e.returnValue = '';
       return '';
@@ -3585,6 +3717,7 @@
     wireModals();
     wireEditor();
     wirePreview();
+    wirePreviewEdit();
     wireDragDrop();
     wireResizer();
     wireGlobalKeys();
@@ -3648,6 +3781,7 @@
           });
         },
         confirmClose: function () {
+          if ($('previewEditDialog').open) return false;
           return workspaceReady.then(confirmAllDirty).then(function (ok) {
             return ok && RV.Reading ? RV.Reading.saveSession().then(function () { return true; }) : ok;
           });

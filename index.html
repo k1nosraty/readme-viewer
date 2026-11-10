@@ -52,6 +52,15 @@
                 <option value="markdown">Markdown</option>
                 <option value="json">JSON</option>
                 <option value="ini">INI</option>
+                <option value="text" data-i18n="structured.text">Plain text</option>
+                <option value="code:c">C</option>
+                <option value="code:cpp">C++</option>
+                <option value="code:python">Python</option>
+                <option value="code:kotlin">Kotlin</option>
+                <option value="code:xml">HTML / XML</option>
+                <option value="code:css">CSS</option>
+                <option value="code:javascript">JavaScript</option>
+                <option value="code:typescript">TypeScript</option>
               </select>
               <label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label>
               <input type="text" id="baseUrl" dir="ltr" spellcheck="false" data-i18n-placeholder="baseUrl.placeholder" placeholder="https://github.com/user/repo/blob/main/">
@@ -312,6 +321,19 @@
 
 <input type="file" id="fileInput" hidden>
 
+<dialog id="previewEditDialog" class="preview-edit-dialog" aria-labelledby="previewEditTitle">
+  <form id="previewEditForm">
+    <h2 id="previewEditTitle" data-i18n="previewEdit.file">Edit file</h2>
+    <textarea id="previewEditInput" aria-labelledby="previewEditTitle" rows="8" spellcheck="false"></textarea>
+    <p id="previewEditError" role="alert" hidden></p>
+    <div class="modal-foot">
+      <span class="spacer"></span>
+      <button class="btn" id="previewEditCancel" type="button" data-i18n="action.cancel">Cancel</button>
+      <button class="btn btn-primary" type="submit" data-i18n="previewEdit.apply">Apply edit</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="modal" id="helpModal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
     <div class="modal-head">
@@ -433,6 +455,7 @@
 <script src="src/tasks.js"></script>
 <script src="src/markdown.js"></script>
 <script src="src/structured.js"></script>
+<script src="src/code.js"></script>
 <script src="src/highlight.js"></script>
 <script src="src/diagrams.js"></script>
 <script src="src/export.js"></script>

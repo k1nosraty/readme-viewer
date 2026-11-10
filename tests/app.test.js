@@ -269,7 +269,7 @@ test('hostile Markdown cannot inject scripts or spoof the interface', async func
     '',
     '<p onclick="window.__pwned = true">click me</p>',
     '',
-    '<button>fake button</button>',
+    '<button class="preview-edit-control">fake button</button>',
     '',
     '<div style="position:fixed;inset:0;z-index:999999;background:white">fake app</div>',
     '',
@@ -283,7 +283,7 @@ test('hostile Markdown cannot inject scripts or spoof the interface', async func
 
   assert.equal(win.__pwned, undefined);
   assert.equal(doc.querySelectorAll('#preview script').length, 0);
-  assert.equal(doc.querySelectorAll('#preview button').length, 0);
+  assert.equal(doc.querySelectorAll('#preview button:not(.preview-edit-tools > .preview-edit-control)').length, 0);
   assert.equal(doc.querySelectorAll('#preview iframe').length, 0);
   assert.equal(doc.querySelectorAll('#preview [onclick]').length, 0);
   assert.equal(doc.querySelectorAll('#preview [onerror]').length, 0);

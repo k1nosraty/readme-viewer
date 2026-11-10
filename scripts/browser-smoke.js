@@ -227,12 +227,34 @@ const { chromium } = require('playwright');
     });
     const branch = page.locator('#preview summary').filter({ hasText: 'workspace' });
     await branch.waitFor();
-    assert.equal(await branch.evaluate(node => getComputedStyle(node).display), 'flex', 'Markdown styles must not override the tree row');
+    await page.waitForFunction(() => [...document.querySelectorAll('#preview summary')].some(node =>
+      node.textContent.includes('workspace') && getComputedStyle(node).display === 'flex'));
     await branch.press('Enter');
     await page.locator('#preview .structured-key').filter({ hasText: 'restoreTabs' }).waitFor();
     await page.locator('#structuredFind').click();
     await page.locator('#findInput').fill('theme');
     assert.equal(await page.locator('#preview mark.current').textContent(), 'theme');
+    await page.keyboard.press('Escape');
+    await page.locator('#fileInput').setInputFiles({
+      name: 'settings.conf', mimeType: 'text/plain', buffer: Buffer.from('[Appearance]\nmode=dark\n')
+    });
+    await page.locator('#preview .structured-ini').waitFor();
+    await page.locator('#fileInput').setInputFiles({
+      name: 'viewer.py', mimeType: 'text/plain', buffer: Buffer.from('def open_file():\n    return "example"\n')
+    });
+    const codeFold = page.locator('#preview .code-fold');
+    await codeFold.waitFor();
+    await codeFold.locator('summary').press('Enter');
+    assert.equal(await codeFold.evaluate(node => node.open), false);
+    await page.locator('#structuredFind').click();
+    await page.locator('#findInput').fill('example');
+    assert.equal(await codeFold.evaluate(node => node.open), true);
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => RVApp.setEditPreview(true));
+    await page.locator('#preview button[data-line="2"]').click();
+    await page.locator('#previewEditInput').fill('    return "edited"');
+    await page.locator('#previewEditForm button[type=submit]').click();
+    assert.equal(await page.locator('#editor').inputValue(), 'def open_file():\n    return "edited"\n');
     assert.deepEqual(errors, []);
     console.log('Chromium smoke test passed: offline open, Persian/CRLF, task editing, responsive layout, HTML export, structured preview.');
   } finally { await browser.close(); }

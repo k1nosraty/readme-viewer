@@ -1,6 +1,7 @@
 const { cp, mkdir, readdir, readFile, rm, writeFile } = require('node:fs/promises');
 const path = require('node:path');
 const { build } = require('esbuild');
+const highlight = require('../vendor/highlight.min.js');
 
 async function prepare() {
   const root = path.resolve(__dirname, '..');
@@ -8,8 +9,14 @@ async function prepare() {
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
   // Explicit allowlist: never ship repository metadata, credentials or build trees.
+  const grammars = path.join(root, 'vendor', 'langs');
   for (const name of ['app.js', 'styles.css', 'src', 'vendor']) {
-    await cp(path.join(root, name), path.join(output, name), { recursive: true });
+    await cp(path.join(root, name), path.join(output, name), {
+      recursive: true,
+      // The loader asks for a standalone grammar only when the startup bundle lacks it.
+      filter: source => path.dirname(source) !== grammars || !source.endsWith('.min.js') ||
+        !highlight.getLanguage(path.basename(source, '.min.js'))
+    });
   }
   // The bundled bridge replaces its build-only source; runtime assets and licenses stay intact.
   await rm(path.join(output, 'src/native-entry.js'));
