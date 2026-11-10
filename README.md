@@ -84,9 +84,10 @@ Mermaid diagrams, fonts and the updated sample document are included in the v1.6
   remembered between sessions.
 - **JSON and INI previews** — expand JSON objects and arrays or browse INI sections as key/value rows.
   JSON and INI-style configuration are detected by content, including `.conf` and `.cfg` files.
-  Use **File → File settings → Preview format** to override detection, or **Source** to see the original text.
+  Use **View → Preview format** (`Ctrl+Shift+L`) to override detection, or **Source** to see the original text.
 - **Source code preview** — open source files directly for syntax colors, line numbers, and collapsible
-  blocks in supported languages. **Edit in preview** can edit a code line or block, a configuration
+  blocks in supported languages. The format picker can search the bundled offline syntax modes by
+  language or extension. **Edit in preview** can edit a code line or block, a configuration
   value, or a Markdown block while retaining the rest of the original source.
 - **Interactive task lists** — optional, explicit, and safe (see below).
 - **Table of contents** — live outline with a filter (`Ctrl+F`) and click-to-jump in both panes.

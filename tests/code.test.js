@@ -2,8 +2,17 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { hasDom, loadApp } = require('./helpers/dom');
-const { language, foldRanges } = require('../src/code');
+const { readdirSync } = require('node:fs');
+const path = require('node:path');
+const { hasDom, loadApp, waitFor } = require('./helpers/dom');
+const { languages, language, foldRanges } = require('../src/code');
+
+test('language picker lists every packaged offline grammar', () => {
+  const bundled = require('../vendor/highlight.min.js').listLanguages();
+  const files = readdirSync(path.resolve(__dirname, '../vendor/langs')).filter(name => name.endsWith('.min.js'));
+  const grammarIds = new Set([...bundled, ...files.map(name => name.slice(0, -7))]);
+  assert.deepEqual(languages.map(([id]) => id).sort(), [...grammarIds].sort());
+});
 
 async function workspace(t) {
   const app = await loadApp({ beforeParse(window) { window.TextDecoder = TextDecoder; } });
@@ -13,10 +22,16 @@ async function workspace(t) {
 
 test('identifies common source extensions, well-known names and executable scripts', () => {
   for (const [name, lang] of [['main.cpp', 'cpp'], ['MAIN.C', 'c'], ['main.py', 'python'],
-    ['index.html', 'xml'], ['styles.css', 'css'], ['app.kt', 'kotlin'], ['Dockerfile', 'dockerfile']]) {
+    ['index.html', 'xml'], ['styles.css', 'css'], ['app.kt', 'kotlin'], ['Dockerfile', 'dockerfile'],
+    ['App.java', 'java'], ['app.mjs', 'javascript'], ['app.dart', 'dart'], ['app.tsx', 'typescript'],
+    ['main.go', 'go'], ['main.rs', 'rust'], ['app.scala', 'scala'], ['main.exs', 'elixir'],
+    ['main.hs', 'haskell'], ['main.f90', 'fortran'], ['app.xaml', 'xml'], ['schema.proto', 'protobuf']]) {
     assert.equal(language(name, ''), lang);
   }
   assert.equal(language('tools', '#!/usr/bin/env python3\nprint(1)'), 'python');
+  assert.equal(language('view.m', '#import <Foundation/Foundation.h>'), 'objectivec');
+  assert.equal(language('plot.m', 'function y = f(x)'), 'matlab');
+  assert.equal(language('config.cfg', '[Appearance]\nMode=Dark'), '');
   assert.equal(language('README.md', '#!/usr/bin/env python3\nprint(1)'), '');
 });
 
@@ -45,6 +60,16 @@ test('source files use syntax highlighting, balanced blocks and safe inert HTML'
     assert.equal(viewer.el.editor.value, source, name);
   }
   assert.deepEqual(errors, []);
+});
+
+test('Dart loads offline syntax and folds through strings and comments', { skip: !hasDom }, async t => {
+  const { viewer, document } = await workspace(t);
+  const source = 'void main() {\n  // }\n  final text = """\n}\n""";\n  print(text);\n}';
+  viewer.setDoc(source, 'main.dart');
+  await waitFor(() => document.querySelector('#preview .code-fold'), 3000);
+  const fold = document.querySelector('#preview .code-fold');
+  assert.equal(fold.querySelector('.code-hidden-count').textContent, '… 6 lines');
+  assert.ok(fold.querySelector('.hljs-string'));
 });
 
 test('preview editing updates only the selected source range and supports undo', { skip: !hasDom }, async t => {

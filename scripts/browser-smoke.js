@@ -255,6 +255,24 @@ const { chromium } = require('playwright');
     await page.locator('#previewEditInput').fill('    return "edited"');
     await page.locator('#previewEditForm button[type=submit]').click();
     assert.equal(await page.locator('#editor').inputValue(), 'def open_file():\n    return "edited"\n');
+    await page.locator('#brandMark').click();
+    await page.locator('.app-menu-categories [aria-controls="menuView"]').click();
+    await page.locator('#btnPreviewFormat').click();
+    const formatSearch = page.locator('#previewFormatSearch');
+    await formatSearch.fill('golang');
+    assert.equal(await page.locator('#previewFormat').inputValue(), 'code:go');
+    await page.locator('#previewFormatApply').click();
+    assert.equal(await page.locator('#preview .structured-format').textContent(), 'Go');
+    await page.keyboard.press('Control+Shift+L');
+    await formatSearch.fill('no-such-language');
+    assert.equal(await page.locator('#previewFormatApply').isDisabled(), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#previewFormatDialog').isVisible(), false);
+    await page.locator('#fileInput').setInputFiles({
+      name: 'main.dart', mimeType: 'text/plain', buffer: Buffer.from('void main() {\n  print("Dart");\n}\n')
+    });
+    await page.locator('#preview .code-fold .hljs-string').waitFor();
+    assert.equal(await page.locator('#preview .structured-format').textContent(), 'Dart');
     assert.deepEqual(errors, []);
     console.log('Chromium smoke test passed: offline open, Persian/CRLF, task editing, responsive layout, HTML export, structured preview.');
   } finally { await browser.close(); }

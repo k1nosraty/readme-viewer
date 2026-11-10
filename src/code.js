@@ -1,24 +1,35 @@
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.RV.Code = factory();
-}(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./code-languages'));
+  else root.RV.Code = factory(root.RV.CodeLanguages);
+}(typeof self !== 'undefined' ? self : this, function (languages) {
   'use strict';
 
   var EXTENSIONS = {
-    c: 'c', h: 'cpp', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', hh: 'cpp', hxx: 'cpp',
-    py: 'python', pyw: 'python', pyi: 'python', kt: 'kotlin', kts: 'kotlin', java: 'java',
-    html: 'xml', htm: 'xml', xhtml: 'xml', xml: 'xml', svg: 'xml', vue: 'xml', svelte: 'xml',
-    css: 'css', scss: 'scss', less: 'less', js: 'javascript', jsx: 'javascript', mjs: 'javascript',
-    cjs: 'javascript', ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
-    sh: 'bash', bash: 'bash', zsh: 'bash', fish: 'fish', ps1: 'powershell', bat: 'dos', cmd: 'dos',
-    rs: 'rust', go: 'go', cs: 'csharp', php: 'php', rb: 'ruby', swift: 'swift', lua: 'lua',
-    sql: 'sql', yml: 'yaml', yaml: 'yaml', toml: 'ini', jsonc: 'json', jsonl: 'json', ndjson: 'json',
-    diff: 'diff', patch: 'diff', dockerfile: 'dockerfile', cmake: 'cmake', make: 'makefile'
+    h: 'cpp', pyw: 'python', pyi: 'python',
+    htm: 'xml', vue: 'xml', svelte: 'xml', jsp: 'xml',
+    xaml: 'xml', axaml: 'xml', csproj: 'xml', fsproj: 'xml', vbproj: 'xml', resx: 'xml',
+    props: 'xml', targets: 'xml', nuspec: 'xml', slnx: 'xml',
+    jsonl: 'json', ndjson: 'json', psd1: 'powershell', psm1: 'powershell', properties: 'properties',
+    pl: 'perl', ml: 'ocaml', mli: 'ocaml', rkt: 'scheme', jl: 'julia', hs: 'haskell',
+    vhd: 'vhdl', f: 'fortran', f03: 'fortran', f08: 'fortran', f77: 'fortran',
+    frag: 'glsl', vert: 'glsl', geom: 'glsl', tesc: 'glsl', tese: 'glsl', comp: 'glsl'
   };
   var FILENAMES = { dockerfile: 'dockerfile', makefile: 'makefile', gnumakefile: 'makefile',
-    'cmakelists.txt': 'cmake', 'nginx.conf': 'nginx', '.bashrc': 'bash', '.zshrc': 'bash', '.env': 'bash' };
-  var BRACES = /^(c|cpp|kotlin|java|css|scss|less|javascript|typescript|rust|go|csharp|php|swift|nginx|json)$/;
-  var HTML = /\.(?:html?|xhtml|vue|svelte)$/i;
+    'cmakelists.txt': 'cmake', 'nginx.conf': 'nginx', 'apache2.conf': 'apache', 'httpd.conf': 'apache',
+    'pf.conf': 'pf', '.bashrc': 'bash', '.bash_profile': 'bash', '.zshrc': 'bash', '.env': 'bash',
+    gemfile: 'ruby', rakefile: 'ruby', vagrantfile: 'ruby', podfile: 'ruby', sconstruct: 'python' };
+  var LABELS = Object.create(null), ALIASES = Object.create(null);
+  languages.forEach(function (entry) {
+    var id = entry[0];
+    LABELS[id] = entry[1];
+    if (entry[2]) entry[2].split(' ').forEach(function (alias) {
+      ALIASES[alias] = ALIASES[alias] === undefined ? id : null;
+    });
+  });
+  var BRACES = /^(c|cpp|dart|kotlin|java|css|scss|less|javascript|typescript|rust|go|csharp|php|swift|nginx|json|glsl|groovy|scala|gradle)$/;
+  var HTML = /\.(?:html?|xhtml|vue|svelte|jsp)$/i;
+  var HTML_START = /^\s*(?:<!doctype\s+html[\s>]|<html[\s>])/i;
+  var CONFIG = /\.(?:conf|cfg|cnf|properties)$/i;
   var MAX_CHARS = 160 * 1024;
   var MAX_LINES = 2500;
 
@@ -29,14 +40,24 @@
     if (file.indexOf('.') >= 0 && Object.prototype.hasOwnProperty.call(EXTENSIONS, ext)) return EXTENSIONS[ext];
     if (/^readme(?:\.txt)?$|\.(?:md|markdown|mdown|mdwn|mkd|ini|json)$/i.test(file)) return '';
     var header = source.slice(0, 8192);
-    if (/^\s*(?:<!doctype\s+html[\s>]|<html[\s>])/i.test(header)) return 'xml';
+    if (HTML_START.test(header) || /^\s*<\?xml[\s?]/i.test(header)) return 'xml';
+    if (/\.m$/i.test(file)) {
+      if (/^\s*#\s*import\b|@(?:interface|implementation|autoreleasepool)\b/m.test(header)) return 'objectivec';
+      if (/^\s*(?:%|function\b|classdef\b)/.test(header)) return 'matlab';
+      return '';
+    }
+    if (file.includes('.') && !CONFIG.test(file) && !/^(txt|v|log|xls|xlsx)$/.test(ext)) {
+      var canonical = LABELS[ext] && ext;
+      if (canonical || ALIASES[ext]) return canonical || ALIASES[ext];
+    }
     if (/\.(?:conf|cfg)$/i.test(file) && /(?:^|\n)[ \t]*(?:http|events|server|location|upstream)\b[^\n;{}]*\{/.test(header)) return 'nginx';
-    var shebang = /^#![^\n]{0,250}\b(python[\d.]*|bash|zsh|sh|fish|ruby|node|perl)(?=\s|$)/.exec(source);
+    var shebang = /^#![^\n]{0,250}\b(python[\d.]*|bash|zsh|sh|fish|ruby|node|perl|dart|deno|bun|lua|php|awk|tclsh)(?=\s|$)/.exec(source);
     if (!shebang) return '';
     var command = shebang[1];
     if (command.indexOf('python') === 0) return 'python';
     if (/^(sh|bash|zsh)$/.test(command)) return 'bash';
-    return command === 'node' ? 'javascript' : command;
+    if (/^(node|deno|bun)$/.test(command)) return 'javascript';
+    return command === 'tclsh' ? 'tcl' : LABELS[command] ? command : '';
   }
 
   function addRange(ranges, start, end) {
@@ -170,8 +191,8 @@
     element.dir = 'ltr';
     var head = add(element, 'div', 'structured-heading');
     add(head, 'bdi', 'structured-name', name);
-    var label = ({ xml: HTML.test(name) ? 'HTML' : 'XML', cpp: 'C++', csharp: 'C#',
-      javascript: 'JavaScript', typescript: 'TypeScript', python: 'Python', kotlin: 'Kotlin' })[lang];
+    var html = HTML.test(name) || HTML_START.test(source.slice(0, 8192));
+    var label = lang === 'xml' ? (html ? 'HTML' : 'XML') : LABELS[lang];
     add(head, 'span', 'structured-format', lang ? label || lang.toUpperCase() : t('structured.text'));
     if (options.edit) options.edit(head, 0, source.length, t('previewEdit.file'));
     var body = add(element, 'div', 'code-surface');
@@ -183,7 +204,7 @@
       var building = true;
       var draw = function () {
         var colored = coloredLines(doc, code, lang);
-        var ranges = code.classList.contains('hljs') ? foldRanges(colored.mask, lang, HTML.test(name), colored.continuations) : new Map();
+        var ranges = code.classList.contains('hljs') ? foldRanges(colored.mask, lang, html, colored.continuations) : new Map();
         var raw = source.split('\n'), stack = [], offsets = [0];
         raw.forEach(function (line, index) { offsets.push(offsets[index] + line.length + 1); });
         pre.remove();
@@ -211,9 +232,11 @@
               row.id = 'rv-code-' + index;
               entries.push({ el: detail, id: row.id, line: index + 1, endLine: end + 1, outline: true, text: raw[index].trim().slice(0, 100) });
             }
-            detail.open = !options.folds || options.folds.get(index) !== false;
+            var foldKey = String(index);
+            if (options.folds) detail.dataset.previewFold = foldKey;
+            detail.open = !options.folds || options.folds.get(foldKey) !== false;
             detail.addEventListener('toggle', function () {
-              if (options.folds) options.folds.set(index, detail.open);
+              if (options.folds) options.folds.set(foldKey, detail.open);
               if (options.layout) options.layout();
             });
             stack.push({ element: detail, end: end });
@@ -228,5 +251,5 @@
     return { element: element, entries: entries };
   }
 
-  return { language: language, create: create, foldRanges: foldRanges };
+  return { languages: languages, language: language, create: create, foldRanges: foldRanges };
 }));

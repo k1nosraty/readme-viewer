@@ -164,6 +164,7 @@
           draw(add(detail, 'div', undefined, 'structured-branch'), row.children, key, false);
         }
         pending.push(populate);
+        if (options.folds) detail.dataset.previewFold = key;
         var open = options.folds && options.folds.get(key);
         detail.open = open === undefined ? top && (ini ? index - firstBranch < 3 : index === firstBranch) : open;
         if (detail.open) populate();

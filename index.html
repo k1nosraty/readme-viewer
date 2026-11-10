@@ -46,22 +46,7 @@
               <p id="sessionStatus" role="status" aria-live="polite"></p>
               <button type="button" class="btn" id="clearSession" data-i18n="reading.clear">Clear saved session</button>
               <hr>
-              <label for="previewFormat" data-i18n="structured.format">Preview format</label>
-              <select id="previewFormat">
-                <option value="" data-i18n="structured.auto">Automatic</option>
-                <option value="markdown">Markdown</option>
-                <option value="json">JSON</option>
-                <option value="ini">INI</option>
-                <option value="text" data-i18n="structured.text">Plain text</option>
-                <option value="code:c">C</option>
-                <option value="code:cpp">C++</option>
-                <option value="code:python">Python</option>
-                <option value="code:kotlin">Kotlin</option>
-                <option value="code:xml">HTML / XML</option>
-                <option value="code:css">CSS</option>
-                <option value="code:javascript">JavaScript</option>
-                <option value="code:typescript">TypeScript</option>
-              </select>
+              <button type="button" class="menu-command" data-command="btnPreviewFormat" data-i18n="structured.choose">Preview format…</button>
               <label for="baseUrl" data-i18n="baseUrl.label">Base URL for relative links and images</label>
               <input type="text" id="baseUrl" dir="ltr" spellcheck="false" data-i18n-placeholder="baseUrl.placeholder" placeholder="https://github.com/user/repo/blob/main/">
             </div>
@@ -83,6 +68,7 @@
           <button class="menu-command" type="button" data-mode-btn="write"><span data-i18n="mode.source">Source</span><kbd>Ctrl+1</kbd></button>
           <button class="menu-command" type="button" data-mode-btn="split"><span data-i18n="mode.split">Split</span><kbd>Ctrl+2</kbd></button>
           <button class="menu-command" type="button" data-mode-btn="preview"><span data-i18n="mode.preview">Preview</span><kbd>Ctrl+3</kbd></button>
+          <button class="menu-command" type="button" id="btnPreviewFormat" data-shell-action="previewFormat" aria-haspopup="dialog" aria-keyshortcuts="Control+Shift+L Meta+Shift+L"><span data-i18n="structured.choose">Preview format…</span><kbd>Ctrl+Shift+L</kbd></button>
           <hr>
           <button type="button" class="menu-command" id="btnAppearance" data-i18n="appearance.title">Appearance…</button>
           <button class="menu-command" type="button" id="btnReadingFocus" data-command="btnFocus" aria-pressed="false"><span data-i18n="reading.focus">Distraction-free reading</span><kbd>F8</kbd></button>
@@ -321,6 +307,22 @@
 
 <input type="file" id="fileInput" hidden>
 
+<dialog id="previewFormatDialog" class="preview-edit-dialog preview-format-dialog" aria-labelledby="previewFormatTitle">
+  <form id="previewFormatForm">
+    <h2 id="previewFormatTitle" data-i18n="structured.format">Preview format</h2>
+    <p id="previewFormatFile" dir="auto"></p>
+    <input type="search" id="previewFormatSearch" autocomplete="off" spellcheck="false"
+           data-i18n-aria="structured.search" data-i18n-placeholder="structured.search" placeholder="Find a language or format">
+    <select id="previewFormat" size="9" data-i18n-aria="structured.format"></select>
+    <p id="previewFormatEmpty" role="status" data-i18n="structured.noMatches" hidden>No matching formats</p>
+    <div class="modal-foot">
+      <span class="spacer"></span>
+      <button class="btn" id="previewFormatCancel" type="button" data-i18n="action.cancel">Cancel</button>
+      <button class="btn btn-primary" id="previewFormatApply" type="submit" data-i18n="structured.apply">Apply format</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="previewEditDialog" class="preview-edit-dialog" aria-labelledby="previewEditTitle">
   <form id="previewEditForm">
     <h2 id="previewEditTitle" data-i18n="previewEdit.file">Edit file</h2>
@@ -455,6 +457,7 @@
 <script src="src/tasks.js"></script>
 <script src="src/markdown.js"></script>
 <script src="src/structured.js"></script>
+<script src="src/code-languages.js"></script>
 <script src="src/code.js"></script>
 <script src="src/highlight.js"></script>
 <script src="src/diagrams.js"></script>

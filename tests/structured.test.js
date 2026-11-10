@@ -66,15 +66,24 @@ test('INI keeps duplicate sections and comments, and the per-tab override surviv
   assert.equal(app.el.editor.value, source);
   assert.equal(app.state.dirty, false);
   assert.equal(await app.openFileTab(file('Document', source)), true);
+  function openFormat() {
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'l', ctrlKey: true, shiftKey: true, bubbles: true }));
+    assert.equal(document.querySelector('#previewFormatDialog').open, true);
+  }
   const option = document.querySelector('#previewFormat');
+  openFormat();
   option.value = 'ini';
-  option.dispatchEvent(new window.Event('change', { bubbles: true }));
+  document.querySelector('#previewFormatForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
   const saved = app.listTabs().find(tab => tab.active);
   assert.equal(saved.formatOverride, 'ini');
   app.switchTab(first);
+  openFormat();
   assert.equal(option.value, '');
+  document.querySelector('#previewFormatCancel').click();
   app.restoreTab(saved);
+  openFormat();
   assert.equal(option.value, 'ini');
+  document.querySelector('#previewFormatCancel').click();
   assert.equal(app.state.format, 'ini');
   assert.equal(app.el.editor.value, source);
   assert.deepEqual(errors, []);

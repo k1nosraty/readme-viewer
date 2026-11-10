@@ -1055,8 +1055,7 @@
     el.btnSaveAs.disabled = !state.hasDocument;
     el.btnReload.disabled = !state.handle;
     el.btnExport.disabled = !state.hasDocument;
-    $('previewFormat').disabled = !state.hasDocument;
-    $('previewFormat').value = state.formatOverride;
+    $('btnPreviewFormat').disabled = !state.hasDocument;
 
     el.statusFile.textContent = state.hasDocument ? state.name : t('status.ready');
     el.statusFile.setAttribute('data-dirty', state.dirty ? '1' : '0');
@@ -1118,7 +1117,7 @@
   }
   function documentFormat(name, source) {
     var language = Code.language(name, source);
-    if (language && language !== 'nginx') return 'code:' + language;
+    if (language && !/\.(?:conf|cfg|cnf|properties)$/i.test(name)) return 'code:' + language;
     var detected = Structured.detect(name, source);
     return language && detected === 'text' ? 'code:' + language : detected;
   }
@@ -1507,6 +1506,7 @@
       node.replaceWith(number);
     }, snapshot);
     eachNode('.section-tools, .preview-edit-tools, .preview-edit-control', function (node) { node.remove(); }, snapshot);
+    eachNode('[data-preview-fold]', function (node) { node.removeAttribute('data-preview-fold'); }, snapshot);
     eachNode('.section-folded', function (node) { node.classList.remove('section-folded'); }, snapshot);
     eachNode('input[type=checkbox]', function (box) {
       if (box.checked) box.setAttribute('checked', '');
@@ -1879,6 +1879,12 @@
     state.toc = state.anchors.filter(function (part) { return part.outline; }).map(function (part) {
       return { id: part.id, depth: 1, text: part.text, line: part.line, part: part };
     });
+  }
+
+  function openPreviewDetails(detail) {
+    detail.open = true;
+    var key = detail.dataset.previewFold;
+    if (key !== undefined && activeTab.structuredFolds) activeTab.structuredFolds.set(key, true);
   }
 
   function render(opts) {
@@ -2353,7 +2359,7 @@
 
     if (id) {
       var node = byId(id);
-      if (node && node.parentElement.tagName === 'DETAILS') node.parentElement.open = true;
+      if (node && node.parentElement.tagName === 'DETAILS') openPreviewDetails(node.parentElement);
       if (RV.Reading) RV.Reading.reveal(node);
       if (node && typeof node.scrollIntoView === 'function') {
         node.scrollIntoView({ block: 'start' });
@@ -2537,18 +2543,95 @@
       : t('info.editOff'), state.editPreview && !state.tasksOk ? 'warning' : 'info');
   }
 
+  var formatChoices = null, formatDocument = 0;
+  function fillPreviewFormats(selected) {
+    var list = $('previewFormat'), query = $('previewFormatSearch').value.trim().toLowerCase().replace(/^\./, '');
+    var choices = [['', t('structured.auto'), 'auto'], ['markdown', 'Markdown', 'md'],
+      ['json', 'JSON', ''], ['ini', 'INI', 'conf cfg'], ['text', t('structured.text'), 'txt plain']]
+      .concat(formatChoices);
+    if (query) {
+      choices = choices.map(function (choice) {
+        var label = choice[1].toLowerCase(), keys = choice[2].split(' ');
+        var rank = label === query || keys.includes(query) ? 0 : label.startsWith(query) ? 1
+          : (label + ' ' + choice[2]).includes(query) ? 2 : -1;
+        return { choice: choice, rank: rank };
+      }).filter(function (item) { return item.rank >= 0; })
+        .sort(function (a, b) { return a.rank - b.rank; })
+        .map(function (item) { return item.choice; });
+    }
+    var options = document.createDocumentFragment();
+    choices.forEach(function (choice) {
+      var option = document.createElement('option');
+      option.value = choice[0]; option.textContent = choice[1];
+      options.appendChild(option);
+    });
+    list.replaceChildren(options);
+    if (selected !== undefined) list.value = selected;
+    if (list.selectedIndex < 0 && list.options.length) list.selectedIndex = 0;
+    $('previewFormatApply').disabled = !list.options.length;
+    $('previewFormatEmpty').hidden = !!list.options.length;
+  }
+
+  function openPreviewFormat() {
+    var dialog = $('previewFormatDialog');
+    if (!state.hasDocument || dialog.open || $('previewEditDialog').open ||
+        !$('appearancePanel').hidden || !$('serviceModal').hidden) return;
+    if (RV.Shell) RV.Shell.close();
+    if (!formatChoices) {
+      var labels = { ini: 'TOML / INI syntax', json: 'JSON / JSONC syntax', markdown: 'Markdown syntax', xml: 'HTML / XML' };
+      formatChoices = Code.languages.filter(function (entry) { return entry[0] !== 'plaintext'; }).map(function (entry) {
+        return ['code:' + entry[0], labels[entry[0]] || entry[1], entry[0] + ' ' + (entry[2] || '')];
+      }).sort(function (a, b) { return a[1].localeCompare(b[1]); });
+    }
+    formatDocument = state.documentId;
+    $('previewFormatFile').textContent = state.name;
+    $('previewFormatSearch').value = '';
+    fillPreviewFormats(state.formatOverride);
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    $('previewFormatSearch').focus();
+  }
+
+  function wirePreviewFormat() {
+    var dialog = $('previewFormatDialog'), list = $('previewFormat');
+    function close() {
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.removeAttribute('open');
+    }
+    $('previewFormatCancel').addEventListener('click', close);
+    dialog.addEventListener('cancel', function (event) { event.preventDefault(); close(); });
+    dialog.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
+    });
+    $('previewFormatSearch').addEventListener('input', function () { fillPreviewFormats(); });
+    $('previewFormatSearch').addEventListener('keydown', function (event) {
+      if (event.key === 'ArrowDown' && list.options.length) { event.preventDefault(); list.focus(); }
+    });
+    list.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); $('previewFormatApply').click(); }
+    });
+    list.addEventListener('dblclick', function () { $('previewFormatApply').click(); });
+    $('previewFormatForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (list.selectedIndex < 0) return;
+      var selected = list.value;
+      close();
+      if (formatDocument !== state.documentId || !state.hasDocument) return;
+      state.formatOverride = formatChoice(selected);
+      state.format = state.formatOverride || documentFormat(state.name, el.editor.value);
+      activeTab.structuredFolds = null;
+      if (state.mode === 'write') setMode('preview');
+      render({ immediate: true });
+    });
+  }
+
   /* ------------------------------------------------------------------ wiring */
 
   function wireToolbar() {
     el.btnFocus.addEventListener('click', function () { setReadingFocus(!state.readingFocus); });
     el.btnExitReadingFocus.addEventListener('click', function () { setReadingFocus(false); });
     el.btnOpen.addEventListener('click', pickOpen);
-    $('previewFormat').addEventListener('change', function (event) {
-      state.formatOverride = formatChoice(event.target.value);
-      state.format = state.formatOverride || documentFormat(state.name, el.editor.value);
-      activeTab.structuredFolds = null;
-      render({ immediate: true });
-    });
+    wirePreviewFormat();
     el.btnSave.addEventListener('click', function () { save(false); });
     el.btnSaveAs.addEventListener('click', function () { save(true); });
     el.btnReload.addEventListener('click', reloadFromDisk);
@@ -3236,7 +3319,7 @@
     el.findCount.textContent = (find.index + 1) + ' / ' + find.hits.length;
     var cur = find.hits[find.index];
     if (structuredPreview && cur) {
-      for (var detail = cur.closest('details'); detail; detail = detail.parentElement.closest('details')) detail.open = true;
+      for (var detail = cur.closest('details'); detail; detail = detail.parentElement.closest('details')) openPreviewDetails(detail);
     }
     if (RV.Reading) { RV.Reading.clearFindVisibility(); RV.Reading.reveal(cur); }
     if (scroll && cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ block: 'center' });
@@ -3446,7 +3529,7 @@
 
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
-      if (!el.confirmModal.hidden || !el.helpModal.hidden || $('previewEditDialog').open) return;
+      if (!el.confirmModal.hidden || !el.helpModal.hidden || $('previewEditDialog').open || $('previewFormatDialog').open) return;
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
@@ -3474,6 +3557,7 @@
       if (key === 's') { e.preventDefault(); save(e.shiftKey); return; }
       if (key === 'o') { e.preventDefault(); pickOpen(); return; }
       if (key === 'f' && e.shiftKey) { e.preventDefault(); openFind(); return; }
+      if (key === 'l' && e.shiftKey && state.hasDocument) { e.preventDefault(); openPreviewFormat(); return; }
       if (key === 'e') { e.preventDefault(); setEditPreview(!state.editPreview); return; }
       if (key === '1') { e.preventDefault(); setMode('write'); return; }
       if (key === '2') { e.preventDefault(); setMode('split'); return; }
@@ -3754,7 +3838,8 @@
       undo: function () { undoEdit(false); el.editor.focus(); },
       redo: function () { undoEdit(true); el.editor.focus(); },
       getTheme: function () { return state.theme; }, setTheme: setTheme,
-      find: openFind, filterContents: focusContentsFilter, close: function () { closeTab(activeTab.id); },
+      find: openFind, filterContents: focusContentsFilter, previewFormat: openPreviewFormat,
+      close: function () { closeTab(activeTab.id); },
       verticalTabs: toggleTabLayout,
       canUndo: function () { return !!(activeTab && activeTab.undo.length); },
       canRedo: function () { return !!(activeTab && activeTab.redo.length); }

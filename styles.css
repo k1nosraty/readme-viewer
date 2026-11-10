@@ -1336,6 +1336,16 @@ button.code-number:hover { color: var(--accent); background: var(--accent-subtle
 }
 .preview-edit-dialog .modal-foot { margin-block-start: 12px; }
 #previewEditError { color: var(--danger); margin: 8px 0 0; }
+.preview-format-dialog { inline-size: min(440px, calc(100% - 24px)); }
+.preview-format-dialog h2 { margin-block-end: 4px; }
+#previewFormatFile { color: var(--fg-muted); margin: 0 0 12px; overflow-wrap: anywhere; font-size: 13px; }
+.preview-format-dialog input, .preview-format-dialog select {
+  display: block; width: 100%; padding: 7px 9px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--bg-subtle); color: var(--fg); font: inherit;
+}
+.preview-format-dialog select { margin-block-start: 8px; max-block-size: 35vh; }
+.preview-format-dialog option { padding: 4px 6px; }
+#previewFormatEmpty { color: var(--fg-muted); margin: 8px 0 0; }
 #structuredFind { width: 26px; height: 24px; }
 @media (pointer: coarse) {
   summary.structured-row { min-block-size: 44px; align-items: center; }
