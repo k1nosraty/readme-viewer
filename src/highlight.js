@@ -70,13 +70,13 @@
       cacheBytes += size;
     }
 
-    function loadLang(name, node) {
+    function loadLang(name, node, ready) {
       if (requested[name]) {
-        if (requested[name] !== true) requested[name].add(node);
+        if (requested[name] !== true) requested[name].set(node, ready);
         return;
       }
       if (typeof document === 'undefined') { requested[name] = true; return; }
-      var waiting = new Set([node]);
+      var waiting = new Map([[node, ready]]);
       requested[name] = waiting;
       var script = document.createElement('script');
       script.src = basePath + encodeURIComponent(name) + '.min.js';
@@ -84,7 +84,7 @@
       script.onload = function () {
         script.remove();
         requested[name] = true;
-        waiting.forEach(function (pending) { if (pending.isConnected) block(pending); });
+        waiting.forEach(function (notify, pending) { if (pending.isConnected) block(pending, notify); });
         waiting.clear();
       };
       // Leave it un-highlighted rather than retrying on every keystroke.
@@ -92,15 +92,15 @@
       document.head.appendChild(script);
     }
 
-    function block(node) {
+    function block(node, ready) {
       if (!hljs || !node || langOf(node) === 'mermaid') return;
       var lang = resolve(langOf(node));
       if (!lang || !hljs.getLanguage(lang)) {
-        if (lang) loadLang(lang, node);
+        if (lang) loadLang(lang, node, ready);
         return;
       }
       var code = node.textContent || '';
-      if (!code.trim()) return;
+      if (!code.trim()) { if (ready) ready(); return; }
       var key = lang + '\u0000' + code;
       var html = cache.get(key);
       if (html === undefined) {
@@ -114,6 +114,7 @@
       if (html === null) return;
       node.innerHTML = html;
       node.classList.add('hljs');
+      if (ready) ready();
     }
 
     function each(root, fn) {
