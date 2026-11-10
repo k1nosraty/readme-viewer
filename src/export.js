@@ -89,6 +89,21 @@
     '}'
   ].join('\n');
 
+  var DARK_TOKENS = '--token-keyword:#ff7b72;--token-title:#d2a8ff;--token-value:#79c0ff;--token-string:#a5d6ff;--token-comment:#8b949e;--token-tag:#7ee787;--token-symbol:#ffa657';
+  var SYNTAX_CSS = [
+    ':root{--token-keyword:#d73a49;--token-title:#6f42c1;--token-value:#005cc5;--token-string:#032f62;--token-comment:#6a737d;--token-tag:#22863a;--token-symbol:#e36209}',
+    'html[data-theme="dark"]{' + DARK_TOKENS + '}',
+    '@media(prefers-color-scheme:dark){html[data-theme="system"]{' + DARK_TOKENS + '}}',
+    '.hljs-doctag,.hljs-keyword,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-variable.language_{color:var(--token-keyword)}',
+    '.hljs-title{color:var(--token-title)}',
+    '.hljs-attr,.hljs-attribute,.hljs-literal,.hljs-meta,.hljs-number,.hljs-operator,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-variable,.hljs-section{color:var(--token-value)}',
+    '.hljs-regexp,.hljs-string{color:var(--token-string)}',
+    '.hljs-code,.hljs-comment,.hljs-formula{color:var(--token-comment)}',
+    '.hljs-name,.hljs-quote,.hljs-selector-pseudo,.hljs-selector-tag,.hljs-addition{color:var(--token-tag)}',
+    '.hljs-built_in,.hljs-symbol,.hljs-bullet{color:var(--token-symbol)}',
+    '.hljs-deletion{color:var(--token-keyword)}.hljs-emphasis{font-style:italic}.hljs-strong,.hljs-section{font-weight:700}'
+  ].join('\n');
+
   function escAttr(value) {
     return String(value == null ? '' : value)
       .replace(/&/g, '&amp;')
@@ -118,7 +133,9 @@
       '<title>' + title + '</title>',
       '<style>',
       BASE_CSS,
+      /class="[^"]*\bhljs-/.test(opts.html || '') ? SYNTAX_CSS : '',
       opts.structured ? '.structured-view,.code-view{font:14px/1.55 ui-monospace,monospace;overflow-wrap:anywhere}.structured-heading,.structured-row,.structured-comment{padding:5px 8px}.structured-heading>*,.structured-row>*{margin-inline-end:.7em}.structured-key,.structured-name{font-weight:600}.structured-format,.structured-meta,.structured-comment{opacity:.75}.structured-branch{margin-inline-start:1em;padding-inline-start:.5em;border-inline-start:1px solid currentColor}.structured-row:not(summary){padding-inline-start:1.5em}.structured-raw{white-space:pre-wrap}.code-line{white-space:pre}.code-line code{padding:0;background:none;font-size:inherit}.code-number{display:inline-block;min-width:4ch;opacity:.65;user-select:none}.code-number::before{content:attr(data-line)}.code-fold[open]>summary .code-hidden-count{display:none}.code-hidden-count{margin-inline-start:.5em;opacity:.65}' : '',
+      opts.structured ? '.structured-path{display:flex;gap:.75em;padding:5px 8px}.structured-path output{min-width:0;overflow-wrap:anywhere}.code-surface{overflow-x:auto}' : '',
       String(opts.fontCss || ''),
       '</style>',
       '</head>',

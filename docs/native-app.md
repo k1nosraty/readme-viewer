@@ -34,8 +34,9 @@ the matching heading. Files opened through the system use Preview mode.
 
 Local relative images resolve inside the opened document's directory. Parent-directory paths
 such as `../image.png` are blocked. Android document providers commonly return `content://`
-URIs without a directory base, so relative local images are unavailable and the display name
-may fall back to `README.md`. Provider permissions and persistence vary; verify important saves
+URIs without a directory base, so relative local images are unavailable. When the URI exposes
+only an ID, the app uses `Document` as its name and detects the format from the contents.
+Provider permissions and persistence vary; verify important saves
 in your file manager. Saves use UTF-8 and preserve an existing UTF-8 BOM and LF/CRLF style;
 UTF-16 and legacy input encodings are converted to UTF-8.
 

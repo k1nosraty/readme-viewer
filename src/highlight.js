@@ -6,9 +6,9 @@
  * typing in the editor does not re-highlight blocks that did not change.
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else { root.RV = root.RV || {}; root.RV.Highlight = factory(); }
-}(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./code-languages'));
+  else { root.RV = root.RV || {}; root.RV.Highlight = factory(root.RV.CodeLanguages); }
+}(typeof self !== 'undefined' ? self : this, function (languages) {
   'use strict';
 
   /*
@@ -35,6 +35,7 @@
 
   var CACHE_LIMIT = 400;
   var CACHE_BYTES = 4 * 1024 * 1024;
+  var SHIPPED = new Set(languages.map(function (entry) { return entry[0]; }));
 
   function create(deps) {
     deps = deps || {};
@@ -52,7 +53,7 @@
     function resolve(lang) {
       if (!lang) return '';
       if (hljs && hljs.getLanguage(lang)) return lang;
-      var mapped = ALIAS[lang];
+      var mapped = Object.prototype.hasOwnProperty.call(ALIAS, lang) ? ALIAS[lang] : '';
       if (mapped && hljs && hljs.getLanguage(mapped)) return mapped;
       return mapped || lang;
     }
@@ -96,7 +97,7 @@
       if (!hljs || !node || langOf(node) === 'mermaid') return;
       var lang = resolve(langOf(node));
       if (!lang || !hljs.getLanguage(lang)) {
-        if (lang) loadLang(lang, node, function () { block(node, ready, skipCache); });
+        if (SHIPPED.has(lang)) loadLang(lang, node, function () { block(node, ready, skipCache); });
         return;
       }
       var code = node.textContent || '';

@@ -8,6 +8,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { createRequire } = require('node:module');
 
 const Highlight = require('../src/highlight.js');
 
@@ -30,11 +31,12 @@ function codeNode(lang, text) {
 test('lazy language loading highlights every waiting block and skips detached ones', function () {
   const scripts = [], highlighted = [];
   let loaded = false;
-  const context = { module: { exports: {} }, document: {
+  const filename = require.resolve('../src/highlight.js');
+  const context = { module: { exports: {} }, require: createRequire(filename), document: {
     createElement: () => ({ remove() {} }),
     head: { appendChild: script => scripts.push(script) }
   } };
-  vm.runInNewContext(fs.readFileSync(require.resolve('../src/highlight.js'), 'utf8'), context);
+  vm.runInNewContext(fs.readFileSync(filename, 'utf8'), context);
   const h = context.module.exports.create({ hljs: {
     getLanguage: () => loaded,
     highlight(code) { highlighted.push(code); return { value: '<span>' + code + '</span>' }; }

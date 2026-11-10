@@ -138,3 +138,19 @@ test('inline code edits share the saved source and undo history', { skip: !hasDo
   assert.equal(document.querySelector('#preview .code-fold').open, true);
   assert.deepEqual(errors, []);
 });
+
+test('unknown fence languages render safely and source has just one active line number', { skip: !hasDom }, async t => {
+  const { viewer, document, errors } = await workspace(t);
+  viewer.setDoc('```constructor\ncode\n```\n\nAfter the fence.', 'README.md');
+  assert.match(document.querySelector('#preview').textContent, /code\s+After the fence\./);
+  viewer.setDoc('first\nsecond\nthird', 'example.py');
+  viewer.el.editor.setSelectionRange(0, 0);
+  viewer.setEditPreview(false);
+  viewer.el.editor.setSelectionRange(6, 6);
+  viewer.setEditPreview(true);
+  const gutter = document.querySelector('#gutterInner');
+  assert.deepEqual(Array.from(gutter.querySelectorAll('.cur'), line => line.textContent), ['2']);
+  viewer.setMode('preview');
+  await waitFor(() => !gutter.childElementCount);
+  assert.deepEqual(errors, []);
+});

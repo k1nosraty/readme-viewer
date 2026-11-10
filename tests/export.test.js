@@ -18,3 +18,14 @@ test('an explicit dark export is dark without a dark system preference', () => {
   assert.equal(dom.window.getComputedStyle(dom.window.document.body).backgroundColor, 'rgb(13, 17, 23)');
   dom.window.close();
 });
+
+test('standalone structured exports retain syntax and contain long code lines', () => {
+  const html = Exporter.build({
+    html: '<div class="code-surface"><span class="hljs-keyword">return</span></div>',
+    structured: true,
+    theme: 'dark'
+  });
+  assert.match(html, /data-theme="dark"\]\{--token-keyword:#ff7b72/);
+  assert.match(html, /\.hljs-keyword[^{}]*\{color:var\(--token-keyword\)\}/);
+  assert.match(html, /\.code-surface\{overflow-x:auto\}/);
+});

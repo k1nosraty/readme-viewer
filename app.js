@@ -76,7 +76,6 @@
     anchors: [],
     toc: [],
     lines: 1,
-    curLine: -1,
     tocFilter: '',
     wrap: false,
     sync: true,
@@ -104,7 +103,7 @@
   var manualBaseUrl = '';
   var mobileSidebar = false;
   var documentFields = ['handle', 'name', 'saved', 'dirty', 'needsSave', 'hasDocument', 'bom', 'eol',
-    'encoding', 'diskBytes', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'curLine', 'format', 'formatOverride', 'draftName'];
+    'encoding', 'diskBytes', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'format', 'formatOverride', 'draftName'];
 
   function tabText(key, fallback) { var value = t(key); return value === key ? fallback : value; }
   function captureTab() {
@@ -421,7 +420,7 @@
     tabs.push(tab); activeTab = tab;
     nav = { list: [], index: -1, moving: false };
     el.findInput.value = ''; el.findBar.hidden = true;
-    state.folder = null; state.tocFilter = ''; state.curLine = -1; el.tocFilter.value = '';
+    state.folder = null; state.tocFilter = ''; el.tocFilter.value = '';
     state.baseUrl = manualBaseUrl; state.autoBase = false; el.baseUrl.value = manualBaseUrl;
     if (typeof text === 'string') setDoc(text, name || 'README.md', handle, meta);
     else setEmpty();
@@ -1263,6 +1262,12 @@
     render({ immediate: true }); return true;
   }
 
+  function undoFromMenu(redo) {
+    undoEdit(redo);
+    var input = state.mode === 'preview' ? (structuredPreview && structuredPreview.input || el.previewScroll) : el.editor;
+    input.focus({ preventScroll: true });
+  }
+
   function markDirtyFromValue(inputType) {
     recordEdit(inputType);
     if (!state.hasDocument) {
@@ -1522,6 +1527,7 @@
     var exportFonts = RV.Fonts ? RV.Fonts.exportCss(fontSnapshot) : '';
     if (RV.Diagrams && snapshot.querySelector('.code-block[data-lang="mermaid"]')) { await RV.Diagrams.render(snapshot); RV.Diagrams.cleanExport(snapshot); }
     eachNode('.section-tools, .preview-edit-tools, .preview-edit-control', function (node) { node.remove(); }, snapshot);
+    eachNode('mark.rv-find', function (node) { node.replaceWith(document.createTextNode(node.textContent)); }, snapshot);
     eachNode('[data-preview-fold]', function (node) { node.removeAttribute('data-preview-fold'); }, snapshot);
     eachNode('.section-folded', function (node) { node.classList.remove('section-folded'); }, snapshot);
     eachNode('input[type=checkbox]', function (box) {
@@ -2461,17 +2467,13 @@
   var gutterCurrent = null;
 
   function buildGutter() {
-    if (state.wrap || state.lines > GUTTER_MAX) {
-      // Wrapped lines have no stable numbers, and tens of thousands of gutter nodes would cost
-      // more than they are worth — the status bar still reports the exact position.
-      el.gutterInner.textContent = '';
+    if (state.mode === 'preview' || state.wrap || state.lines > GUTTER_MAX) {
+      // The status bar still reports position when the source gutter is hidden or too large.
+      if (el.gutterInner.firstChild) el.gutterInner.textContent = '';
       gutterCurrent = null;
-      state.curLine = -1;
       return;
     }
     var n = state.lines;
-    state.curLine = -1;
-    gutterCurrent = null;
     if (el.gutterInner.childElementCount === n) { markGutterCursor(); return; }
     var html = '';
     for (var i = 1; i <= n; i++) html += '<span>' + i + '</span>';
@@ -2482,10 +2484,10 @@
   function markGutterCursor() {
     if (state.wrap || !el.gutterInner.childElementCount) return;
     var line = el.editor.value.slice(0, el.editor.selectionStart).split('\n').length;
-    if (line === state.curLine) return;
-    state.curLine = line;
+    var target = el.gutterInner.children[line - 1] || null;
+    if (target === gutterCurrent) return;
     if (gutterCurrent) gutterCurrent.classList.remove('cur');
-    gutterCurrent = el.gutterInner.children[line - 1] || null;
+    gutterCurrent = target;
     if (gutterCurrent) gutterCurrent.classList.add('cur');
   }
 
@@ -3364,13 +3366,49 @@
   function clearFindMarks() {
     if (find.hits.length) previewBlocks = [];
     if (RV.Reading) RV.Reading.clearFindVisibility();
+    var parents = new Set();
     eachNode('mark.rv-find', function (m) {
       var parent = m.parentNode;
       parent.replaceChild(document.createTextNode(m.textContent), m);
-      parent.normalize();
+      parents.add(parent);
     }, el.preview);
+    parents.forEach(function (parent) { parent.normalize(); });
     find.hits = [];
     find.index = -1;
+  }
+
+  function findInCodeLine(line, pattern) {
+    var text = line.textContent, matches = [], match;
+    pattern.lastIndex = 0;
+    while (matches.length + find.hits.length < 1000 && (match = pattern.exec(text))) {
+      matches.push({ start: match.index, end: pattern.lastIndex, marks: [] });
+    }
+    if (!matches.length) return;
+    var walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT, null), nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    var offset = 0, index = 0;
+    nodes.forEach(function (node) {
+      var value = node.nodeValue, limit = offset + value.length;
+      if (index < matches.length && matches[index].start < limit && value.length) {
+        var fragment = document.createDocumentFragment(), cursor = 0;
+        while (index < matches.length && matches[index].start < limit) {
+          var hit = matches[index], start = Math.max(0, hit.start - offset), end = Math.min(value.length, hit.end - offset);
+          if (start > cursor) fragment.appendChild(document.createTextNode(value.slice(cursor, start)));
+          var mark = document.createElement('mark');
+          mark.className = 'rv-find';
+          mark.textContent = value.slice(start, end);
+          fragment.appendChild(mark);
+          hit.marks.push(mark);
+          cursor = end;
+          if (hit.end > limit) break;
+          index++;
+        }
+        if (cursor < value.length) fragment.appendChild(document.createTextNode(value.slice(cursor)));
+        node.parentNode.replaceChild(fragment, node);
+      }
+      offset = limit;
+    });
+    matches.forEach(function (hit) { find.hits.push(hit.marks); });
   }
 
   function runFind(keepIndex) {
@@ -3386,27 +3424,29 @@
       while (find.hits.length < 1000 && (result = matches.exec(input.value))) {
         find.hits.push({ start: result.index, end: matches.lastIndex });
       }
-      if (!find.hits.length) { el.findCount.textContent = t('find.none'); return; }
-      find.index = keepIndex && previous >= 0 ? Math.min(previous, find.hits.length - 1) : 0;
-      showFindHit(!keepIndex);
-      return;
-    }
-    var walker = document.createTreeWalker(el.preview, NodeFilter.SHOW_TEXT, null);
-    var nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    for (var i = 0; i < nodes.length && find.hits.length < 1000; i++) {
-      var node = nodes[i];
-      if (node.parentElement.closest('.preview-edit-control, .code-hidden-count, .structured-path')) continue;
-      var match = pattern.exec(node.nodeValue);
-      while (match && find.hits.length < 1000) {
-        var hit = node.splitText(match.index);
-        node = hit.splitText(match[0].length);
-        var mark = document.createElement('mark');
-        mark.className = 'rv-find';
-        hit.parentNode.replaceChild(mark, hit);
-        mark.appendChild(hit);
-        find.hits.push(mark);
-        match = pattern.exec(node.nodeValue);
+    } else if (structuredPreview && structuredPreview.activateLine) {
+      var codePattern = new RegExp(pattern.source, 'giu');
+      eachNode('.code-line-text, .code-raw > code', function (line) {
+        if (find.hits.length < 1000) findInCodeLine(line, codePattern);
+      }, el.preview);
+    } else {
+      var walker = document.createTreeWalker(el.preview, NodeFilter.SHOW_TEXT, null);
+      var nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      for (var i = 0; i < nodes.length && find.hits.length < 1000; i++) {
+        var node = nodes[i];
+        if (node.parentElement.closest('.preview-edit-control, .structured-path')) continue;
+        var match = pattern.exec(node.nodeValue);
+        while (match && find.hits.length < 1000) {
+          var hit = node.splitText(match.index);
+          node = hit.splitText(match[0].length);
+          var mark = document.createElement('mark');
+          mark.className = 'rv-find';
+          hit.parentNode.replaceChild(mark, hit);
+          mark.appendChild(hit);
+          find.hits.push([mark]);
+          match = pattern.exec(node.nodeValue);
+        }
       }
     }
     if (!find.hits.length) { el.findCount.textContent = t('find.none'); return; }
@@ -3416,17 +3456,20 @@
 
   function showFindHit(scroll) {
     el.findCount.textContent = (find.index + 1) + ' / ' + find.hits.length;
-    var cur = find.hits[find.index];
+    var current = find.hits[find.index];
     if (structuredPreview && structuredPreview.input) {
       if (scroll) {
         var input = structuredPreview.input;
-        input.setSelectionRange(cur.start, cur.end);
-        var row = input.value.slice(0, cur.start).split('\n').length - 1;
+        input.setSelectionRange(current.start, current.end);
+        var row = input.value.slice(0, current.start).split('\n').length - 1;
         input.scrollTop = row * parseFloat(getComputedStyle(input).lineHeight);
       }
       return;
     }
-    for (var i = 0; i < find.hits.length; i++) find.hits[i].classList.toggle('current', i === find.index);
+    find.hits.forEach(function (hit) {
+      hit.forEach(function (mark) { mark.classList.toggle('current', hit === current); });
+    });
+    var cur = current[0];
     if (structuredPreview && cur) {
       for (var detail = cur.closest('details'); detail; detail = detail.parentElement.closest('details')) openPreviewDetails(detail);
     }
@@ -3444,7 +3487,9 @@
     if (state.readingFocus) setReadingFocus(false);
     if (state.mode === 'write') setMode('split');
     el.findBar.hidden = false;
-    var sel = window.getSelection ? String(window.getSelection()) : '';
+    var input = structuredPreview && structuredPreview.input;
+    var sel = input && document.activeElement === input ? input.value.slice(input.selectionStart, input.selectionEnd)
+      : window.getSelection ? String(window.getSelection()) : '';
     if (sel && sel.length < 100 && sel.indexOf('\n') < 0) el.findInput.value = sel;
     el.findInput.focus();
     el.findInput.select();
@@ -3455,6 +3500,7 @@
     el.findBar.hidden = true;
     clearFindMarks();
     el.findCount.textContent = '';
+    if (structuredPreview && structuredPreview.input) structuredPreview.input.focus({ preventScroll: true });
   }
 
   function wireFind() {
@@ -3621,9 +3667,11 @@
         !$('appearancePanel').hidden || !$('serviceModal').hidden) return;
     var bar = $('documentTabs'), focus = document.activeElement;
     var fromEditor = focus === el.editor, fromTabs = bar.contains(focus);
+    var fromInline = structuredPreview && structuredPreview.input === focus;
     var next = (tabs.indexOf(activeTab) + (backward ? -1 : 1) + tabs.length) % tabs.length;
     if (!switchTab(tabs[next].id)) return;
     if (fromEditor) el.editor.focus({ preventScroll: true });
+    else if (fromInline) (structuredPreview && structuredPreview.input || el.previewScroll).focus({ preventScroll: true });
     else if (fromTabs) bar.querySelector('[aria-selected="true"]').focus({ preventScroll: true });
   }
 
@@ -3955,8 +4003,8 @@
     markGutterCursor();
     var sessionReady = RV.Reading ? RV.Reading.init(window.RVApp) : Promise.resolve();
     if (RV.Shell) RV.Shell.init({
-      undo: function () { undoEdit(false); el.editor.focus(); },
-      redo: function () { undoEdit(true); el.editor.focus(); },
+      undo: function () { undoFromMenu(false); },
+      redo: function () { undoFromMenu(true); },
       getTheme: function () { return state.theme; }, setTheme: setTheme,
       find: openFind, filterContents: focusContentsFilter,
       close: function () { closeTab(activeTab.id); },
