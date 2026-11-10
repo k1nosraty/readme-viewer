@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 2.0.0 — 2026-11-10
+
+- Add interactive JSON trees and grouped INI previews. Detect JSON and INI-style configuration in files with other extensions, including `.conf` and `.cfg`. Select a JSON key or array item to see its path.
+- Preview source files with 186 bundled syntax grammars, line numbers, indentation guides and an active line. Fold blocks in Python, brace-based languages and HTML/XML.
+- Edit source code directly in Preview with undo and redo. Preserve syntax colors during inline editing for small, unwrapped files when the text layout can be mirrored accurately.
+- Add a searchable Preview format picker to the toolbar and File settings. First saves suggest an extension that matches the selected format. Existing files retain their names.
+- Open supported text files from the native file picker and recent files. Register README Viewer in the Windows and Linux Open with lists while preserving existing defaults.
+- Keep horizontal desktop tabs in the top row. Move reading and comparison controls into that row at intermediate widths to keep the header at two rows.
+- Find phrases across syntax tokens and retain syntax colors and folds in standalone HTML exports. Handle unsupported fence languages safely and skip building the hidden source gutter in Preview.
+
 ## 1.6.0 — 2026-11-09
 
 - Share the desktop title bar and workspace styling between Windows and Linux. Add adjustable title-bar opacity where transparency is available and installed-font suggestions in Appearance.

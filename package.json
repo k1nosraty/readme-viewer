@@ -1,8 +1,8 @@
 {
   "name": "readme-viewer",
-  "version": "1.6.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "A local, offline Markdown and README viewer with live preview and interactive task lists.",
+  "description": "An offline viewer for Markdown, source code and configuration files.",
   "license": "MIT",
   "scripts": {
     "test": "node --test",

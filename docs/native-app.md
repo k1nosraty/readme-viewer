@@ -7,7 +7,7 @@ access.
 
 ## Use and limitations
 
-Open a Markdown file with **Open**, make changes, then **Save**. **Save as** chooses another
+Open a Markdown, source or configuration file with **Open**, make changes, then **Save**. **Save as** chooses another
 location. On desktop, Save writes back to the opened file. On Android, the file returned by
 Open has read-only access: your first Save asks for a destination and writes a copy, leaving the
 source file unchanged. Later saves update that chosen copy. The Windows installer registers
