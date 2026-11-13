@@ -174,7 +174,7 @@ mod tests {
         previews.0.lock().unwrap().push_back((
             "token".into(),
             Arc::new(Preview {
-                directory: Some(project.clone()),
+                directory: document_directory(&project.join("my style.css")),
                 html: "<h1>Preview</h1>".into(),
             }),
         ));
