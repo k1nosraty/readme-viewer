@@ -48,7 +48,7 @@ const { chromium } = require('playwright');
     const expand = page.locator('#preview .diagram-tools').first().getByRole('button', { name: 'Expand', exact: true });
     await expand.click();
     await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
-    assert.equal(await page.locator('.diagram-canvas img').evaluate(img => img.style.width), '125%');
+    assert.equal(await page.getByRole('button', { name: '125%', exact: true }).count(), 1);
     await page.keyboard.press('Escape');
     await page.waitForSelector('.diagram-dialog', { state: 'detached' });
     assert.equal(await expand.evaluate(node => node === document.activeElement), true);

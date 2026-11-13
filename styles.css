@@ -1674,7 +1674,7 @@ html[data-theme="light"] { color-scheme: light; }
 .diagram-dialog::backdrop { background: rgba(0, 0, 0, .45); }
 .diagram-dialog .diagram-tools { flex-shrink: 0; border-top: 0; border-bottom: 1px solid var(--border); }
 .diagram-canvas { flex: 1; min-height: 0; overflow: auto; padding: 16px; direction: ltr; }
-.diagram-canvas img { display: block; width: 100%; max-width: none; }
+.diagram-canvas img { display: block; width: auto; max-width: none; height: auto; margin-inline: auto; }
 @media (pointer: coarse) { .diagram-tools button { min-height: 44px; } }
 
 .markdown-body, .font-sample { font-family: var(--doc-font, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"); }

@@ -4,7 +4,7 @@
 
 Read project READMEs with their diagrams and task lists. Open a source file to fold a function and edit a line in place. Navigate JSON trees and grouped INI settings.
 
-**[Download the latest release][release]** · [What’s new in 2.0.0][notes] · [Try without installing](#try-without-installing)
+**[Download the latest release][release]** · [What’s new in 2.1.0][notes] · [Try without installing](#try-without-installing)
 
 ![README Viewer desktop workspace showing a Markdown document, a Mermaid flowchart, an interactive checklist, and a table of contents](docs/screenshots/markdown-workspace.webp)
 
@@ -12,12 +12,12 @@ Read project READMEs with their diagrams and task lists. Open a source file to f
 
 ## Download
 
-These are the **2.0.0** packages. The [release page][release] includes SHA-256 checksums and signed desktop updates.
+These are the **2.1.0** packages. The [release page][release] includes SHA-256 checksums and signed desktop updates.
 
 | Platform | Download | Requirements |
 | --- | --- | --- |
-| Windows | [x64 installer][windows] · 3.45 MiB | Windows 10 or 11 with WebView2 |
-| Linux | [x64 Debian package][deb] · 4.20 MiB or [x64 AppImage][appimage] | Compatible Linux with WebKitGTK 4.1 |
+| Windows | [x64 installer][windows] | Windows 10 or 11 with WebView2 |
+| Linux | [x64 Debian package][deb] or [x64 AppImage][appimage] | Compatible Linux with WebKitGTK 4.1 |
 | Android Preview | [ARM64 APK][arm64] or [x86_64 APK][x86_64] | Android 8.0 or later with an updated System WebView |
 
 Desktop users can upgrade through **Help → Check for updates**. For installation details, AppImage integration, and Android signing and save behavior, see the [native app guide](docs/native-app.md).
@@ -34,11 +34,15 @@ Expand JSON objects and arrays, select a key to see its path, or read INI settin
 
 ![JSON tree and grouped INI settings side by side, with the selected JSON path visible](docs/screenshots/configuration-preview.webp)
 
+## Preview SVG and HTML
+
+Open SVG files as images, zoom in for details, or browse reusable SVG symbols in a gallery. Preview HTML offline with local stylesheets, images, and fonts from the document’s folder on desktop. **Preview / Code** switches between the rendered file and its source.
+
 ## Read Markdown and Mermaid
 
 Jump between headings in Contents, tick a task in the rendered page, and view Mermaid diagrams offline. Export the document as standalone HTML or save a diagram as SVG. The demo includes flowcharts, sequence diagrams, and math labels. [View the sample document](docs/demo.md)
 
-Keep related files in tabs, compare two documents side by side, or use **Focus** to give one document the full window. Opt-in draft recovery keeps open documents and unsaved edits on your device. **View → Appearance** has light and dark themes, font choices, and adjustable title-bar opacity on supported desktops.
+Keep related files in tabs, compare two documents side by side, or use **Focus** to give one document the full window. On desktop, the last workspace reopens by default with saved files and local drafts. Manage this in **File → File settings → Restore open documents**. **View → Appearance** has light and dark themes, font choices, and adjustable title-bar opacity on supported desktops.
 
 The interface is available in English and Persian. Mixed-direction Markdown renders each block according to its text, so Persian and English can appear in the same document.
 
@@ -59,7 +63,7 @@ The interface is available in English and Persian. Mixed-direction Markdown rend
 
 ## Try without installing
 
-Download the [2.0.0 source ZIP][source], extract the whole archive, and open `index.html` in a browser. Keep the extracted folders together so the preview, syntax grammars, and diagrams work offline. Choose **Load sample document** on the empty screen to try it out.
+Download the [2.1.0 source ZIP][source], extract the whole archive, and open `index.html` in a browser. Keep the extracted folders together so the preview, syntax grammars, and diagrams work offline. Choose **Load sample document** on the empty screen to try it out.
 
 Chrome and Edge can save back to a file you’ve opened when the browser grants file access. Other browsers download the saved copy. Remote images and external links can still use the network.
 
@@ -70,11 +74,11 @@ Chrome and Edge can save back to a file you’ve opened when the browser grants 
 Run the JavaScript tests with `npm ci && npm test`. For browser and platform checks, see [validation in the native app guide](docs/native-app.md#validation-status).
 
 [release]: https://github.com/k1nosraty/readme-viewer/releases/latest
-[notes]: https://github.com/k1nosraty/readme-viewer/releases/tag/v2.0.0
-[windows]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.0.0/README.Viewer_2.0.0_x64-setup.exe
-[deb]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.0.0/README.Viewer_2.0.0_amd64.deb
-[appimage]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.0.0/README.Viewer_2.0.0_amd64.AppImage
-[arm64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.0.0/README-Viewer-2.0.0-Android-ARM64-Debug-Preview.apk
-[x86_64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.0.0/README-Viewer-2.0.0-Android-X86_64-Debug-Preview.apk
-[source]: https://github.com/k1nosraty/readme-viewer/archive/refs/tags/v2.0.0.zip
+[notes]: https://github.com/k1nosraty/readme-viewer/releases/tag/v2.1.0
+[windows]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README.Viewer_2.1.0_x64-setup.exe
+[deb]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README.Viewer_2.1.0_amd64.deb
+[appimage]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README.Viewer_2.1.0_amd64.AppImage
+[arm64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README-Viewer-2.1.0-Android-ARM64-Debug-Preview.apk
+[x86_64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README-Viewer-2.1.0-Android-X86_64-Debug-Preview.apk
+[source]: https://github.com/k1nosraty/readme-viewer/archive/refs/tags/v2.1.0.zip
 [issues]: https://github.com/k1nosraty/readme-viewer/issues

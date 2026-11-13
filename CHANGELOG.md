@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 2.1.0 — 2026-11-14
+
+- Preview SVG files as images and browse reusable symbols in a gallery, including standalone symbol fragments. Zoom individual images and symbols from 25% to 400%, with a fitted view at 100%.
+- Preview HTML offline on desktop with linked CSS, images, and fonts from the document’s folder. JavaScript is disabled. Switch between visual preview and syntax-highlighted source.
+- Reopen the last desktop workspace by default. Restore tab order and the active tab, reopen saved files from disk, and recover unsaved edits as local drafts.
+- Add SVG files to the desktop **Open with** lists while preserving the existing default applications.
+
 ## 2.0.0 — 2026-11-10
 
 - Add interactive JSON trees and grouped INI previews. Detect JSON and INI-style configuration in files with other extensions, including `.conf` and `.cfg`. Select a JSON key or array item to see its path.

@@ -1,6 +1,6 @@
 [package]
 name = "readme-viewer"
-version = "2.0.0"
+version = "2.1.0"
 description = "An offline viewer for Markdown, source code and configuration files"
 authors = ["README Viewer contributors"]
 license = "MIT"

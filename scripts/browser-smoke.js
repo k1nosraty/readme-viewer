@@ -48,10 +48,20 @@ const { chromium } = require('playwright');
     assert.ok(await svg.evaluate(image => image.src.startsWith('blob:')));
     await page.getByRole('button', { name: 'Zoom mark.svg' }).click();
     const zoom = page.getByRole('dialog', { name: 'mark.svg' });
+    const zoomed = zoom.locator('img');
+    await zoomed.evaluate(image => image.decode());
+    await page.waitForFunction(() => !!document.querySelector('.diagram-dialog img')?.style.width);
+    const fitted = await zoomed.evaluate(image => {
+      const frame = image.parentElement;
+      if (frame.scrollWidth > frame.clientWidth || frame.scrollHeight > frame.clientHeight) return 0;
+      return image.clientWidth;
+    });
+    assert.ok(fitted > 0, '100% SVG zoom fits the whole image');
     await zoom.getByRole('button', { name: 'Zoom in' }).click();
-    assert.equal(await zoom.locator('img').evaluate(image => image.style.width), '125%');
+    assert.equal(await zoom.getByRole('button', { name: '125%' }).count(), 1);
+    assert.ok(await zoomed.evaluate(image => image.clientWidth) > fitted);
     await page.keyboard.press('0');
-    assert.equal(await zoom.locator('img').evaluate(image => image.style.width), '100%');
+    assert.equal(await zoomed.evaluate(image => image.clientWidth), fitted);
     await page.keyboard.press('Escape');
     assert.equal(await zoom.count(), 0);
 

@@ -95,7 +95,13 @@
     frame.appendChild(img); var zoom = 1;
     function resize(value) {
       zoom = Math.max(.25, Math.min(4, value));
-      img.style.width = (zoom * 100) + '%'; img.style.maxWidth = 'none';
+      var ratio = img.naturalWidth / img.naturalHeight;
+      if (ratio > 0) {
+        var style = getComputedStyle(frame);
+        var baseWidth = Math.min(frame.offsetWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 18,
+          (frame.offsetHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - 18) * ratio);
+        img.style.width = Math.max(1, Math.floor(baseWidth * zoom)) + 'px';
+      }
       reset.textContent = Math.round(zoom * 100) + '%';
     }
     var reset = button('100%', function () { resize(1); }); reset.title = t('reset');
@@ -123,7 +129,13 @@
     }
     document.addEventListener('keydown', keys, true);
     dialog.addEventListener('close', function () { document.removeEventListener('keydown', keys, true); });
-    dialog.showModal(); close.focus();
+    var observer = typeof ResizeObserver === 'function' && new ResizeObserver(function () { resize(zoom); });
+    img.addEventListener('load', function () { resize(zoom); }, { once: true });
+    dialog.addEventListener('close', function () { if (observer) observer.disconnect(); });
+    dialog.showModal();
+    if (observer) observer.observe(frame);
+    resize(zoom);
+    close.focus();
     return dialog;
   }
   function show(block, svg, source) {
