@@ -1,9 +1,10 @@
-/* Local reading tools. Session content is stored only after explicit opt-in. */
+/* Local reading tools and workspace recovery. */
 (function () {
   'use strict';
   var RV = window.RV = window.RV || {};
   var app, current = '', lastTop = 0, restoring = false, sessionTimer = 0, positionTimer = 0;
   var records = read('rv.reading', {}), prefs = read('rv.reading.options', {});
+  var nativeFiles;
   var refreshing = false, documentKeys = new WeakMap(), tabKeys = Object.create(null);
   var loadingSession = false, readFailed = false, saving = null, saveAgain = false, generation = 0, lastSnapshot = null, failed = false;
   function read(key, fallback) {
@@ -124,12 +125,15 @@
     failed = true;
   }
   function snapshot() {
+    if (!restoring) lastTop = app.el.previewScroll.scrollTop;
     savePosition();
     var tabs = app.listTabs().filter(function (tab) { return tab.hasDocument; });
     return { active: tabs.findIndex(function (tab) { return tab.active; }), documents: tabs.map(function (tab) {
-      // Restored documents are detached copies; retaining a second full source is unnecessary.
-      return { source: tab.source, name: tab.name, bom: tab.bom, eol: tab.eol, encoding: tab.encoding,
-        format: tab.format, formatOverride: tab.formatOverride, draftName: tab.draftName,
+      var path = nativeFiles && !tab.dirty && tab.handle && tab.handle.path;
+      if (path && /^content:/i.test(path)) path = '';
+      return { source: path ? undefined : tab.source, path: path || undefined, name: tab.name,
+        bom: tab.bom, eol: tab.eol, encoding: tab.encoding,
+        format: tab.format, formatOverride: tab.formatOverride, draftName: tab.draftName, showSource: !!tab.showSource,
         reading: JSON.parse(JSON.stringify(records[tabKeys[tab.id]] || {})) };
     }) };
   }
@@ -137,7 +141,7 @@
     return a && b && a.active === b.active && a.documents.length === b.documents.length &&
       a.documents.every(function (doc, i) {
         var other = b.documents[i];
-        return ['source', 'name', 'bom', 'eol', 'encoding', 'format', 'formatOverride', 'draftName'].every(function (key) { return doc[key] === other[key]; }) &&
+        return ['source', 'path', 'name', 'bom', 'eol', 'encoding', 'format', 'formatOverride', 'draftName', 'showSource'].every(function (key) { return doc[key] === other[key]; }) &&
           JSON.stringify(doc.reading) === JSON.stringify(other.reading);
       });
   }
@@ -156,7 +160,7 @@
         if (sameSnapshot(value, lastSnapshot)) {
           failed = false; byId('sessionStatus').textContent = t('reading.saved'); return Promise.resolve(true);
         }
-        var size = value.documents.reduce(function (sum, doc) { return sum + doc.source.length * 2; }, 0);
+        var size = value.documents.reduce(function (sum, doc) { return sum + (doc.source || '').length * 2; }, 0);
         if (size > 32 * 1024 * 1024) throw new Error('Draft limit exceeded');
         byId('sessionStatus').textContent = t('reading.saving');
         if (durableStorage()) operation = RV.Drafts.write(value);
@@ -167,6 +171,10 @@
         }
       } catch (error) { sessionFailure(); return Promise.resolve(false); }
       return operation.then(function () {
+        if (version === generation && nativeFiles) {
+          return nativeFiles.rememberSessionFiles(value.documents.map(function (item) { return item.path; }).filter(Boolean));
+        }
+      }).then(function () {
         if (version !== generation) return false;
         lastSnapshot = value; failed = false;
         if (durableStorage()) { try { localStorage.removeItem('rv.workspace.session'); } catch (_) { void 0; } }
@@ -191,6 +199,8 @@
       operation = durableStorage() ? RV.Drafts.clear() : Promise.resolve();
     } catch (error) { operation = Promise.reject(error); }
     return operation.then(function () {
+      return nativeFiles && Promise.resolve(saving).then(function () { return nativeFiles.rememberSessionFiles([]); });
+    }).then(function () {
       if (!optionsSaved) throw new Error('Recovery preference could not be cleared');
       byId('sessionStatus').textContent = ''; failed = false; readFailed = false;
       app.toast(t('reading.sessionCleared'), 'info'); return true;
@@ -226,6 +236,8 @@
   }
   function init(api) {
     if (app) return; app = api;
+    nativeFiles = RV.Native.available() && RV.Native.canRestoreSessionFiles && RV.Native.canRestoreSessionFiles() ? RV.Native : null;
+    if (nativeFiles && prefs.session === undefined) prefs.session = true;
     ['readingWidth', 'readingSpacing', 'hideCompleted'].forEach(function (id) {
       byId(id).addEventListener('change', function () {
         prefs.width = byId('readingWidth').value; prefs.spacing = byId('readingSpacing').value;
@@ -244,6 +256,7 @@
     app.el.previewScroll.addEventListener('scroll', function () {
       if (restoring) return; lastTop = app.el.previewScroll.scrollTop;
       clearTimeout(positionTimer); positionTimer = setTimeout(savePosition, 180);
+      workspaceChanged();
     }, { passive: true });
     window.addEventListener('pagehide', function () { savePosition(); saveSession(); });
     document.addEventListener('visibilitychange', function () { if (document.hidden) saveSession(); });
@@ -258,13 +271,16 @@
         if (event.key === 'Escape' && panel.open) { event.preventDefault(); panel.open = false; panel.querySelector('summary').focus(); }
       });
     });
-    function restore(session) {
-      var restored = [];
-      if (Array.isArray(session.documents)) session.documents.forEach(function (item) {
-        if (!item || typeof item.source !== 'string' || typeof item.name !== 'string') return;
-        var id = app.restoreTab(item);
+    function restore(session, originals) {
+      var restored = [], hasCopies = false, missing = false;
+      if (Array.isArray(session.documents)) session.documents.forEach(function (item, index) {
+        if (!item || typeof item.name !== 'string') return;
+        var original = originals && originals.get(item.path);
+        if (!original && typeof item.source !== 'string') { missing = true; return; }
+        var id = app.restoreTab(item, original);
         if (id) {
-          restored.push(id);
+          restored.push({ id: id, index: index });
+          if (!original) hasCopies = true;
           if (item.reading && typeof item.reading === 'object') {
             var key = 'restored:' + id + ':' + keyForDocument();
             records[key] = {
@@ -277,31 +293,50 @@
         }
       });
       if (restored.length) {
-        app.switchTab(restored[Math.max(0, Math.min(restored.length - 1, Number(session.active) || 0))]);
-        app.toast(t('reading.sessionRestored'), 'info');
+        var active = restored.find(function (tab) { return tab.index === session.active; }) || restored[0];
+        app.switchTab(active.id);
+        if (hasCopies) app.toast(t('reading.sessionRestored'), 'info');
       }
+      if (missing) app.toast(t('reading.sessionMissing'), 'warning');
     }
     var initial = app.state.documentId, version = generation;
-    if (prefs.session && durableStorage()) {
-      loadingSession = true;
-      return RV.Drafts.read().then(function (session) {
+    function loadSession(session) {
+      var items = session.documents || [];
+      var reads = nativeFiles && Array.isArray(items) && items.some(function (item) { return item && item.path; })
+        ? nativeFiles.restoreSessionFiles().then(function (files) {
+          return Promise.all(files.map(function (entry) {
+            return entry[1] && items.some(function (item) { return item && item.path === entry[0]; }) && app.readSessionFile(entry[1]).then(function (file) {
+              return [entry[0], file];
+            }).catch(function () { return null; });
+          }));
+        }).catch(function () { return []; })
+        : Promise.resolve([]);
+      return reads.then(function (files) {
         return app.whenDocumentsReady().then(function () {
           if (!prefs.session || version !== generation) return;
-          var active = app.listTabs().filter(function (tab) { return tab.active; })[0];
+          var active = app.listTabs().find(function (tab) { return tab.active; });
           var interacted = app.state.documentId !== initial || !!app.el.editor.value;
-          restore(session || read('rv.workspace.session', {}));
+          restore(session, new Map(files.filter(Boolean)));
           if (interacted && active) app.switchTab(active.id);
         });
-      }).catch(function () {
-        if (prefs.session && version === generation) {
-          readFailed = true; sessionFailure('reading.readError'); restore(read('rv.workspace.session', {}));
-        }
-      }).then(function () {
-        loadingSession = false; refresh();
       });
     }
-    if (prefs.session) restore(read('rv.workspace.session', {}));
-    refresh(); return Promise.resolve();
+    if (!prefs.session) { refresh(); return Promise.resolve(); }
+    if (!nativeFiles && !durableStorage()) {
+      restore(read('rv.workspace.session', {}));
+      refresh(); return Promise.resolve();
+    }
+    loadingSession = true;
+    var saved = durableStorage() ? RV.Drafts.read() : Promise.resolve();
+    return saved.catch(function () {
+      if (prefs.session && version === generation) {
+        readFailed = true; sessionFailure('reading.readError');
+      }
+    }).then(function (session) {
+      return loadSession(session || read('rv.workspace.session', {}));
+    }).finally(function () {
+      loadingSession = false; refresh();
+    });
   }
   function appearance(value, persist) {
     if (value) {

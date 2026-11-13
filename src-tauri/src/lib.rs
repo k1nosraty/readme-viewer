@@ -6,6 +6,8 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
 mod atomic_file;
+#[cfg(desktop)]
+mod session_files;
 mod visual_preview;
 #[cfg(target_os = "windows")]
 mod windows_native;
@@ -398,6 +400,10 @@ pub fn run() {
             resolve_document_path,
             open_linked_document,
             preview_in_browser,
+            #[cfg(desktop)]
+            session_files::remember_session_files,
+            #[cfg(desktop)]
+            session_files::restore_session_files,
             visual_preview::mount_visual_preview,
             visual_preview::unmount_visual_preview
         ])

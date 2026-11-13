@@ -85,24 +85,24 @@
     }
     cache.set(key, svg); cacheBytes += svg.length;
   }
-  function enlarge(svg, trigger) {
+  function zoomImage(url, title, trigger, onSave) {
     var dialog = document.createElement('dialog'); dialog.className = 'diagram-dialog';
-    dialog.setAttribute('aria-label', t('title'));
+    dialog.setAttribute('aria-label', title);
     var tools = document.createElement('div'); tools.className = 'diagram-tools';
     var frame = document.createElement('div'); frame.className = 'diagram-canvas'; frame.tabIndex = 0;
     frame.setAttribute('aria-label', t('pan'));
-    var img = document.createElement('img'); img.src = imageUrl(svg); img.alt = t('title'); img.draggable = false;
+    var img = document.createElement('img'); img.src = url; img.alt = title; img.draggable = false;
     frame.appendChild(img); var zoom = 1;
     function resize(value) {
       zoom = Math.max(.25, Math.min(4, value));
       img.style.width = (zoom * 100) + '%'; img.style.maxWidth = 'none';
       reset.textContent = Math.round(zoom * 100) + '%';
     }
-    var reset = button('100%', function () { resize(1); }); reset.setAttribute('aria-label', t('reset'));
+    var reset = button('100%', function () { resize(1); }); reset.title = t('reset');
     tools.appendChild(button(t('out'), function () { resize(zoom - .25); }));
     tools.appendChild(reset);
     tools.appendChild(button(t('in'), function () { resize(zoom + .25); }));
-    tools.appendChild(button(t('save'), function (node) { save(svg, node); }));
+    if (onSave) tools.appendChild(button(t('save'), onSave));
     var close = button(t('close'), function () { dialog.close(); }); tools.appendChild(close);
     dialog.appendChild(tools); dialog.appendChild(frame); document.body.appendChild(dialog);
     dialog.addEventListener('close', function () { dialog.remove(); if (trigger.isConnected) trigger.focus(); });
@@ -110,6 +110,10 @@
     function keys(event) {
       if (!dialog.open) return;
       if (event.key === 'Escape') { event.preventDefault(); dialog.close(); }
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && ['+', '=', '-', '0'].includes(event.key)) {
+        event.preventDefault();
+        resize(event.key === '0' ? 1 : zoom + (event.key === '-' ? -.25 : .25));
+      }
       if (event.key === 'Tab') {
         var items = dialog.querySelectorAll('button, [tabindex="0"]'), first = items[0], last = items[items.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -120,6 +124,7 @@
     document.addEventListener('keydown', keys, true);
     dialog.addEventListener('close', function () { document.removeEventListener('keydown', keys, true); });
     dialog.showModal(); close.focus();
+    return dialog;
   }
   function show(block, svg, source) {
     var figure = document.createElement('figure'); figure.className = 'diagram-figure'; figure.dir = 'ltr';
@@ -132,7 +137,7 @@
       node.setAttribute('aria-expanded', String(!source.hidden));
       block.dispatchEvent(new CustomEvent('rv:diagram-layout', { bubbles: true }));
     })); tools.firstChild.setAttribute('aria-expanded', 'false');
-    tools.appendChild(iconButton('expand', 'maximize', function (node) { enlarge(svg, node); }));
+    tools.appendChild(iconButton('expand', 'maximize', function (node) { zoomImage(img.src, t('title'), node, function (owner) { save(svg, owner); }); }));
     tools.appendChild(iconButton('save', 'download', function (node) { save(svg, node); }));
     var selector = document.createElement('select'); selector.setAttribute('aria-label', t('layout'));
     [['dagre', 'Dagre'], ['elk', 'ELK']].forEach(function (item) { var option = document.createElement('option'); option.value = item[0]; option.textContent = item[1]; selector.appendChild(option); });
@@ -215,5 +220,5 @@
     container.querySelectorAll('.diagram-tools, .diagram-message').forEach(function (node) { node.remove(); });
     container.querySelectorAll('[aria-busy]').forEach(function (node) { node.removeAttribute('aria-busy'); });
   }
-  RV.Diagrams = { render: render, cleanExport: cleanExport, download: null };
+  RV.Diagrams = { render: render, cleanExport: cleanExport, zoomImage: zoomImage, download: null };
 }(typeof self !== 'undefined' ? self : this));

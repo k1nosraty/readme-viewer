@@ -155,6 +155,16 @@ const Native = {
     if (/^content:/i.test(path)) return handle(path, undefined, true, false);
     return handle(await invoke('resolve_document_path', { path }));
   },
+  canRestoreSessionFiles() {
+    return !/Android|iPhone|iPad/i.test(root.navigator.userAgent || '');
+  },
+  rememberSessionFiles(paths) {
+    return invoke('remember_session_files', { paths });
+  },
+  async restoreSessionFiles() {
+    const paths = await invoke('restore_session_files');
+    return Promise.all(paths.map(async ([key, path]) => [key, await handle(path).catch(() => null)]));
+  },
   async openRecent(path) {
     try { return await Native.openPath(path); }
     catch (error) {

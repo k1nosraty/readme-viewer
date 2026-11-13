@@ -96,7 +96,10 @@
     var hint = doc.createElement('p');
     hint.className = 'visual-file-message';
     hint.setAttribute('role', 'status');
-    var disposed = false, close = function () {};
+    var disposed = false, zoomDialog, close = function () {};
+    function openZoom(image, title, button) {
+      zoomDialog = root.RV.Diagrams.zoomImage(image.src, title, button);
+    }
     function message(key) {
       hint.textContent = t(key);
       stage.replaceChildren(hint);
@@ -125,7 +128,8 @@
             list.setAttribute('aria-label', t('visual.symbolGallery'));
             gallery.items.forEach(function (item, index) {
               var tile = doc.createElement('li');
-              var thumbnail = doc.createElement('div');
+              var thumbnail = doc.createElement('button');
+              thumbnail.type = 'button';
               thumbnail.className = 'visual-svg-thumb';
               var image = doc.createElement('img');
               image.alt = '';
@@ -135,6 +139,8 @@
               thumbnail.appendChild(image);
               var caption = doc.createElement('bdi');
               caption.textContent = item.label || t('visual.symbol', { count: index + 1 });
+              thumbnail.setAttribute('aria-label', t('visual.zoom', { name: caption.textContent }));
+              thumbnail.addEventListener('click', function () { openZoom(image, caption.textContent, thumbnail); });
               tile.append(thumbnail, caption);
               list.appendChild(tile);
             });
@@ -145,6 +151,14 @@
             image.addEventListener('error', function () { message('visual.imageError'); }, { once: true });
             image.src = url;
             stage.appendChild(image);
+            var expand = doc.createElement('button');
+            expand.type = 'button';
+            expand.className = 'btn btn-icon visual-svg-expand';
+            expand.title = t('visual.zoom', { name: name });
+            expand.setAttribute('aria-label', expand.title);
+            expand.innerHTML = root.RV.Icons.svg('maximize', 16);
+            expand.addEventListener('click', function () { openZoom(image, name, expand); });
+            stage.appendChild(expand);
           }
           return;
         }
@@ -162,7 +176,11 @@
           mountFrame('data:text/html;charset=utf-8,' + encodeURIComponent(page.replace('<head>', '<head>' + policy)));
         }
       },
-      dispose: function () { disposed = true; close(); }
+      dispose: function () {
+        disposed = true;
+        if (zoomDialog && zoomDialog.open) zoomDialog.close();
+        close();
+      }
     };
   }
 

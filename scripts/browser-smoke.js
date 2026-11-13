@@ -46,6 +46,15 @@ const { chromium } = require('playwright');
     await svg.evaluate(image => image.decode());
     assert.ok(await svg.evaluate(image => image.naturalWidth > 0));
     assert.ok(await svg.evaluate(image => image.src.startsWith('blob:')));
+    await page.getByRole('button', { name: 'Zoom mark.svg' }).click();
+    const zoom = page.getByRole('dialog', { name: 'mark.svg' });
+    await zoom.getByRole('button', { name: 'Zoom in' }).click();
+    assert.equal(await zoom.locator('img').evaluate(image => image.style.width), '125%');
+    await page.keyboard.press('0');
+    assert.equal(await zoom.locator('img').evaluate(image => image.style.width), '100%');
+    await page.keyboard.press('Escape');
+    assert.equal(await zoom.count(), 0);
+
     await page.evaluate(id => RVApp.switchTab(id), htmlTab);
     assert.equal(await page.locator('#preview [data-file-view=code]').getAttribute('aria-pressed'), 'true');
     await page.locator('#preview [data-file-view=preview]').click();
@@ -71,6 +80,11 @@ const { chromium } = require('playwright');
       })));
       assert.equal(icons[0][0], icons[1][0], 'the gallery shares one blob URL');
       assert.deepEqual(icons.map(icon => icon[1]), [[255, 0, 0, 255], [0, 0, 255, 255]]);
+      await gallery.getByRole('button', { name: 'Zoom square' }).click();
+      const symbolZoom = page.getByRole('dialog', { name: 'square' });
+      assert.match(await symbolZoom.locator('img').getAttribute('src'), /#rv-symbol-/);
+      await page.keyboard.press('Escape');
+
       await page.locator('#preview [data-file-view=code]').click();
       assert.equal(await page.locator('#editor').inputValue(), source);
       assert.equal(await gallery.count(), 0);

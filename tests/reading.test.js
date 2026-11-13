@@ -3,9 +3,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const harness = require('./helpers/dom');
 
-async function load(t, storage = new Map(), failWrites = false) {
+async function load(t, storage = new Map(), failWrites = false, native) {
   const loaded = await harness.loadApp({ beforeParse(window) {
     window.TextDecoder = TextDecoder;
+    if (native) window.RV = { Native: native };
     Object.defineProperty(window, 'localStorage', { value: {
       getItem: key => storage.get(key) || null,
       setItem: (key, value) => { if (failWrites) throw new Error('quota'); storage.set(key, value); },
@@ -87,6 +88,40 @@ test('sessions are opt-in, restore detached dirty copies, and can be cleared wit
   restored.document.getElementById('clearSession').click();
   assert.equal(storage.has('rv.workspace.session'), false);
   assert.equal(restored.api.listTabs().filter(tab => tab.hasDocument).length, 2);
+});
+
+test('desktop resumes original saved tabs and detached drafts by default', async t => {
+  const storage = new Map();
+  let granted = [], content = 'Original';
+  const path = '/docs/clean.html';
+  const handle = {
+    path, name: 'clean.html', baseUrl: '/docs/',
+    getFile: async () => ({ arrayBuffer: async () => new TextEncoder().encode(content).buffer })
+  };
+  const native = {
+    available: () => true, canRestoreSessionFiles: () => true, initialize: async () => {},
+    rememberSessionFiles: async paths => { granted = Array.from(paths); },
+    restoreSessionFiles: async () => granted.map(key => [key, handle])
+  };
+  const first = await load(t, storage, false, native);
+  assert.equal(first.document.getElementById('restoreSession').checked, true);
+  first.api.setDoc(content, handle.name, handle);
+  first.api.newTab('Last draft edit', 'draft.md');
+  assert.equal(await first.window.RV.Reading.saveSession(), true);
+  assert.deepEqual(granted, [path]);
+  content = 'New contents on disk';
+  const restored = await load(t, storage, false, native);
+  const tabs = Array.from(restored.api.listTabs());
+  assert.deepEqual(tabs.map(tab => tab.name), ['clean.html', 'draft.md']);
+  assert.equal(tabs[0].source, content);
+  assert.equal(tabs[0].handle, handle);
+  assert.equal(tabs[0].dirty, false);
+  assert.equal(tabs[1].source, 'Last draft edit');
+  assert.equal(tabs[1].handle, null);
+  assert.equal(tabs[1].active, true);
+  await restored.window.RV.Reading.clearSession();
+  assert.deepEqual(granted, []);
+  assert.equal((await load(t, storage, false, native)).document.getElementById('restoreSession').checked, false);
 });
 
 test('unavailable draft storage reports the failure and preserves open edits', async t => {

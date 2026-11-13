@@ -433,22 +433,36 @@
     return tabs.map(function (tab) { return { id: tab.id, name: tab.name, source: tab.source,
       dirty: tab.dirty, hasDocument: tab.hasDocument, needsSave: tab.needsSave, active: tab === activeTab, handle: tab.handle, saved: tab.saved,
       bom: tab.bom, eol: tab.eol, encoding: tab.encoding, baseUrl: tab.baseUrl, autoBase: tab.autoBase,
-      format: tab.format, formatOverride: tab.formatOverride, draftName: tab.draftName }; });
+      format: tab.format, formatOverride: tab.formatOverride, draftName: tab.draftName, showSource: tab.showSource }; });
   }
-  function restoreTab(snapshot) {
-    if (!snapshot || typeof snapshot.source !== 'string') return false;
+  function restoreTab(snapshot, original) {
+    if (!snapshot || (!original && typeof snapshot.source !== 'string')) return false;
     var metadata = { bom: !!snapshot.bom, eol: snapshot.eol === '\r\n' ? '\r\n' : '\n', encoding: 'utf-8',
       format: snapshot.format, formatOverride: snapshot.formatOverride, draftName: snapshot.draftName };
     var name = typeof snapshot.name === 'string' ? snapshot.name : 'README.md';
     var id;
+    var handle = original ? original.handle : null;
+    var source = original ? original.decoded.text : snapshot.source;
+    if (original) Object.assign(metadata, original.decoded);
     if (tabs.length === 1 && !state.hasDocument && !el.editor.value && !pendingSave && !pendingDiscard) {
-      setDoc(snapshot.source, name, null, metadata); id = activeTab.id;
-    } else id = newTab(snapshot.source, name, null, metadata);
+      setDoc(source, name, handle, metadata); id = activeTab.id;
+    } else id = newTab(source, name, handle, metadata);
     if (!id) return false;
-    state.saved = typeof snapshot.saved === 'string' ? snapshot.saved : snapshot.source;
-    state.baseUrl = typeof snapshot.baseUrl === 'string' ? snapshot.baseUrl : '';
-    state.autoBase = false; state.needsSave = true; el.baseUrl.value = state.baseUrl;
-    setDirty(true); render({ immediate: true }); return id;
+    activeTab.showSource = !!snapshot.showSource;
+    if (!original) {
+      state.needsSave = true;
+      setDirty(true);
+    } else trackModified();
+    if (activeTab.showSource) render({ immediate: true });
+    return id;
+  }
+  function readSessionFile(handle) {
+    return handle.getFile().then(function (file) { return file.arrayBuffer(); }).then(function (buffer) {
+      var bytes = new Uint8Array(buffer);
+      var decoded = Encoding.decode(bytes);
+      decoded.bytes = bytes;
+      return decoded.binary ? null : { handle: handle, decoded: decoded };
+    });
   }
   function closeTab(id) {
     if (pendingSave || pendingDiscard) return Promise.resolve(false);
@@ -4128,8 +4142,10 @@
         },
         confirmClose: function () {
           if ($('previewEditDialog').open) return false;
-          return workspaceReady.then(confirmAllDirty).then(function (ok) {
-            return ok && RV.Reading ? RV.Reading.saveSession().then(function () { return true; }) : ok;
+          return workspaceReady.then(function () {
+            return RV.Reading && RV.Reading.saveSession();
+          }).then(function (saved) {
+            return saved || confirmAllDirty();
           });
         }, onError: reportOpen,
         onDrag: function (active) { document.body.classList.toggle('dragover', !!active); }
@@ -4149,7 +4165,7 @@
     toggleTaskFromPreview: toggleTaskFromPreview,
     loadSample: loadSample,
     setDoc: setDoc,
-    restoreTab: restoreTab, newTab: newTab, switchTab: switchTab, closeTab: closeTab, listTabs: listTabs,
+    restoreTab: restoreTab, readSessionFile: readSessionFile, newTab: newTab, switchTab: switchTab, closeTab: closeTab, listTabs: listTabs,
     confirmAllDirty: confirmAllDirty, openFileTab: openFileTab, openHandleTab: openHandleTab,
     whenDocumentsReady: function () { return Promise.all([pendingSave, pendingDiscard]); },
     showComparison: showComparison, hideComparison: hideComparison,
