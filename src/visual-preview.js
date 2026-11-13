@@ -2,10 +2,70 @@
 (function (root) {
   'use strict';
 
-  function kind(doc) {
-    if (doc.format === 'code:xml' && /\.svg$/i.test(doc.name)) return 'svg';
-    if (doc.format === 'code:html' || doc.format === 'code:xml' && /\.(?:html?|xhtml)$/i.test(doc.name)) return 'html';
-    return '';
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var XLINK_NS = 'http://www.w3.org/1999/xlink';
+  var SVG_START = /^\s*(?:<\?xml\s[^?]*\?>\s*)?(?:<!--[\s\S]*?-->\s*)*<(svg|symbol|defs)(?=[\s/>])/;
+
+  function svgRoot(source) {
+    var match = SVG_START.exec(source.slice(0, 8192));
+    return match && match[1];
+  }
+
+  function kind(doc, source) {
+    if (doc.format === 'code:html') return 'html';
+    if (doc.format !== 'code:xml') return '';
+    if (/\.(?:html?|xhtml)$/i.test(doc.name)) return 'html';
+    return /\.svg$/i.test(doc.name) || svgRoot(source) ? 'svg' : '';
+  }
+
+  function svgGallery(source) {
+    if (!/<symbol(?=[\s/>])/.test(source)) return null;
+    var first = svgRoot(source);
+    var fragment = first && first !== 'svg';
+    var markup = fragment ? '<svg xmlns="' + SVG_NS + '" xmlns:xlink="' + XLINK_NS + '">' + source + '</svg>' : source;
+    var parsed = new root.DOMParser().parseFromString(markup, 'image/svg+xml');
+    var svg = parsed.documentElement;
+    if (svg.localName !== 'svg' || svg.namespaceURI !== SVG_NS) return null;
+    // Preserve the normal image when the file draws its own composition.
+    if (Array.from(svg.children).some(function (child) {
+      return /^(a|circle|ellipse|foreignObject|g|image|line|path|polygon|polyline|rect|svg|switch|text|use)$/.test(child.localName);
+    })) return null;
+    var symbols = Array.from(svg.getElementsByTagNameNS(SVG_NS, 'symbol'));
+    if (!symbols.length) return null;
+
+    var ids = new Set(Array.from(svg.querySelectorAll('[id]'), function (node) { return node.id; }));
+    var nextId = 0;
+    function uniqueId() {
+      var id;
+      do { id = 'rv-symbol-' + ++nextId; } while (ids.has(id));
+      ids.add(id);
+      return id;
+    }
+    var seen = new Set();
+    var cell = 96, columns = Math.min(symbols.length, 16);
+    svg.setAttribute('viewBox', '0 0 ' + columns * cell + ' ' + Math.ceil(symbols.length / columns) * cell);
+    ['width', 'height', 'display', 'visibility', 'hidden'].forEach(function (attr) { svg.removeAttribute(attr); });
+    svg.style.removeProperty('display');
+    svg.style.removeProperty('visibility');
+    var items = symbols.map(function (symbol, index) {
+      var label = symbol.id;
+      if (!label || seen.has(label)) symbol.id = uniqueId();
+      seen.add(symbol.id);
+      var x = String(index % columns * cell), y = String(Math.floor(index / columns) * cell);
+      var view = parsed.createElementNS(SVG_NS, 'view');
+      view.id = uniqueId();
+      view.setAttribute('viewBox', [x, y, cell, cell].join(' '));
+      svg.appendChild(view);
+      var use = parsed.createElementNS(SVG_NS, 'use');
+      use.setAttributeNS(XLINK_NS, 'xlink:href', '#' + encodeURIComponent(symbol.id));
+      use.setAttribute('x', x);
+      use.setAttribute('y', y);
+      use.setAttribute('width', String(cell));
+      use.setAttribute('height', String(cell));
+      svg.appendChild(use);
+      return { label: label, view: view.id };
+    });
+    return { markup: new root.XMLSerializer().serializeToString(svg), items: items };
   }
 
   function htmlDocument(source) {
@@ -54,15 +114,38 @@
       entries: [],
       mount: function () {
         if (type === 'svg') {
-          var image = doc.createElement('img');
-          image.alt = name;
-          image.addEventListener('error', function () { message('visual.imageError'); }, { once: true });
-          // Image context disables SVG scripting and keeps its vector coordinates intact.
           var utf8 = source.replace(/^<\?xml\s[^?]*\?>/i, '');
-          var url = root.URL.createObjectURL(new Blob([utf8], { type: 'image/svg+xml;charset=utf-8' }));
+          var gallery = svgGallery(utf8);
+          // One shared SVG with a view per icon keeps definitions out of the workspace DOM.
+          var url = root.URL.createObjectURL(new Blob([gallery ? gallery.markup : utf8], { type: 'image/svg+xml;charset=utf-8' }));
           close = function () { root.URL.revokeObjectURL(url); };
-          image.src = url;
-          stage.appendChild(image);
+          if (gallery) {
+            stage.classList.add('visual-svg-gallery');
+            var list = doc.createElement('ul');
+            list.setAttribute('aria-label', t('visual.symbolGallery'));
+            gallery.items.forEach(function (item, index) {
+              var tile = doc.createElement('li');
+              var thumbnail = doc.createElement('div');
+              thumbnail.className = 'visual-svg-thumb';
+              var image = doc.createElement('img');
+              image.alt = '';
+              image.loading = 'lazy';
+              image.decoding = 'async';
+              image.src = url + '#' + item.view;
+              thumbnail.appendChild(image);
+              var caption = doc.createElement('bdi');
+              caption.textContent = item.label || t('visual.symbol', { count: index + 1 });
+              tile.append(thumbnail, caption);
+              list.appendChild(tile);
+            });
+            stage.appendChild(list);
+          } else {
+            var image = doc.createElement('img');
+            image.alt = name;
+            image.addEventListener('error', function () { message('visual.imageError'); }, { once: true });
+            image.src = url;
+            stage.appendChild(image);
+          }
           return;
         }
         if (source.length > 4 * 1024 * 1024) { message('visual.large'); return; }
@@ -83,5 +166,5 @@
     };
   }
 
-  root.RV.VisualPreview = { kind: kind, create: create };
+  root.RV.VisualPreview = { isSvg: svgRoot, kind: kind, create: create };
 }(window));

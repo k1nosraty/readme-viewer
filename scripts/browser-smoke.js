@@ -52,6 +52,33 @@ const { chromium } = require('playwright');
     assert.equal(await visualFrame.locator('h1').textContent(), 'Offline page');
     await page.locator('#preview [data-file-view=code]').click();
     await page.evaluate(() => RVApp.closeTab(RVApp.listTabs().find(tab => !tab.active).id));
+    const sprite = '<symbol id="round" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="red"/></symbol>' +
+      '<symbol id="square" viewBox="0 0 24 24"><path fill="blue" d="M0 0h24v24H0z"/></symbol>';
+    for (const [name, source] of [['icons.txt', sprite], ['icons.svg',
+      '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="display:none"><defs>' + sprite + '</defs></svg>']]) {
+      await page.evaluate(([source, name]) => RVApp.setDoc(source, name), [source, name]);
+      const gallery = page.getByRole('list', { name: 'SVG symbols' });
+      assert.deepEqual(await gallery.locator('bdi').allTextContents(), ['round', 'square']);
+      const tileTops = await gallery.locator('li').evaluateAll(tiles => tiles.map(tile => tile.getBoundingClientRect().top));
+      assert.equal(tileTops[0], tileTops[1], 'the desktop preview lays icons out in columns');
+      const icons = await gallery.locator('img').evaluateAll(images => Promise.all(images.map(async image => {
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 32;
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0, 32, 32);
+        return [image.src.split('#')[0], [...context.getImageData(16, 16, 1, 1).data]];
+      })));
+      assert.equal(icons[0][0], icons[1][0], 'the gallery shares one blob URL');
+      assert.deepEqual(icons.map(icon => icon[1]), [[255, 0, 0, 255], [0, 0, 255, 255]]);
+      await page.locator('#preview [data-file-view=code]').click();
+      assert.equal(await page.locator('#editor').inputValue(), source);
+      assert.equal(await gallery.count(), 0);
+    }
+    await page.evaluate(sprite => RVApp.setDoc('<svg xmlns="http://www.w3.org/2000/svg"><defs>' + sprite +
+      '</defs><use href="#round"/></svg>', 'composition.svg'), sprite);
+    assert.equal(await page.locator('#preview .visual-file-svg > img').count(), 1);
+
     await page.evaluate(() => RVApp.setDoc('# A\n\n# A\n\n# A-1', 'anchors.md'));
     assert.deepEqual(await page.locator('#preview h1').evaluateAll(nodes => nodes.map(node => node.id)),
       ['user-content-a', 'user-content-a-1', 'user-content-a-1-1']);

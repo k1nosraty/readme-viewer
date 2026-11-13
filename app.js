@@ -593,7 +593,7 @@
     if (tab.format !== 'markdown') {
       preview.textContent = '';
       preview.setAttribute('dir', 'ltr');
-      var type = VisualPreview.kind(tab);
+      var type = VisualPreview.kind(tab, tab.source);
       var visual = type && !tab.showSource;
       var view = visual ? createVisualView(type, tab, tab.source) : createFileView(tab, tab.source);
       if (type) addFileViewSwitch(view, visual, function (mode) {
@@ -1140,6 +1140,8 @@
   }
   function documentFormat(name, source) {
     var language = Code.language(name, source);
+    if (!language && !/\.(?:md|markdown|mdown|mdwn|mkd)$/i.test(name) && !/^readme(?:\.txt)?$/i.test(name) &&
+        VisualPreview.isSvg(source)) return 'code:xml';
     if (language && !/\.(?:conf|cfg|cnf|properties)$/i.test(name)) return 'code:' + language;
     var detected = Structured.detect(name, source);
     return language && detected === 'text' ? 'code:' + language : detected;
@@ -1951,7 +1953,7 @@
     var start = now();
     var folds = activeTab.structuredFolds || (activeTab.structuredFolds = new Map());
     var documentId = state.documentId;
-    var type = VisualPreview.kind(state);
+    var type = VisualPreview.kind(state, src);
     var visual = type && !activeTab.showSource && state.mode !== 'write';
     var inlineEdit = !visual && state.editPreview && (state.format === 'text' || state.format.startsWith('code:'));
     var key = inlineEdit && JSON.stringify([documentId, state.name, state.format, I18n.getLocale()]);
@@ -2690,7 +2692,7 @@
   function setEditPreview(on) {
     var wasInline = structuredPreview && structuredPreview.input === document.activeElement;
     state.editPreview = !!on;
-    if (on && VisualPreview.kind(state)) activeTab.showSource = true;
+    if (on && VisualPreview.kind(state, el.editor.value)) activeTab.showSource = true;
     if (!state.tasksOk) applyTaskMode();
     else render({ immediate: true });
     if (on && state.mode !== 'write' && structuredPreview && structuredPreview.input) structuredPreview.input.focus({ preventScroll: true });
@@ -3576,7 +3578,7 @@
   function openFind() {
     if (state.readingFocus) setReadingFocus(false);
     if (state.mode === 'write') setMode('split');
-    if (VisualPreview.kind(state) && !activeTab.showSource) showFileSource('code');
+    if (VisualPreview.kind(state, el.editor.value) && !activeTab.showSource) showFileSource('code');
     el.findBar.hidden = false;
     var input = structuredPreview && structuredPreview.input;
     var sel = input && document.activeElement === input ? input.value.slice(input.selectionStart, input.selectionEnd)

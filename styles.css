@@ -2019,3 +2019,27 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 .visual-file-svg img { display: block; max-width: 100%; max-height: 75vh; object-fit: contain; background: transparent; }
 .visual-file-stage .visual-file-message { padding: 16px; margin: 0; color: var(--fg-muted); }
 .preview:has(.visual-file) { padding-block-end: var(--s6); }
+
+.visual-svg-gallery {
+  display: block; place-items: normal; min-height: 0; padding: 0; border: 0; background: none;
+}
+.markdown-body .visual-svg-gallery ul {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 112px), 1fr));
+  inline-size: 100%; gap: 12px; list-style: none; padding: 0; margin: 0;
+}
+.markdown-body .visual-svg-gallery li { min-width: 0; margin: 0; text-align: center; }
+.visual-svg-thumb {
+  display: grid; place-items: center; height: 90px; border-radius: var(--r-sm);
+  --checker-dark: var(--bg-subtle);
+  --checker-light: var(--bg);
+  background: repeating-conic-gradient(var(--checker-dark) 0% 25%, var(--checker-light) 0% 50%) 0 / 16px 16px;
+}
+html[data-theme="dark"] .visual-svg-thumb {
+  --checker-dark: #737d89;
+  --checker-light: #858f9b;
+}
+.visual-svg-thumb img { width: 68px; height: 68px; }
+.visual-svg-gallery bdi {
+  display: block; margin-block-start: 5px; color: var(--fg-muted);
+  font: 11px/1.35 var(--mono); overflow-wrap: anywhere;
+}
