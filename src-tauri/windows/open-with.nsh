@@ -25,6 +25,7 @@
   !insertmacro ${operation} ".html"
   !insertmacro ${operation} ".htm"
   !insertmacro ${operation} ".xhtml"
+  !insertmacro ${operation} ".svg"
   !insertmacro ${operation} ".css"
   !insertmacro ${operation} ".scss"
   !insertmacro ${operation} ".less"

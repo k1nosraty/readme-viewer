@@ -2834,6 +2834,7 @@ name = "readme-viewer"
 version = "2.0.0"
 dependencies = [
  "gtk",
+ "percent-encoding",
  "serde_json",
  "sha2",
  "tauri",
@@ -2844,6 +2845,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "tempfile",
+ "uuid",
  "window-vibrancy",
  "windows",
 ]

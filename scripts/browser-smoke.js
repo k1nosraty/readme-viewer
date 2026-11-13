@@ -24,6 +24,34 @@ const { chromium } = require('playwright');
       const box = button.getBoundingClientRect();
       return button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
     }), true, 'document classes cannot cover the application toolbar');
+    const htmlSource = '<style>h1 { color: rgb(12, 67, 83); }</style><h1>Offline page</h1>' +
+      '<script>document.body.textContent = "Script ran"</script><img src="https://preview.invalid/image.png">' +
+      '<meta http-equiv="refresh" content="0;url=https://preview.invalid/redirect">';
+    const outside = [];
+    page.on('request', request => { if (request.url().includes('preview.invalid')) outside.push(request); });
+    await page.evaluate(source => RVApp.setDoc(source, 'index.html'), htmlSource);
+    const visualFrame = page.frameLocator('#preview iframe');
+    assert.equal(await visualFrame.locator('h1').textContent(), 'Offline page');
+    assert.equal(await visualFrame.locator('h1').evaluate(node => getComputedStyle(node).color), 'rgb(12, 67, 83)');
+    assert.equal(await visualFrame.locator('script, meta[http-equiv=refresh]').count(), 0);
+    assert.equal(await page.locator('#preview iframe').getAttribute('sandbox'), '');
+    assert.equal(await page.locator('#preview iframe').evaluate(frame => frame.contentDocument), null);
+    assert.ok(outside.every(request => request.failure()?.errorText === 'csp'), 'visual HTML never loads remote resources');
+    await page.locator('#preview [data-file-view=code]').click();
+    assert.match(await page.locator('#preview .code-surface').textContent(), /Script ran/);
+    assert.equal(await page.locator('#editor').inputValue(), htmlSource);
+    const htmlTab = await page.evaluate(() => RVApp.listTabs().find(tab => tab.active).id);
+    await page.evaluate(() => RVApp.newTab('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><circle cx="40" cy="20" r="18"/></svg>', 'mark.svg'));
+    const svg = page.locator('#preview .visual-file-svg img');
+    await svg.evaluate(image => image.decode());
+    assert.ok(await svg.evaluate(image => image.naturalWidth > 0));
+    assert.ok(await svg.evaluate(image => image.src.startsWith('blob:')));
+    await page.evaluate(id => RVApp.switchTab(id), htmlTab);
+    assert.equal(await page.locator('#preview [data-file-view=code]').getAttribute('aria-pressed'), 'true');
+    await page.locator('#preview [data-file-view=preview]').click();
+    assert.equal(await visualFrame.locator('h1').textContent(), 'Offline page');
+    await page.locator('#preview [data-file-view=code]').click();
+    await page.evaluate(() => RVApp.closeTab(RVApp.listTabs().find(tab => !tab.active).id));
     await page.evaluate(() => RVApp.setDoc('# A\n\n# A\n\n# A-1', 'anchors.md'));
     assert.deepEqual(await page.locator('#preview h1').evaluateAll(nodes => nodes.map(node => node.id)),
       ['user-content-a', 'user-content-a-1', 'user-content-a-1-1']);

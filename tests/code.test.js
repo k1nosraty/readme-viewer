@@ -62,6 +62,10 @@ test('source files use syntax highlighting, balanced blocks and safe inert HTML'
   ];
   for (const [name, source, folds] of examples) {
     viewer.setDoc(source, name);
+    if (name === 'index.html') {
+      assert.equal(preview.querySelector('iframe').getAttribute('sandbox'), '');
+      preview.querySelector('[data-file-view="code"]').click();
+    }
     assert.equal(preview.querySelectorAll('.code-fold').length, folds, name);
     assert.equal(preview.querySelectorAll('script, img').length, 0, name);
     assert.equal(Array.from(preview.querySelectorAll('.code-line-text'), node => node.textContent).join('\n'), source, name);

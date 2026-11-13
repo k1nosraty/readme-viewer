@@ -6,6 +6,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
 mod atomic_file;
+mod visual_preview;
 #[cfg(target_os = "windows")]
 mod windows_native;
 
@@ -379,6 +380,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(DroppedDirectories::default())
+        .manage(visual_preview::Previews::default())
+        .register_asynchronous_uri_scheme_protocol("rvpreview", |context, request, responder| {
+            let app = context.app_handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                responder.respond(visual_preview::respond(&app.state::<visual_preview::Previews>(), request));
+            });
+        })
         .invoke_handler(tauri::generate_handler![
             update_platform,
             restart_app,
@@ -389,7 +397,9 @@ pub fn run() {
             authorize_document_directory,
             resolve_document_path,
             open_linked_document,
-            preview_in_browser
+            preview_in_browser,
+            visual_preview::mount_visual_preview,
+            visual_preview::unmount_visual_preview
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {

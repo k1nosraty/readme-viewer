@@ -199,6 +199,14 @@ const Native = {
     await invoke('preview_in_browser', { html });
     return true;
   },
+  async mountVisualPreview(html, file) {
+    const path = file && /\.(?:html?|xhtml)$/i.test(file.name) && !/^content:/i.test(file.path) ? file.path : null;
+    const token = await invoke('mount_visual_preview', { html, path });
+    return {
+      url: convertFileSrc(token, 'rvpreview') + '/_readme_viewer_preview_.html',
+      close: () => invoke('unmount_visual_preview', { token }).catch(() => {})
+    };
+  },
   assetUrl(href, file) {
     const path = Native.resolveLocalUrl(href, file);
     if (!path) return null;

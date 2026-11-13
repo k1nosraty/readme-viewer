@@ -5,7 +5,7 @@ $installer = (Get-ChildItem src-tauri/target/release/bundle/nsis/*setup.exe | Se
 if (!$installer) { throw 'Native NSIS installer missing' }
 $installDir = Join-Path $env:RUNNER_TEMP 'README-Viewer-Native-Smoke'
 $progId = 'io.github.readmeviewer.viewer.Document'
-$extensions = @('.md', '.json', '.ini', '.conf', '.py', '.dart', '.ts', '.go', '.rs')
+$extensions = @('.md', '.json', '.ini', '.conf', '.py', '.dart', '.ts', '.go', '.rs', '.html', '.svg')
 $originalDefaults = @{}
 foreach ($extension in $extensions) {
     $originalDefaults[$extension] = [Microsoft.Win32.Registry]::GetValue("HKEY_CURRENT_USER\Software\Classes\$extension", '', $null)

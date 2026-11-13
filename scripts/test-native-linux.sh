@@ -68,17 +68,39 @@ try:
     config=configparser.ConfigParser(interpolation=None)
     config.read(desktop)
     mime_types=config['Desktop Entry']['MimeType'].split(';')
-    assert {'text/markdown','application/json','text/plain','text/x-python','application/vnd.dart','text/x-go','text/rust'}.issubset(mime_types)
+    assert {'text/markdown','application/json','text/plain','text/x-python','application/vnd.dart','text/x-go','text/rust','text/html','image/svg+xml'}.issubset(mime_types)
     with tempfile.TemporaryDirectory() as directory:
         document=Path(directory)/'Open with settings.conf'
         document.write_text('[Appearance]\nmode=dark\n', encoding='utf-8')
         subprocess.run(['gio','launch',desktop,str(document)], check=True, timeout=15)
         wait("return RVApp.state.name === 'Open with settings.conf' && RVApp.state.format === 'ini'")
-    Path('native-test-results/linux-native.json').write_text(json.dumps({'native':True,'commandLineOpen':True,'openWith':True,'persianCheckbox':True,'savedToDisk':True,'crlf':True,'diagramChecks':result['result']}))
+    with tempfile.TemporaryDirectory() as directory:
+        project=Path(directory)
+        (project/'css').mkdir()
+        (project/'assets').mkdir()
+        (project/'assets'/'sample.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg" width="60" height="24"><rect width="60" height="24" fill="#1b9d75"/></svg>')
+        font=Path('vendor/fonts/vazirmatn.js').read_text().split('base64,', 1)[1].split("'", 1)[0]
+        (project/'assets'/'sample.woff2').write_bytes(base64.b64decode(font))
+        (project/'css'/'site style.css').write_text('@import "theme.css"; @font-face {font-family: sample; src: url("../assets/sample.woff2")} h1 {font-family: sample, serif}')
+        (project/'css'/'theme.css').write_text('body {background: #273451; color: #fff; font-size: 22px}')
+        page=project/'page.html'
+        page.write_text('<!doctype html><link rel="stylesheet" href="css/site%20style.css"><h1>Offline preview</h1><img src="assets/sample.svg"><script>document.body.textContent="unexpected"</script>')
+        subprocess.run(['gio','launch',desktop,str(page)], check=True, timeout=15)
+        wait("return !!document.querySelector('#preview iframe[src*=rvpreview]')")
+        frame=request('POST',prefix+'/element',{'using':'css selector','value':'#preview iframe'})
+        request('POST',prefix+'/frame',{'id':frame})
+        wait("return document.querySelector('h1')?.textContent === 'Offline preview' && getComputedStyle(document.body).backgroundColor === 'rgb(39, 52, 81)' && document.images[0]?.naturalWidth === 60 && [...document.fonts].some(face => face.status === 'loaded')")
+        assert js("return !document.querySelector('script')"), 'HTML script unexpectedly survived sanitization'
+        request('POST',prefix+'/frame',{'id':None})
+        js("document.querySelector('#preview [data-file-view=code]').click(); return true")
+        wait("return !!document.querySelector('#preview .code-surface') && !document.querySelector('#preview iframe')")
+        subprocess.run(['gio','launch',desktop,str(project/'assets'/'sample.svg')], check=True, timeout=15)
+        wait("return document.querySelector('#preview .visual-file-svg img')?.naturalWidth === 60")
+    Path('native-test-results/linux-native.json').write_text(json.dumps({'native':True,'commandLineOpen':True,'openWith':True,'persianCheckbox':True,'savedToDisk':True,'crlf':True,'diagramChecks':result['result'],'offlineVisualPreviews':True}))
 finally: request('DELETE',prefix)
 PY
 # Cleanup verifies the actual installed native package can be removed.
 cleanup
 trap - EXIT
 test ! -e "$app"
-echo 'Linux native install, command-line open, task edit, save, offline diagrams/math/fonts, screenshot and uninstall passed.'
+echo 'Linux native install, command-line open, task edit, save, offline visual previews and diagrams, screenshot and uninstall passed.'

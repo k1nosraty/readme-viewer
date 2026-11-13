@@ -25,6 +25,7 @@
   var Markdown = RV.Markdown;
   var Structured = RV.Structured;
   var Code = RV.Code;
+  var VisualPreview = RV.VisualPreview;
   var Highlight = RV.Highlight;
   var Exporter = RV.Export;
   function nativeAvailable() { return !!(RV.Native && RV.Native.available()); }
@@ -508,7 +509,7 @@
     return handle.getFile().then(function (file) { return openFileTab(file, handle); });
   }
 
-  var comparison = { visible: false, id: null, md: null, signature: null, version: 0, urls: [], split: 50 };
+  var comparison = { visible: false, id: null, md: null, signature: null, version: 0, urls: [], split: 50, visual: null };
   function comparisonTab() {
     return tabs.find(function (tab) { return tab.id === comparison.id && tab !== activeTab; });
   }
@@ -571,7 +572,8 @@
     }
     var preview = $('comparisonPreview');
     if (!comparison.visible || !preview) {
-      if (!comparison.visible && comparison.signature) {
+      if (!comparison.visible) {
+        if (comparison.visual) { comparison.visual.dispose(); comparison.visual = null; }
         comparison.version++; comparison.signature = null;
         comparison.urls.forEach(function (url) { URL.revokeObjectURL(url); }); comparison.urls = [];
         if (preview) preview.textContent = '';
@@ -579,18 +581,28 @@
       return;
     }
     var tab = comparisonTab();
-    var signature = [tab.id, tab.source, tab.name, tab.format, tab.formatOverride, tab.baseUrl, state.dirMode, I18n.getLocale()];
+    var signature = [tab.id, tab.source, tab.name, tab.format, tab.formatOverride, tab.baseUrl, tab.handle, tab.showSource, state.dirMode, I18n.getLocale()];
     if (comparison.signature && signature.every(function (value, index) {
       return value === comparison.signature[index];
     })) return;
     comparison.signature = signature;
+    if (comparison.visual) { comparison.visual.dispose(); comparison.visual = null; }
     var version = ++comparison.version;
     comparison.urls.forEach(function (url) { URL.revokeObjectURL(url); }); comparison.urls = [];
     preview.classList.toggle('structured-preview', tab.format !== 'markdown');
     if (tab.format !== 'markdown') {
       preview.textContent = '';
       preview.setAttribute('dir', 'ltr');
-      preview.appendChild(createFileView(tab, tab.source).element);
+      var type = VisualPreview.kind(tab);
+      var visual = type && !tab.showSource;
+      var view = visual ? createVisualView(type, tab, tab.source) : createFileView(tab, tab.source);
+      if (type) addFileViewSwitch(view, visual, function (mode) {
+        tab.showSource = mode === 'code';
+        refreshComparison();
+        preview.querySelector('[data-file-view="' + mode + '"]').focus({ preventScroll: true });
+      });
+      preview.appendChild(view.element);
+      if (visual) { comparison.visual = view; view.mount(); }
       return;
     }
     if (!comparison.md) comparison.md = Markdown.create({ marked: window.marked, purify: window.DOMPurify,
@@ -1145,10 +1157,46 @@
     return Code.create(document, doc.format, source, doc.name, t, hl, options);
   }
 
+  function addFileViewSwitch(view, visual, onChange) {
+    var heading = view.element.querySelector('.structured-heading');
+    var group = document.createElement('div');
+    group.className = 'file-view-switch';
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', t('visual.mode'));
+    ['preview', 'code'].forEach(function (mode) {
+      var button = document.createElement('button');
+      var pressed = (mode === 'preview') === visual;
+      button.type = 'button';
+      button.className = 'btn';
+      button.dataset.fileView = mode;
+      button.textContent = t('visual.' + mode);
+      button.setAttribute('aria-pressed', String(pressed));
+      if (!pressed) button.addEventListener('click', function () { onChange(mode); });
+      group.appendChild(button);
+    });
+    heading.appendChild(group);
+  }
+
+  function createVisualView(type, doc, src) {
+    var view = VisualPreview.create(document, type, src, doc.name, t, nativeAvailable() ? RV.Native : null, doc.handle);
+    var heading = document.createElement('div');
+    heading.className = 'structured-heading';
+    var name = document.createElement('bdi');
+    name.className = 'structured-name';
+    name.textContent = doc.name;
+    heading.appendChild(name);
+    var badge = document.createElement('span');
+    badge.className = 'structured-format';
+    badge.textContent = type.toUpperCase();
+    heading.appendChild(badge);
+    view.element.prepend(heading);
+    return view;
+  }
+
   function setDoc(text, name, handle, meta) {
     closePreviewFormat();
     state.documentId++;
-    if (activeTab) { activeTab.tocCollapsed = []; activeTab.structuredFolds = null; }
+    if (activeTab) { activeTab.tocCollapsed = []; activeTab.structuredFolds = null; activeTab.showSource = false; }
     var oldEditor = el.editor;
     mountEditor(null, text);
     resetUndo();
@@ -1182,7 +1230,7 @@
   function setEmpty() {
     closePreviewFormat();
     state.documentId++;
-    if (activeTab) activeTab.tocCollapsed = [];
+    if (activeTab) { activeTab.tocCollapsed = []; activeTab.showSource = false; }
     var oldEditor = el.editor;
     mountEditor(null, '');
     resetUndo();
@@ -1519,14 +1567,16 @@
     if (structuredPreview && structuredPreview.complete) structuredPreview.complete();
     var src = el.editor.value;
     var snapshot = el.preview.cloneNode(true);
-    if (structuredPreview && structuredPreview.input) snapshot.replaceChildren(createFileView(state, src).element);
+    if (structuredPreview && (structuredPreview.input || structuredPreview.dispose)) {
+      snapshot.replaceChildren(createFileView(state, src).element);
+    }
     var exportName = state.name, exportTheme = isDark() ? 'dark' : 'light';
     var exportDir = state.dirMode === 'auto' ? Direction.dominantDir(src) : state.dirMode;
     var fontSnapshot = RV.Fonts ? RV.Fonts.snapshot() : {};
     if (RV.Fonts && (fontSnapshot.latin || fontSnapshot.persian)) await RV.Fonts.ready();
     var exportFonts = RV.Fonts ? RV.Fonts.exportCss(fontSnapshot) : '';
     if (RV.Diagrams && snapshot.querySelector('.code-block[data-lang="mermaid"]')) { await RV.Diagrams.render(snapshot); RV.Diagrams.cleanExport(snapshot); }
-    eachNode('.section-tools, .preview-edit-tools, .preview-edit-control', function (node) { node.remove(); }, snapshot);
+    eachNode('.section-tools, .preview-edit-tools, .preview-edit-control, .file-view-switch', function (node) { node.remove(); }, snapshot);
     eachNode('mark.rv-find', function (node) { node.replaceWith(document.createTextNode(node.textContent)); }, snapshot);
     eachNode('[data-preview-fold]', function (node) { node.removeAttribute('data-preview-fold'); }, snapshot);
     eachNode('.section-folded', function (node) { node.classList.remove('section-folded'); }, snapshot);
@@ -1782,6 +1832,7 @@
 
   var structuredPreview = null;
   var inlineCodeView = null;
+  var mountedVisual = null;
   var structuredMeasureFrame = 0;
   var previewEditTargets = new WeakMap();
   var previewEdit = null;
@@ -1885,29 +1936,65 @@
     });
   }
 
+  function clearVisual() {
+    if (mountedVisual) { mountedVisual.view.dispose(); mountedVisual = null; }
+  }
+
+  function showFileSource(mode) {
+    activeTab.showSource = mode === 'code';
+    render({ immediate: true });
+    var button = el.preview.querySelector('[data-file-view="' + mode + '"]');
+    if (button) button.focus({ preventScroll: true });
+  }
+
   function renderStructured(src) {
     var start = now();
     var folds = activeTab.structuredFolds || (activeTab.structuredFolds = new Map());
     var documentId = state.documentId;
-    var inlineEdit = state.editPreview && (state.format === 'text' || state.format.startsWith('code:'));
+    var type = VisualPreview.kind(state);
+    var visual = type && !activeTab.showSource && state.mode !== 'write';
+    var inlineEdit = !visual && state.editPreview && (state.format === 'text' || state.format.startsWith('code:'));
     var key = inlineEdit && JSON.stringify([documentId, state.name, state.format, I18n.getLocale()]);
-    structuredPreview = key && inlineCodeView && inlineCodeView.key === key ? inlineCodeView.view
-      : createFileView(state, src, { inlineEdit: inlineEdit, folds: folds, layout: function (populated) {
-      if (documentId !== state.documentId || !view.element.isConnected) return;
-      if (populated) {
-        updateFileOutline(view);
-        renderToc();
-        if (!el.findBar.hidden && el.findInput.value) runFind(true);
+    var newVisual = false;
+    var oldCode = key && inlineCodeView && inlineCodeView.key === key;
+    if (visual) {
+      var match = mountedVisual && mountedVisual.src === src && mountedVisual.type === type &&
+        mountedVisual.id === documentId && mountedVisual.locale === I18n.getLocale() &&
+        mountedVisual.handle === state.handle && mountedVisual.name === state.name;
+      if (!match) {
+        clearVisual();
+        mountedVisual = { view: createVisualView(type, state, src), src: src, type: type,
+          id: documentId, locale: I18n.getLocale(), handle: state.handle, name: state.name };
+        newVisual = true;
       }
-      if (structuredMeasureFrame) return;
-      structuredMeasureFrame = requestAnimationFrame(function () {
-        structuredMeasureFrame = 0;
-        measureParts(); markActiveToc();
+      structuredPreview = mountedVisual.view;
+    } else {
+      clearVisual();
+      structuredPreview = oldCode ? inlineCodeView.view : createFileView(state, src, {
+        inlineEdit: inlineEdit,
+        folds: folds,
+        layout: function (populated) {
+          if (documentId !== state.documentId || !view.element.isConnected) return;
+          if (populated) {
+            updateFileOutline(view);
+            renderToc();
+            if (!el.findBar.hidden && el.findInput.value) runFind(true);
+          }
+          if (structuredMeasureFrame) return;
+          structuredMeasureFrame = requestAnimationFrame(function () {
+            structuredMeasureFrame = 0;
+            measureParts(); markActiveToc();
+          });
+        },
+        edit: state.editPreview ? function (parent, from, to, label, type) {
+          return previewEditButton(parent, { start: from, end: to, label: label, type: type, source: src, documentId: documentId });
+        } : null
       });
-    }, edit: state.editPreview ? function (parent, from, to, label, type) {
-      return previewEditButton(parent, { start: from, end: to, label: label, type: type, source: src, documentId: documentId });
-    } : null });
+    }
     var view = structuredPreview;
+    if (type && (newVisual || !visual && !oldCode)) addFileViewSwitch(view, visual, showFileSource);
+    $('structuredFind').hidden = !!visual;
+    if (visual && !el.findBar.hidden) closeFind();
     if (inlineEdit) {
       if (!inlineCodeView || inlineCodeView.view !== view) {
         inlineCodeView = { key: key, view: view };
@@ -1921,6 +2008,7 @@
       view.input.rows = clamp(src.split('\n', 28).length + 1, 8, 28);
     } else inlineCodeView = null;
     reconcileBlocks([{ nodes: [view.element] }]);
+    if (newVisual) view.mount();
     if (view.refresh) view.refresh();
     previewBlocks = [];
     el.preview.setAttribute('dir', 'ltr');
@@ -1960,6 +2048,7 @@
     el.preview.classList.toggle('structured-preview', structured);
     $('structuredFind').hidden = !structured;
     if (structured) { renderStructured(el.editor.value); return; }
+    clearVisual();
     structuredPreview = inlineCodeView = null;
     if (!state.hasDocument && !el.editor.value) {
       reconcileBlocks([]); previewBlocks = [];
@@ -2601,6 +2690,7 @@
   function setEditPreview(on) {
     var wasInline = structuredPreview && structuredPreview.input === document.activeElement;
     state.editPreview = !!on;
+    if (on && VisualPreview.kind(state)) activeTab.showSource = true;
     if (!state.tasksOk) applyTaskMode();
     else render({ immediate: true });
     if (on && state.mode !== 'write' && structuredPreview && structuredPreview.input) structuredPreview.input.focus({ preventScroll: true });
@@ -3486,6 +3576,7 @@
   function openFind() {
     if (state.readingFocus) setReadingFocus(false);
     if (state.mode === 'write') setMode('split');
+    if (VisualPreview.kind(state) && !activeTab.showSource) showFileSource('code');
     el.findBar.hidden = false;
     var input = structuredPreview && structuredPreview.input;
     var sel = input && document.activeElement === input ? input.value.slice(input.selectionStart, input.selectionEnd)
