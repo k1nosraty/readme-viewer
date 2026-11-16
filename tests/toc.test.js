@@ -34,7 +34,7 @@ test('outline branches fold independently per tab and search reveals ancestor pa
   assert.equal(links().filter(a => !a.hidden).length, 3);
   assert.equal(document.querySelectorAll('#toc > ul > li').length, 2);
   Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
-  document.getElementById('btnToc').click();
+  window.dispatchEvent(new window.Event('resize'));
   assert.equal(api.el.sidebar.hidden, false);
   links()[0].click();
   assert.equal(api.el.sidebar.hidden, true);

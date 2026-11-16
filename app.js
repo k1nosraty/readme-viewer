@@ -102,7 +102,6 @@
   // Document fields belong to a tab; display preferences remain application-wide.
   var tabs = [], activeTab = null, nextTabId = 1;
   var manualBaseUrl = '';
-  var mobileSidebar = false;
   var narrowWorkspace = window.matchMedia && window.matchMedia('(max-width: 900px)');
   var documentFields = ['handle', 'name', 'saved', 'dirty', 'needsSave', 'hasDocument', 'bom', 'eol',
     'encoding', 'diskBytes', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'format', 'formatOverride', 'draftName'];
@@ -1212,6 +1211,7 @@
   /* ---------------------------------------------------------------- settings */
 
   function loadSettings() {
+    state.sidebar = !isNarrowWorkspace();
     var raw = null;
     try { raw = localStorage.getItem(STORE); } catch (e) { raw = null; }
     if (!raw) return;
@@ -1228,7 +1228,7 @@
     state.baseUrl = typeof s.baseUrl === 'string' ? s.baseUrl : '';
     manualBaseUrl = state.baseUrl;
     state.editPreview = !!s.editPreview;
-    state.sidebar = s.sidebar !== false;
+    if (typeof s.sidebar === 'boolean') state.sidebar = s.sidebar;
     state.verticalTabs = s.verticalTabs === true;
     if (Number.isFinite(s.verticalTabWidth)) state.verticalTabWidth = clamp(s.verticalTabWidth, TAB_RAIL_MIN, TAB_RAIL_MAX);
     state.split = clamp(parseFloat(s.split) || 50, 15, 85);
@@ -1333,7 +1333,6 @@
 
     el.btnWrap.setAttribute('aria-pressed', state.wrap ? 'true' : 'false');
     el.btnSync.setAttribute('aria-pressed', state.sync ? 'true' : 'false');
-    el.btnToc.setAttribute('aria-pressed', String(isNarrowWorkspace() ? mobileSidebar : state.sidebar));
 
     eachNode('[data-mode-btn]', function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-mode-btn') === state.mode ? 'true' : 'false');
@@ -3001,7 +3000,7 @@
   }
 
   function applySidebar() {
-    var visible = isNarrowWorkspace() ? mobileSidebar : state.sidebar;
+    var visible = state.sidebar;
     el.sidebar.hidden = !visible;
     el.layout.setAttribute('data-sidebar', visible ? 'on' : 'off');
     el.btnToc.setAttribute('aria-pressed', visible ? 'true' : 'false');
@@ -3009,9 +3008,11 @@
   }
 
   function closeMobileSidebar() {
-    if (!isNarrowWorkspace() || !mobileSidebar) return;
-    mobileSidebar = false;
+    if (!isNarrowWorkspace() || !state.sidebar) return false;
+    state.sidebar = false;
     applySidebar();
+    saveSettings();
+    return true;
   }
 
   function applySplit() {
@@ -3184,18 +3185,19 @@
     });
 
     el.btnToc.addEventListener('click', function () {
-      if (isNarrowWorkspace()) mobileSidebar = !mobileSidebar;
-      else state.sidebar = !state.sidebar;
+      state.sidebar = !state.sidebar;
       applySidebar();
       updateChrome();
       saveSettings();
     });
-    document.addEventListener('focusin', function (event) {
-      if (!el.sidebar.contains(event.target) && event.target !== el.btnToc) closeMobileSidebar();
-    });
-    document.addEventListener('pointerdown', function (event) {
-      if (!el.sidebar.contains(event.target) && !el.btnToc.contains(event.target)) closeMobileSidebar();
-    });
+    function dismissContentsOutside(event) {
+      // Both the toolbar and the View menu can toggle the drawer.
+      if (!el.sidebar.contains(event.target) && !event.target.closest('#btnToc, #brandMark, #appMenuPanel')) {
+        closeMobileSidebar();
+      }
+    }
+    document.addEventListener('focusin', dismissContentsOutside);
+    document.addEventListener('pointerdown', dismissContentsOutside);
 
     el.btnEdit.addEventListener('click', function () { setEditPreview(!state.editPreview); });
 
@@ -3526,8 +3528,8 @@
       var item = state.toc[+a.getAttribute('data-i')];
       if (item) {
         jumpToLine(item.line, item.id);
-        if (window.innerWidth <= 900) {
-          mobileSidebar = false; applySidebar();
+        if (isNarrowWorkspace()) {
+          closeMobileSidebar();
           (state.mode === 'write' ? el.editor : el.previewScroll).focus({ preventScroll: true });
         }
       }
@@ -4164,8 +4166,7 @@
 
   function focusContentsFilter() {
     if (state.readingFocus) setReadingFocus(false);
-    if (isNarrowWorkspace()) mobileSidebar = true;
-    else state.sidebar = true;
+    state.sidebar = true;
     applySidebar(); updateChrome(); saveSettings();
     el.tocFilter.focus();
     el.tocFilter.select();
@@ -4192,8 +4193,8 @@
       }
       if (state.readingFocus && e.key === 'Escape') { e.preventDefault(); setReadingFocus(false); return; }
       if (state.readingFocus && e.key === 'F10') setReadingFocus(false);
-      if (e.key === 'Escape' && mobileSidebar) {
-        mobileSidebar = false; applySidebar(); el.btnToc.focus(); return;
+      if (e.key === 'Escape' && $('appMenuPanel').hidden && closeMobileSidebar()) {
+        e.preventDefault(); el.btnToc.focus(); return;
       }
       if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         var tag = (e.target && e.target.tagName) || '';

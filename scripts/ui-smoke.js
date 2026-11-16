@@ -436,6 +436,37 @@ async function assertTabsCentered(page, state) {
       await touch.locator('[data-shell-action="resizeLayout"]').tap();
       await touch.locator('#paneSizes button[data-pane-step="0"]').tap();
       assert.equal(await touch.locator('#resizer').getAttribute('aria-valuenow'), '50');
+      await touch.keyboard.press('Escape');
+
+      const contents = touch.locator('#sidebar');
+      const contentsToggle = touch.locator('#btnToc');
+      async function assertContents(open, width) {
+        await touch.setViewportSize({ width, height: 640 });
+        await touch.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        assert.equal(await contents.isVisible(), open, 'Contents visibility at ' + width);
+        assert.equal(await contentsToggle.getAttribute('aria-pressed'), String(open));
+      }
+      await assertContents(false, 901);
+      await contentsToggle.tap();
+      await assertContents(true, 900);
+      assert.equal(await contents.evaluate(sidebar => {
+        const box = sidebar.getBoundingClientRect(), layout = sidebar.parentElement.getBoundingClientRect();
+        return Math.abs(box.right - layout.right) < 2;
+      }), true, 'the Persian drawer opens at the same edge as the wide sidebar');
+      await contentsToggle.tap();
+      await assertContents(false, 901);
+      await assertContents(false, 900);
+      await contentsToggle.tap();
+      const contentsFilter = touch.locator('#tocFilter');
+      await contentsFilter.focus();
+      await assertContents(true, 901);
+      await assertContents(true, 320);
+      assert.equal(await contentsFilter.evaluate(input => input === document.activeElement), true,
+        'Contents retains keyboard focus across the breakpoint');
+      await touch.locator('#brandMark').tap();
+      await touch.locator('#appMenuPanel [aria-controls="menuView"]').tap();
+      await touch.locator('#menuView [data-command="btnToc"]').tap();
+      assert.equal(await contents.isVisible(), false, 'View menu can close the open drawer');
     } finally { await touch.close(); }
 
     assert.deepEqual(errors, []);

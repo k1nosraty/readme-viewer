@@ -149,6 +149,8 @@ const { chromium } = require('playwright');
     for (const width of [1440, 760, 390]) {
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      // The open Contents panel becomes an overlay below the breakpoint.
+      if (width <= 900 && await page.locator('#sidebar').isVisible()) await page.locator('#btnToc').click();
       const dimensions = await page.evaluate(() => {
         const main = document.getElementById('panes').getBoundingClientRect();
         const comparison = document.getElementById('comparisonPane').getBoundingClientRect();
