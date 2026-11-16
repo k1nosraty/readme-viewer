@@ -6,16 +6,23 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const errors = [];
 function adb(...args) { return execFileSync('adb', args, { timeout: 30000 }); }
 
-function checkSystemInsets() {
+function checkSystemInsets(landscape = false) {
   adb('shell', 'uiautomator', 'dump', '/sdcard/safe-window.xml');
   const hierarchy = adb('shell', 'cat', '/sdcard/safe-window.xml').toString();
   const display = hierarchy.match(/bounds="\[0,0\]\[(\d+),(\d+)\]"/);
   const webView = hierarchy.match(/class="android\.webkit\.WebView"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
-  const navigation = hierarchy.match(/resource-id="android:id\/navigationBarBackground"[^>]*bounds="\[\d+,(\d+)\]/);
+  const navigation = hierarchy.match(/resource-id="android:id\/navigationBarBackground"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
   assert.ok(display && webView, 'Native WebView and display bounds missing');
   const [left, top, right, bottom] = webView.slice(1).map(Number);
-  assert.ok(top > 0 && bottom < Number(display[2]), 'WebView overlaps Android system bars: ' + webView[0]);
-  if (navigation) assert.ok(bottom <= Number(navigation[1]), 'Footer extends behind the navigation bar');
+  assert.equal(Number(display[1]) > Number(display[2]), landscape, 'Android display did not rotate');
+  assert.ok(top > 0, 'WebView overlaps Android status bar: ' + webView[0]);
+  assert.ok(bottom < Number(display[2]) || (landscape && (left > 0 || right < Number(display[1]))),
+    'WebView overlaps the navigation bar: ' + webView[0]);
+  if (navigation) {
+    const [navLeft, navTop, navRight, navBottom] = navigation.slice(1).map(Number);
+    assert.ok(right <= navLeft || left >= navRight || bottom <= navTop || top >= navBottom,
+      'Android navigation bar overlaps the WebView');
+  }
   return { left, top, right, bottom, displayWidth: Number(display[1]), displayHeight: Number(display[2]) };
 }
 
@@ -113,12 +120,21 @@ async function main() {
     await click('#structuredFind');
     await evaluate('(() => { const field = document.getElementById("findInput"); field.value = "پشتیبانی"; field.dispatchEvent(new Event("input")); })()');
     await waitFor('document.querySelector("#findCount[role=status]").textContent.includes(" / ")', 'Markdown search results');
+    const keyboardGeometry = await evaluate('(() => { const r = document.querySelector("#findInput").getBoundingClientRect(); return { ratio: devicePixelRatio, x: r.x + r.width/2, y: r.y + r.height/2 }; })()');
+    const originalHeight = (safeBounds.bottom - safeBounds.top) / keyboardGeometry.ratio;
+    adb('shell', 'settings', 'put', 'secure', 'show_ime_with_hard_keyboard', '1');
+    adb('shell', 'input', 'tap', String(Math.round(safeBounds.left + keyboardGeometry.x * keyboardGeometry.ratio)),
+      String(Math.round(safeBounds.top + keyboardGeometry.y * keyboardGeometry.ratio)));
+    await waitFor('innerHeight < ' + (originalHeight - 60), 'IME leaves room in the WebView');
+    adb('shell', 'input', 'keyevent', '4');
+    await waitFor('innerHeight > ' + (originalHeight - 20), 'WebView recovers after dismissing the IME');
     await click('#findClose');
     const screenshot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await fs.writeFile('native-test-results/android-webview.png', Buffer.from(screenshot.data, 'base64'));
     adb('shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0');
     adb('shell', 'settings', 'put', 'system', 'user_rotation', '1');
-    await sleep(1500);
+    await waitFor('innerWidth > innerHeight', 'landscape viewport');
+    const landscapeBounds = checkSystemInsets(true);
     await checkGeometry();
     assert.equal(await evaluate('RVApp.state.dirty'), true, 'Rotation lost unsaved task change');
     assert.equal(await evaluate('document.querySelector("#editor").value.includes("[x] پشتیبانی از ورودی چینی و ژاپنی")'), true);
@@ -127,7 +143,7 @@ async function main() {
     await fs.writeFile('native-test-results/android-webview.json', JSON.stringify({
       native: true, ready: true, persianCheckbox: true, dirty: true, diagramChecks: diagramChecks,
       fullWidthPreview: true, rotationPreservedEdit: true, androidBackConfirmCancel: true,
-      safeBounds, accessibleTask: true, markdownFind: true
+      safeBounds, landscapeBounds, accessibleTask: true, markdownFind: true, keyboardInsets: true
     }));
   } finally {
     adb('shell', 'settings', 'put', 'system', 'user_rotation', '0');

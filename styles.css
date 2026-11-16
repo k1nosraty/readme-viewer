@@ -1615,7 +1615,8 @@ body { grid-template-columns: minmax(0, 1fr); }
 }
 @media print {
   .workspace-views { display: block; overflow: visible; }
-  .comparison-pane, .compare-divider { display: none !important; }
+  .comparison-pane, .compare-divider, .comparison-pages { display: none !important; }
+  #workspaceViews .panes { display: block !important; }
   .panes, .pane-preview { overflow: visible; }
   .preview { overflow: visible; padding: 0; }
 }

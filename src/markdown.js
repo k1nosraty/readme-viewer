@@ -214,6 +214,7 @@
      * the exact source, so source mapping stays byte accurate. Definitions render where written.
      */
     var footnotes = Object.create(null);
+    var footnoteStart = /^\[\^[^\]\s]+\]:/;
     function fnKey(label) { return String(label).toLowerCase(); }
     function fnId(label) {
       return 'user-content-fn-' + fnKey(label).replace(/[^a-z0-9_-]/g, function (ch) { return '~' + ch.charCodeAt(0).toString(16) + '~'; });
@@ -225,7 +226,13 @@
       extensions: [{
         name: 'footnote',
         level: 'block',
-        start: function (src) { var m = /(^|\n)\[\^[^\]\s]+\]:/.exec(src); return m ? m.index + m[1].length : undefined; },
+        start: function (src) {
+          if (src.startsWith('[^') && footnoteStart.test(src)) return 0;
+          // Marked calls this for every paragraph. Only test lines that can start a definition.
+          for (var i = src.indexOf('\n[^'); i >= 0; i = src.indexOf('\n[^', i + 1)) {
+            if (footnoteStart.test(src.slice(i + 1))) return i + 1;
+          }
+        },
         tokenizer: function (src) {
           var m = /^\[\^([^\]\s]+)\]:[ \t]?([^\n]*(?:\n(?: {2,}|\t)[^\n]*)*)(?:\n|$)/.exec(src);
           if (!m) return undefined;
