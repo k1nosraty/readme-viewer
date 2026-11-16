@@ -37,7 +37,7 @@ for attempt in $(seq 1 60); do
 done
 test -n "$socket"
 adb forward tcp:9222 "localabstract:$socket"
-timeout 150s node scripts/native-android-webview-smoke.js
+timeout 240s node scripts/native-android-webview-smoke.js
 adb forward --remove tcp:9222
 adb shell uiautomator dump /sdcard/native-window.xml
 adb pull /sdcard/native-window.xml native-test-results/android-window.xml

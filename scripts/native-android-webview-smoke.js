@@ -6,13 +6,23 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const errors = [];
 function adb(...args) { return execFileSync('adb', args, { timeout: 30000 }); }
 
-function checkSystemInsets(landscape = false) {
-  adb('shell', 'uiautomator', 'dump', '/sdcard/safe-window.xml');
-  const hierarchy = adb('shell', 'cat', '/sdcard/safe-window.xml').toString();
+async function checkSystemInsets(landscape = false) {
+  const dump = '/data/local/tmp/rv-safe-window.xml';
+  let hierarchy = '', lastDump = '';
+  adb('shell', 'rm', '-f', dump);
+  // UIAutomator can return success without a file while the window is still updating.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    lastDump = adb('shell', 'uiautomator', 'dump', dump, '2>&1').toString();
+    if (lastDump.includes('dumped to:')) {
+      hierarchy = adb('shell', 'cat', dump).toString();
+      if (hierarchy.includes('class="android.webkit.WebView"')) break;
+    }
+    await sleep(500);
+  }
   const display = hierarchy.match(/bounds="\[0,0\]\[(\d+),(\d+)\]"/);
   const webView = hierarchy.match(/class="android\.webkit\.WebView"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
   const navigation = hierarchy.match(/resource-id="android:id\/navigationBarBackground"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
-  assert.ok(display && webView, 'Native WebView and display bounds missing');
+  assert.ok(display && webView, 'Native WebView and display bounds missing: ' + lastDump);
   const [left, top, right, bottom] = webView.slice(1).map(Number);
   assert.equal(Number(display[1]) > Number(display[2]), landscape, 'Android display did not rotate');
   assert.ok(top > 0, 'WebView overlaps Android status bar: ' + webView[0]);
@@ -90,7 +100,6 @@ async function main() {
     await send('Runtime.enable');
     await send('Page.enable');
     await waitFor('Boolean(window.RVApp && RVApp.state.ready)', 'app ready');
-    const safeBounds = checkSystemInsets();
     assert.equal(await evaluate('Boolean(window.__TAURI_INTERNALS__)'), true);
     assert.equal(await evaluate('document.querySelectorAll(".toast[data-kind=error]").length'), 0, 'Native initialization error');
     await click('#btnEmptySample');
@@ -98,6 +107,7 @@ async function main() {
     assert.equal(await evaluate('document.querySelector("#editor").value.includes("پشتیبانی از ورودی چینی و ژاپنی")'), true);
     const diagramChecks = await evaluate(await fs.readFile('scripts/native-diagrams-check.js', 'utf8'));
     assert.equal(diagramChecks.nativeMath, true, 'Android WebView mathematical layout failed');
+    const safeBounds = await checkSystemInsets();
     await click('#btnEdit');
     assert.equal(await evaluate('RVApp.state.editPreview'), true, 'Edit in preview did not turn on');
     assert.equal(await evaluate('RVApp.state.tasksOk'), true, 'Persian task mapping is unavailable');
@@ -134,7 +144,7 @@ async function main() {
     adb('shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0');
     adb('shell', 'settings', 'put', 'system', 'user_rotation', '1');
     await waitFor('innerWidth > innerHeight', 'landscape viewport');
-    const landscapeBounds = checkSystemInsets(true);
+    const landscapeBounds = await checkSystemInsets(true);
     await checkGeometry();
     assert.equal(await evaluate('RVApp.state.dirty'), true, 'Rotation lost unsaved task change');
     assert.equal(await evaluate('document.querySelector("#editor").value.includes("[x] پشتیبانی از ورودی چینی و ژاپنی")'), true);
