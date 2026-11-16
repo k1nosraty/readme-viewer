@@ -1,12 +1,13 @@
-# README Viewer 2.2.0
+# README Viewer 2.2.1
 
-## Changes since 2.1.0
+## Changes since 2.2.0
 
-- Rename a tab with the pencil button, a double-click, or `F2` while the tab has focus. Custom titles are restored with the workspace, and new drafts use the start of their first line as a title.
-- Preview a tab’s contents with the mouse or keyboard focus. Previews work with horizontal and vertical tabs and with the Persian interface.
-- Keep wide Markdown tables scrollable inside rounded frames in both the reading pane and standalone HTML exports.
-- Keep tab controls reachable on narrow touchscreens and start with the Contents drawer closed on mobile.
-- Fix shadows behind the window controls when the Windows app is maximized.
+- Keep Contents open or closed when switching between wide and narrow layouts. The drawer opens on the same side as the full sidebar in both English and Persian.
+- Keep the viewer above Android’s navigation bar and keyboard and below its status bar. Preserve unsaved edits when the screen rotates.
+- Improve keyboard and touch navigation. Task checkboxes announce the task text, **All tabs** shows complete names on narrow screens, and View offers controls to resize panes and reorder tabs without dragging.
+- Make the Markdown search button visible and announce the match count. Improve link and syntax contrast, make the selected view easier to identify in high-contrast mode, and give prose a more readable default width.
+- Keep comparison panes usable in landscape and let readers switch between the primary and secondary documents on compact screens.
+- Show the start of large Markdown documents while the rest of the preview is being prepared.
 
 ## Downloads and upgrades
 

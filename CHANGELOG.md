@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 2.2.1 — 2026-11-16
+
+- Preserve Contents visibility and filter focus across window sizes. Keep the sidebar and drawer on the same side in English and Persian.
+- Respect Android status bar, navigation bar, display cutout and keyboard insets.
+- Improve accessible tab navigation and task labels, enlarge touch targets and offer pane resizing and tab reordering from View.
+- Keep the comparison view usable at small widths and show the full tab titles in the overflow list.
+- Add visible Markdown search and live match counts. Improve link and syntax contrast, high-contrast mode selection and the default reading width.
+- Render large Markdown previews in stages so the first part of the document appears sooner.
+
 ## 2.2.0 — 2026-11-16
 
 - Rename tabs with the pencil button, a double-click, or `F2`. Restore custom titles with the workspace and derive draft titles from the first line.
