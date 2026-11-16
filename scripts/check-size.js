@@ -13,11 +13,13 @@ function files(directory) {
 }
 function measure(profile, root = ROOT) {
   if (profile === 'frontend') {
-    const entries = files(path.join(root, 'native-dist'));
+    const directory = path.join(root, 'native-dist');
+    const entries = files(directory);
     if (!entries.length) throw new Error('No prepared frontend assets');
+    const budget = entries.includes(path.join(directory, 'pdf', 'reader.mjs')) ? 'frontend-windows' : 'frontend';
     return [{ file: 'native-dist (all assets)', bytes: entries.reduce((n, f) => n + fs.statSync(f).size, 0),
       gzipBytes: entries.reduce((n, f) => n + gzipSync(fs.readFileSync(f), { level: 9 }).length, 0),
-      maxBytes: budgets.frontend }];
+      maxBytes: budgets[budget] }];
   }
   const rules = {
     windows: [['src-tauri/target/release/bundle/nsis', /-setup\.exe$/i, 'windows']],

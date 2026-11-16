@@ -15,8 +15,16 @@ const abort = () => new DOMException('Save cancelled.', 'AbortError');
 async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
   const byId = id => document.getElementById(id);
   const maximize = byId('btnWindowMaximize');
+  const documentRoot = document.documentElement;
+  let maximizedRevision = 0;
   const syncMaximized = async () => {
+    const revision = ++maximizedRevision;
     const maximized = await window.isMaximized();
+    if (revision !== maximizedRevision) return;
+    if (windows) {
+      if (maximized) documentRoot.dataset.windowMaximized = '';
+      else delete documentRoot.dataset.windowMaximized;
+    }
     const key = maximized ? 'window.restore' : 'window.maximize';
     if (maximize.dataset.i18nAria === key) return;
     const label = root.RV.I18n.t(key);
@@ -27,12 +35,11 @@ async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
     maximize.innerHTML = root.RV.Icons.svg(maximized ? 'copy' : 'windowMaximize', 15);
   };
   byId('btnWindowMinimize').addEventListener('click', () => window.minimize().catch(report));
-  maximize.addEventListener('click', () => window.toggleMaximize().catch(report));
+  maximize.addEventListener('click', () => window.toggleMaximize().then(syncMaximized).catch(report));
   byId('btnWindowClose').addEventListener('click', () => window.close().catch(report));
 
   byId('titlebarDrag').hidden = false;
   byId('captionButtons').hidden = false;
-  const documentRoot = document.documentElement;
   documentRoot.dataset.desktopTitlebar = '';
   onTitlebar?.();
   let backdropRevision = 0;
@@ -130,6 +137,7 @@ async function handle(path, name, authorize = true, writable = true, grantSavedA
 const Native = {
   available,
   installedFontFamilies() { return invoke('installed_font_families'); },
+  supportsPdf() { return available() && /Windows NT/i.test(root.navigator?.userAgent || ''); },
   async appInfo() {
     const [platform, arch] = await invoke('update_platform');
     return { version: await getVersion(), platform, arch };
@@ -144,12 +152,14 @@ const Native = {
     return handle(path, undefined, true, local);
   },
   async pickSave(name, mime) {
+    const pdf = mime === 'application/pdf';
     const saveFilters = mime && /^text\/html(?:;|$)/i.test(mime)
       ? [{ name: 'HTML', extensions: ['html', 'htm'] }]
-      : mime && /^image\/svg\+xml(?:;|$)/i.test(mime) ? [{ name: 'SVG image', extensions: ['svg'] }] : undefined;
+      : mime && /^image\/svg\+xml(?:;|$)/i.test(mime) ? [{ name: 'SVG image', extensions: ['svg'] }]
+      : pdf ? [{ name: 'PDF', extensions: ['pdf'] }] : undefined;
     const path = await save({ defaultPath: name, filters: saveFilters });
     const markdown = !mime || /^text\/markdown(?:;|$)/i.test(mime);
-    return path ? handle(path, /^content:/i.test(path) ? name : undefined, false, true, markdown || !!saveFilters) : null;
+    return path ? handle(path, /^content:/i.test(path) ? name : undefined, false, true, markdown || !!saveFilters && !pdf) : null;
   },
   async openPath(path) {
     if (/^content:/i.test(path)) return handle(path, undefined, true, false);

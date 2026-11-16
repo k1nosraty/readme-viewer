@@ -3,6 +3,24 @@ const path = require('node:path');
 const { build } = require('esbuild');
 const highlight = require('../vendor/highlight.min.js');
 
+async function preparePdfReader(source, target) {
+  const dist = path.dirname(require.resolve('pdfjs-dist/package.json'));
+  await mkdir(path.join(target, 'wasm'), { recursive: true });
+  for (const file of ['index.html', 'reader.css']) await cp(path.join(source, file), path.join(target, file));
+  for (const file of ['LICENSE', 'cmaps', 'iccs', 'standard_fonts']) {
+    await cp(path.join(dist, file), path.join(target, file), { recursive: true });
+  }
+  await cp(path.join(dist, 'web/images'), path.join(target, 'images'), { recursive: true });
+  await cp(path.join(dist, 'web/pdf_viewer.css'), path.join(target, 'pdf_viewer.css'));
+  await cp(path.join(dist, 'build/pdf.worker.min.mjs'), path.join(target, 'pdf.worker.mjs'));
+  for (const file of ['jbig2_nowasm_fallback.js', 'openjpeg_nowasm_fallback.js', 'LICENSE_JBIG2',
+    'LICENSE_OPENJPEG', 'LICENSE_PDFJS_JBIG2', 'LICENSE_PDFJS_OPENJPEG']) {
+    await cp(path.join(dist, 'wasm', file), path.join(target, 'wasm', file));
+  }
+  await build({ entryPoints: [path.join(source, 'reader.mjs')], outfile: path.join(target, 'reader.mjs'),
+    bundle: true, format: 'esm', platform: 'browser', target: 'es2022', minify: true });
+}
+
 async function prepare() {
   const root = path.resolve(__dirname, '..');
   const output = path.join(root, 'native-dist');
@@ -10,12 +28,13 @@ async function prepare() {
   await mkdir(output, { recursive: true });
   // Explicit allowlist: never ship repository metadata, credentials or build trees.
   const grammars = path.join(root, 'vendor', 'langs');
+  const pdfReader = path.join(root, 'src', 'pdf-reader');
   for (const name of ['app.js', 'styles.css', 'src', 'vendor']) {
     await cp(path.join(root, name), path.join(output, name), {
       recursive: true,
       // The loader asks for a standalone grammar only when the startup bundle lacks it.
-      filter: source => path.dirname(source) !== grammars || !source.endsWith('.min.js') ||
-        !highlight.getLanguage(path.basename(source, '.min.js'))
+      filter: source => source !== pdfReader && (path.dirname(source) !== grammars || !source.endsWith('.min.js') ||
+        !highlight.getLanguage(path.basename(source, '.min.js')))
     });
   }
   // The bundled bridge replaces its build-only source; runtime assets and licenses stay intact.
@@ -47,6 +66,9 @@ async function prepare() {
   html = html.replace(startupBlock[0], `<script src="${bundle}"></script>\n`);
   html = html.replace('</head>', `<link rel="preload" href="${bundle}" as="script">\n</head>`);
   await writeFile(path.join(output, 'index.html'), html);
+  const platform = process.env.TAURI_ENV_PLATFORM || process.platform;
+  if (platform === 'windows' || platform === 'win32') await preparePdfReader(pdfReader, path.join(output, 'pdf'));
   console.log('Prepared native-dist with one startup script and offline assets.');
 }
-prepare().catch((error) => { console.error(error); process.exitCode = 1; });
+if (require.main === module) prepare().catch((error) => { console.error(error); process.exitCode = 1; });
+module.exports = { preparePdfReader };

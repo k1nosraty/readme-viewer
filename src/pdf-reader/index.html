@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>PDF</title>
+  <link rel="stylesheet" href="pdf_viewer.css">
+  <link rel="stylesheet" href="reader.css">
+  <script type="module" src="reader.mjs"></script>
+</head>
+<body>
+  <div id="toolbar">
+    <span id="pageNumber"></span>
+    <button id="zoomOut" type="button" data-label="pdf.zoomOut" disabled>−</button>
+    <output id="zoomValue" dir="ltr"></output>
+    <button id="zoomIn" type="button" data-label="pdf.zoomIn" disabled>+</button>
+    <button id="fitWidth" type="button" data-text="pdf.fitWidth" aria-pressed="false" disabled></button>
+    <button id="findButton" type="button" data-text="pdf.find" aria-expanded="false" aria-controls="findBar" disabled></button>
+    <button id="highlight" type="button" data-text="pdf.highlight" aria-pressed="false" disabled></button>
+    <button id="textBox" type="button" data-text="pdf.textBox" aria-pressed="false" disabled></button>
+  </div>
+  <div id="findBar" hidden>
+    <input id="findInput" type="search" autocomplete="off" data-label="pdf.find" spellcheck="false">
+    <button id="findPrevious" type="button" data-label="pdf.previousMatch">↑</button>
+    <button id="findNext" type="button" data-label="pdf.nextMatch">↓</button>
+    <span id="findCount" role="status" dir="auto"></span>
+    <button id="findClose" type="button" data-label="action.close">×</button>
+  </div>
+  <div id="main">
+    <div id="viewerContainer" tabindex="0" dir="ltr"><div id="viewer" class="pdfViewer"></div></div>
+    <p id="message" role="status"></p>
+  </div>
+</body>
+</html>

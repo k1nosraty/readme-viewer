@@ -256,6 +256,7 @@
       </div>
       <div class="preview" id="previewScroll" tabindex="0">
         <article class="markdown-body" id="preview" dir="auto"></article>
+        <div id="pdfWorkspace" hidden></div>
 
         <div class="empty-state" id="emptyState">
           <span class="empty-icon"><i data-icon="file" data-size="34"></i></span>
@@ -444,9 +445,17 @@
 
 <div class="drop-hint" id="dropHint">
   <i data-icon="upload" data-size="24"></i>
-  <span data-i18n="drop.hint">Drop a Markdown file to open it</span>
+  <span data-i18n="drop.hint">Drop a file to open it</span>
 </div>
 
+<div class="tab-preview" id="tabPreview" role="tooltip" hidden>
+  <div class="tab-preview-location" id="tabPreviewLocation" dir="auto" hidden></div>
+  <div class="tab-preview-text" id="tabPreviewText" dir="auto"></div>
+</div>
+<form class="tab-rename" id="tabRename" data-i18n-aria="tabs.rename" aria-label="Rename tab" hidden>
+  <input type="text" id="tabTitleInput" dir="auto" autocomplete="off" spellcheck="false" data-i18n-aria="tabs.title" aria-label="Tab name">
+  <button type="submit" class="btn btn-icon" data-i18n-title="appearance.apply" data-i18n-aria="appearance.apply" aria-label="Apply" title="Apply"><i data-icon="checkCircle"></i></button>
+</form>
 <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
 <script src="src/compat.js"></script>
@@ -464,6 +473,7 @@
 <script src="src/code-languages.js"></script>
 <script src="src/code.js"></script>
 <script src="src/visual-preview.js"></script>
+<script src="src/pdf-preview.js"></script>
 <script src="src/highlight.js"></script>
 <script src="src/diagrams.js"></script>
 <script src="src/export.js"></script>

@@ -21,8 +21,9 @@ Budgets live in `packaging/size-budgets.json`:
 
 | Artifact | Maximum MiB |
 | --- | ---: |
-| Prepared frontend, all assets | 6 |
-| Windows NSIS setup | 4 |
+| Prepared frontend, Linux and Android | 6 |
+| Prepared frontend, Windows with offline PDF.js | 11 |
+| Windows NSIS setup | 6.5 |
 | Linux deb | 6.5 |
 | Linux AppImage | 85 |
 | Android ARM64 Preview | 40 |
@@ -33,8 +34,8 @@ provides the reference measurements: Windows setup 4,010,610 bytes, deb 6,439,50
 AppImage 84,875,768 bytes and universal debug APK 61,024,244 bytes.
 These are historical values, not measurements of the changed native builds.
 
-The prepared frontend remains approximately 5.93 MiB uncompressed. Its reported gzip estimate
-is only a comparison aid; it is not an installer-size measurement. Native builds must pass
+The Windows viewer adds approximately 4.4 MiB of prepared PDF reader, worker and font assets.
+The reported frontend gzip estimate is a comparison aid. Native builds must pass
 their own artifact budgets before release. No reduced-size installer result is claimed until
 those platform builds run.
 

@@ -28,6 +28,18 @@ const { chromium } = require('playwright');
       await RV.Reading.saveSession();
     }, length);
     assert.equal(await page.evaluate(async () => (await RV.Drafts.read()).documents[0].source.length), length);
+    const renameField = page.getByRole('textbox', { name: 'Tab name', exact: true });
+    await page.getByRole('button', { name: 'Rename tab: large.md', exact: true }).click();
+    await renameField.fill('Working notes');
+    await renameField.press('Enter');
+    await page.evaluate(() => RV.Reading.saveSession());
+    assert.equal(await page.evaluate(async () => (await RV.Drafts.read()).documents[0].customTitle), 'Working notes');
+    await page.locator('#btnNewTab').click();
+    await page.getByRole('button', { name: 'Rename tab: Untitled', exact: true }).click();
+    await renameField.fill('Next topic');
+    await renameField.press('Enter');
+    await page.getByRole('tab', { name: 'Working notes', exact: true }).click();
+    await page.evaluate(() => RV.Reading.saveSession());
     // Force a real IndexedDB transaction to abort: the last committed draft must survive.
     assert.equal(await page.evaluate(async () => {
       const put = IDBObjectStore.prototype.put;
@@ -43,6 +55,8 @@ const { chromium } = require('playwright');
     await page.goto(url); await page.waitForFunction(() => RVApp.state.ready);
     assert.equal(await page.locator('#editor').evaluate(node => node.value.length), length);
     assert.equal(await page.evaluate(() => RVApp.state.dirty && RVApp.state.needsSave && RVApp.state.handle === null && RVApp.state.bom && RVApp.state.eol === '\r\n'), true);
+    assert.deepEqual(await page.getByRole('tab').allTextContents(), ['• Working notes', 'Next topic']);
+    assert.equal(await page.evaluate(() => RVApp.listTabs()[1].hasDocument), false);
     // Clearing while the previous write promise is still pending must not resurrect private text.
     assert.equal(await page.evaluate(async () => {
       const original = RV.Drafts.write; let release;
@@ -52,6 +66,6 @@ const { chromium } = require('playwright');
       await RV.Reading.clearSession(); release(); await writing; RV.Drafts.write = original;
       return (await RV.Drafts.read()) === undefined && !document.getElementById('restoreSession').checked;
     }), true);
-    console.log('Recovery smoke passed: migration, 3-million-character draft, aborted transaction, renderer crash, detached restore and clear during save.');
+    console.log('Recovery smoke passed: migration, tab names, 3-million-character draft, aborted transaction, renderer crash, detached restore and clear during save.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
