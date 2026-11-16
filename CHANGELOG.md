@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2.2.0 — 2026-11-16
+
+- Rename tabs with the pencil button, a double-click, or `F2`. Restore custom titles with the workspace and derive draft titles from the first line.
+- Show tab previews on hover and keyboard focus in horizontal and vertical layouts, including the Persian interface.
+- Keep rounded Markdown tables scrollable in preview and standalone HTML exports.
+- Keep tab controls reachable on narrow touchscreens and start with the Contents drawer closed on mobile.
+- Fix shadows behind the window controls when the Windows app is maximized.
+
 ## 2.1.0 — 2026-11-14
 
 - Preview SVG files as images and browse reusable symbols in a gallery, including standalone symbol fragments. Zoom individual images and symbols from 25% to 400%, with a fitted view at 100%.

@@ -4,7 +4,7 @@
 
 Read project READMEs with their diagrams and task lists. Open a source file to fold a function and edit a line in place. Navigate JSON trees and grouped INI settings.
 
-**[Download the latest release][release]** · [What’s new in 2.1.0][notes] · [Try without installing](#try-without-installing)
+**[Download the latest release][release]** · [What’s new in 2.2.0][notes] · [Try without installing](#try-without-installing)
 
 ![README Viewer desktop workspace showing a Markdown document, a Mermaid flowchart, an interactive checklist, and a table of contents](docs/screenshots/markdown-workspace.webp)
 
@@ -12,7 +12,7 @@ Read project READMEs with their diagrams and task lists. Open a source file to f
 
 ## Download
 
-These are the **2.1.0** packages. The [release page][release] includes SHA-256 checksums and signed desktop updates.
+These are the **2.2.0** packages. The [release page][release] includes SHA-256 checksums and signed desktop updates.
 
 | Platform | Download | Requirements |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ Open SVG files as images, zoom in for details, or browse reusable SVG symbols in
 
 Jump between headings in Contents, tick a task in the rendered page, and view Mermaid diagrams offline. Export the document as standalone HTML or save a diagram as SVG. The demo includes flowcharts, sequence diagrams, and math labels. [View the sample document](docs/demo.md)
 
-Keep related files in tabs, compare two documents side by side, or use **Focus** to give one document the full window. On desktop, the last workspace reopens by default with saved files and local drafts. Manage this in **File → File settings → Restore open documents**. **View → Appearance** has light and dark themes, font choices, and adjustable title-bar opacity on supported desktops.
+Keep related files in tabs, compare two documents side by side, or use **Focus** to give one document the full window. Rename a tab with its pencil button and preview its contents on hover or keyboard focus. On desktop, the last workspace reopens by default with saved files, local drafts, and custom tab titles. Manage this in **File → File settings → Restore open documents**. **View → Appearance** has light and dark themes, font choices, and adjustable title-bar opacity on supported desktops.
 
 The interface is available in English and Persian. Mixed-direction Markdown renders each block according to its text, so Persian and English can appear in the same document.
 
@@ -59,11 +59,12 @@ The interface is available in English and Persian. Mixed-direction Markdown rend
 | `Ctrl+E` | Toggle Edit in preview |
 | `Ctrl+Shift+L` | Choose a preview format |
 | `Ctrl+Shift+F` / `Ctrl+F` | Find in the document / Filter Contents |
+| `F2` | Rename the focused tab |
 | `F8` / `Esc` | Enter / Leave Focus |
 
 ## Try without installing
 
-Download the [2.1.0 source ZIP][source], extract the whole archive, and open `index.html` in a browser. Keep the extracted folders together so the preview, syntax grammars, and diagrams work offline. Choose **Load sample document** on the empty screen to try it out.
+Download the [2.2.0 source ZIP][source], extract the whole archive, and open `index.html` in a browser. Keep the extracted folders together so the preview, syntax grammars, and diagrams work offline. Choose **Load sample document** on the empty screen to try it out.
 
 Chrome and Edge can save back to a file you’ve opened when the browser grants file access. Other browsers download the saved copy. Remote images and external links can still use the network.
 
@@ -74,11 +75,11 @@ Chrome and Edge can save back to a file you’ve opened when the browser grants 
 Run the JavaScript tests with `npm ci && npm test`. For browser and platform checks, see [validation in the native app guide](docs/native-app.md#validation-status).
 
 [release]: https://github.com/k1nosraty/readme-viewer/releases/latest
-[notes]: https://github.com/k1nosraty/readme-viewer/releases/tag/v2.1.0
-[windows]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README.Viewer_2.1.0_x64-setup.exe
-[deb]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README.Viewer_2.1.0_amd64.deb
-[appimage]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README.Viewer_2.1.0_amd64.AppImage
-[arm64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README-Viewer-2.1.0-Android-ARM64-Debug-Preview.apk
-[x86_64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.1.0/README-Viewer-2.1.0-Android-X86_64-Debug-Preview.apk
-[source]: https://github.com/k1nosraty/readme-viewer/archive/refs/tags/v2.1.0.zip
+[notes]: https://github.com/k1nosraty/readme-viewer/releases/tag/v2.2.0
+[windows]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.0/README.Viewer_2.2.0_x64-setup.exe
+[deb]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.0/README.Viewer_2.2.0_amd64.deb
+[appimage]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.0/README.Viewer_2.2.0_amd64.AppImage
+[arm64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.0/README-Viewer-2.2.0-Android-ARM64-Debug-Preview.apk
+[x86_64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.0/README-Viewer-2.2.0-Android-X86_64-Debug-Preview.apk
+[source]: https://github.com/k1nosraty/readme-viewer/archive/refs/tags/v2.2.0.zip
 [issues]: https://github.com/k1nosraty/readme-viewer/issues

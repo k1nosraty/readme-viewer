@@ -1,11 +1,12 @@
-# README Viewer 2.1.0
+# README Viewer 2.2.0
 
-## Changes since 2.0.0
+## Changes since 2.1.0
 
-- Preview SVG files as images and browse reusable symbols in a gallery, including standalone symbol fragments. Zoom individual images and symbols from 25% to 400%, with a fitted view at 100%.
-- Preview HTML offline on desktop with linked CSS, images, and fonts from the document’s folder. JavaScript is disabled. Switch between visual preview and syntax-highlighted source.
-- Reopen the last desktop workspace by default. Restore tab order and the active tab, reopen saved files from disk, and recover unsaved edits as local drafts.
-- Add SVG files to the desktop **Open with** lists while preserving the existing default applications.
+- Rename a tab with the pencil button, a double-click, or `F2` while the tab has focus. Custom titles are restored with the workspace, and new drafts use the start of their first line as a title.
+- Preview a tab’s contents with the mouse or keyboard focus. Previews work with horizontal and vertical tabs and with the Persian interface.
+- Keep wide Markdown tables scrollable inside rounded frames in both the reading pane and standalone HTML exports.
+- Keep tab controls reachable on narrow touchscreens and start with the Contents drawer closed on mobile.
+- Fix shadows behind the window controls when the Windows app is maximized.
 
 ## Downloads and upgrades
 
