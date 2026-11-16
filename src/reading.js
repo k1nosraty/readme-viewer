@@ -46,11 +46,14 @@
     record().top = lastTop;
     persistRecords();
   }
+  function readingWidth(value) {
+    return ['full', 'comfortable', 'auto'].includes(value) ? value : 'auto';
+  }
   function applyPreferences() {
-    document.documentElement.setAttribute('data-reading-width', ['auto', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'full');
+    document.documentElement.setAttribute('data-reading-width', readingWidth(prefs.width));
     document.documentElement.setAttribute('data-reading-spacing', prefs.spacing === 'relaxed' ? 'relaxed' : 'normal');
     app.el.preview.classList.toggle('hide-completed', !!prefs.hideDone);
-    byId('readingWidth').value = ['auto', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'full';
+    byId('readingWidth').value = readingWidth(prefs.width);
     byId('readingSpacing').value = prefs.spacing === 'relaxed' ? 'relaxed' : 'normal';
     byId('hideCompleted').checked = !!prefs.hideDone;
     byId('restoreSession').checked = !!prefs.session;
@@ -343,12 +346,12 @@
   }
   function appearance(value, persist) {
     if (value) {
-      prefs.width = ['full', 'comfortable', 'auto'].indexOf(value.width) >= 0 ? value.width : 'full';
+      prefs.width = readingWidth(value.width);
       prefs.spacing = value.spacing === 'relaxed' ? 'relaxed' : 'normal';
       applyPreferences();
       if (persist) return write('rv.reading.options', prefs);
     }
-    return { width: ['auto', 'comfortable'].indexOf(prefs.width) >= 0 ? prefs.width : 'full', spacing: prefs.spacing === 'relaxed' ? 'relaxed' : 'normal' };
+    return { width: readingWidth(prefs.width), spacing: prefs.spacing === 'relaxed' ? 'relaxed' : 'normal' };
   }
   RV.Reading = { appearance: appearance, init: init, refresh: refresh, workspaceChanged: workspaceChanged, saveSession: saveSession, clearSession: clearSession,
     reveal: reveal, clearFindVisibility: clearFindVisibility };

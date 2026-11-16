@@ -137,7 +137,7 @@
           icon('copy', 14) +
           '<span class="code-copy-text">' + label + '</span></span>' +
           '</div>' +
-          '<pre dir="ltr"><code class="' + cls + '">' + esc(body) + '</code></pre>' +
+          '<pre dir="ltr" tabindex="0" aria-label="' + esc(lang || t('pane.source')) + '"><code class="' + cls + '">' + esc(body) + '</code></pre>' +
           '</div>\n';
       },
 
@@ -157,6 +157,11 @@
 
       listitem: function (item) {
         var cls = item.task ? ' class="task-list-item"' : '';
+        if (item.task) {
+          var first = item.tokens[0];
+          var checkbox = first && first.tokens && first.tokens.find(function (token) { return token.type === 'checkbox'; });
+          if (checkbox) checkbox.label = plainText(first.tokens).replace(/\s+/g, ' ').trim();
+        }
         return '<li' + cls + '>' + this.parser.parse(item.tokens) + '</li>\n';
       },
 
@@ -168,7 +173,8 @@
         var index = taskSeq++;
         // `task-list-item-checkbox` is the class github-markdown-css aligns on; `rv-task` is ours.
         return '<input class="task-list-item-checkbox rv-task" type="checkbox" ' +
-          'data-rv-task="' + index + '"' + (token.checked ? ' checked' : '') + ' disabled> ';
+          'data-rv-task="' + index + '" aria-label="' + esc(token.label || t('edit.task')) + '"' +
+          (token.checked ? ' checked' : '') + ' disabled> ';
       },
 
       image: function (token) {
@@ -191,7 +197,7 @@
           for (var c = 0; c < row.length; c++) cell += this.tablecell(row[c]);
           body += this.tablerow({ text: cell });
         }
-        return '<div class="table-wrap"><table>\n<thead>\n' + head + '</thead>\n' +
+        return '<div class="table-wrap" tabindex="0" aria-label="' + esc(t('preview.table')) + '"><table>\n<thead>\n' + head + '</thead>\n' +
           (body ? '<tbody>' + body + '</tbody>' : '') + '</table></div>\n';
       }
     };

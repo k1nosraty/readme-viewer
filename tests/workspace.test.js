@@ -220,7 +220,7 @@ test('vertical tabs reuse document controls and navigate with up and down arrows
 
   harness.click(window, toggle);
   assert.equal(toggle.getAttribute('aria-pressed'), 'true');
-  assert.equal(list.getAttribute('aria-orientation'), 'vertical');
+  assert.equal(document.getElementById('tabList').getAttribute('aria-orientation'), 'vertical');
   assert.equal(list.parentElement.id, 'verticalTabs');
   const selected = list.querySelector('[aria-selected="true"]');
   selected.focus();
@@ -229,7 +229,7 @@ test('vertical tabs reuse document controls and navigate with up and down arrows
   assert.equal(document.activeElement.getAttribute('aria-selected'), 'true');
 
   harness.click(window, toggle);
-  assert.equal(list.getAttribute('aria-orientation'), 'horizontal');
+  assert.equal(document.getElementById('tabList').getAttribute('aria-orientation'), 'horizontal');
   assert.equal(list.parentElement.className, 'workspacebar');
   assert.equal(api.state.name, 'one.md');
   assert.equal(api.listTabs().length, 2);
@@ -447,7 +447,7 @@ test('comparison raw heading fragments resolve namespace and stacked divider use
   const divider = document.getElementById('compareDivider');
   assert.equal(divider.getAttribute('aria-orientation'), 'horizontal');
   divider.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
-  assert.equal(document.getElementById('workspaceViews').style.getPropertyValue('--compare-split'), '47%');
+  assert.equal(document.getElementById('workspaceViews').style.getPropertyValue('--compare-split'), '0.47');
 });
 
 test('comparison rejects escaping folder images and clears rendered DOM on hide', async t => {

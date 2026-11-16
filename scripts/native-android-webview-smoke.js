@@ -4,16 +4,32 @@ const fs = require('node:fs/promises');
 const { execFileSync } = require('node:child_process');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const errors = [];
+function adb(...args) { return execFileSync('adb', args, { timeout: 30000 }); }
+
+function checkSystemInsets() {
+  adb('shell', 'uiautomator', 'dump', '/sdcard/safe-window.xml');
+  const hierarchy = adb('shell', 'cat', '/sdcard/safe-window.xml').toString();
+  const display = hierarchy.match(/bounds="\[0,0\]\[(\d+),(\d+)\]"/);
+  const webView = hierarchy.match(/class="android\.webkit\.WebView"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
+  const navigation = hierarchy.match(/resource-id="android:id\/navigationBarBackground"[^>]*bounds="\[\d+,(\d+)\]/);
+  assert.ok(display && webView, 'Native WebView and display bounds missing');
+  const [left, top, right, bottom] = webView.slice(1).map(Number);
+  assert.ok(top > 0 && bottom < Number(display[2]), 'WebView overlaps Android system bars: ' + webView[0]);
+  if (navigation) assert.ok(bottom <= Number(navigation[1]), 'Footer extends behind the navigation bar');
+  return { left, top, right, bottom, displayWidth: Number(display[1]), displayHeight: Number(display[2]) };
+}
+
 async function main() {
-  const response = await fetch('http://127.0.0.1:9222/json');
+  const response = await fetch('http://127.0.0.1:9222/json', { signal: AbortSignal.timeout(10000) });
   assert.equal(response.ok, true, 'Android WebView DevTools endpoint unavailable');
   const targets = await response.json();
   const target = targets.find(item => item.type === 'page' && /tauri|localhost/.test(item.url)) || targets.find(item => item.type === 'page');
   assert.ok(target && target.webSocketDebuggerUrl, 'Android app page target missing');
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
-    socket.addEventListener('open', resolve, { once: true });
-    socket.addEventListener('error', reject, { once: true });
+    const timer = setTimeout(() => reject(new Error('Timed out connecting to the Android WebView')), 10000);
+    socket.addEventListener('open', () => { clearTimeout(timer); resolve(); }, { once: true });
+    socket.addEventListener('error', error => { clearTimeout(timer); reject(error); }, { once: true });
   });
   let nextId = 0;
   const pending = new Map();
@@ -30,7 +46,14 @@ async function main() {
   function send(method, params = {}) {
     const id = ++nextId;
     return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
+      const deadline = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error('Timed out in Android WebView ' + method));
+      }, 20000);
+      pending.set(id, {
+        resolve: value => { clearTimeout(deadline); resolve(value); },
+        reject: error => { clearTimeout(deadline); reject(error); }
+      });
       socket.send(JSON.stringify({ id, method, params }));
     });
   }
@@ -60,6 +83,7 @@ async function main() {
     await send('Runtime.enable');
     await send('Page.enable');
     await waitFor('Boolean(window.RVApp && RVApp.state.ready)', 'app ready');
+    const safeBounds = checkSystemInsets();
     assert.equal(await evaluate('Boolean(window.__TAURI_INTERNALS__)'), true);
     assert.equal(await evaluate('document.querySelectorAll(".toast[data-kind=error]").length'), 0, 'Native initialization error');
     await click('#btnEmptySample');
@@ -70,13 +94,15 @@ async function main() {
     await click('#btnEdit');
     assert.equal(await evaluate('RVApp.state.editPreview'), true, 'Edit in preview did not turn on');
     assert.equal(await evaluate('RVApp.state.tasksOk'), true, 'Persian task mapping is unavailable');
-    const boxState = await evaluate('(() => { const boxes=[...document.querySelectorAll("#preview input[type=checkbox]")]; const box=boxes.at(-1); return box ? {disabled:box.disabled,checked:box.checked} : null; })()');
+    const boxState = await evaluate('(() => { const boxes=[...document.querySelectorAll("#preview input[type=checkbox]")]; const box=boxes.at(-1); return box ? {disabled:box.disabled,checked:box.checked,name:box.getAttribute("aria-label"),size:box.getBoundingClientRect().width} : null; })()');
     assert.ok(boxState, 'Persian task checkbox missing');
     assert.equal(boxState.disabled, false, 'Persian task checkbox is disabled');
+    assert.match(boxState.name, /پشتیبانی از ورودی چینی و ژاپنی/);
+    assert.ok(boxState.size >= 32, 'Android checkbox touch target is too small');
     await evaluate('(() => { const boxes=[...document.querySelectorAll("#preview input[type=checkbox]")]; boxes.at(-1).click(); return true; })()');
     await waitFor('document.querySelector("#editor").value.includes("[x] پشتیبانی از ورودی چینی و ژاپنی")', 'Markdown task updated');
     assert.equal(await evaluate('RVApp.state.dirty'), true);
-    execFileSync('adb', ['shell', 'input', 'keyevent', '4']);
+    adb('shell', 'input', 'keyevent', '4');
     await waitFor('(() => { const e=document.querySelector("#confirmModal"); return Boolean(e && getComputedStyle(e).display!=="none" && getComputedStyle(e).visibility!=="hidden" && e.getBoundingClientRect().width); })()', 'Android Back confirmation');
     await click('#btnConfirmCancel');
     await waitFor('(() => { const e=document.querySelector("#confirmModal"); return !e || getComputedStyle(e).display==="none" || getComputedStyle(e).visibility==="hidden"; })()', 'confirmation cancelled');
@@ -84,10 +110,14 @@ async function main() {
     assert.equal(await evaluate('document.querySelector("#editor").value.includes("[x] پشتیبانی از ورودی چینی و ژاپنی")'), true);
     await evaluate('RVApp.setMode("preview")');
     await checkGeometry();
+    await click('#structuredFind');
+    await evaluate('(() => { const field = document.getElementById("findInput"); field.value = "پشتیبانی"; field.dispatchEvent(new Event("input")); })()');
+    await waitFor('document.querySelector("#findCount[role=status]").textContent.includes(" / ")', 'Markdown search results');
+    await click('#findClose');
     const screenshot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await fs.writeFile('native-test-results/android-webview.png', Buffer.from(screenshot.data, 'base64'));
-    execFileSync('adb', ['shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0']);
-    execFileSync('adb', ['shell', 'settings', 'put', 'system', 'user_rotation', '1']);
+    adb('shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0');
+    adb('shell', 'settings', 'put', 'system', 'user_rotation', '1');
     await sleep(1500);
     await checkGeometry();
     assert.equal(await evaluate('RVApp.state.dirty'), true, 'Rotation lost unsaved task change');
@@ -96,11 +126,12 @@ async function main() {
     assert.deepEqual(errors, []);
     await fs.writeFile('native-test-results/android-webview.json', JSON.stringify({
       native: true, ready: true, persianCheckbox: true, dirty: true, diagramChecks: diagramChecks,
-      fullWidthPreview: true, rotationPreservedEdit: true, androidBackConfirmCancel: true
+      fullWidthPreview: true, rotationPreservedEdit: true, androidBackConfirmCancel: true,
+      safeBounds, accessibleTask: true, markdownFind: true
     }));
   } finally {
-    execFileSync('adb', ['shell', 'settings', 'put', 'system', 'user_rotation', '0']);
-    execFileSync('adb', ['shell', 'settings', 'put', 'system', 'accelerometer_rotation', '1']);
+    adb('shell', 'settings', 'put', 'system', 'user_rotation', '0');
+    adb('shell', 'settings', 'put', 'system', 'accelerometer_rotation', '1');
     socket.close();
   }
 }

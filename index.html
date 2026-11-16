@@ -74,6 +74,9 @@
           <button class="menu-command" type="button" data-command="btnToc"><span data-i18n="toggle.toc">Table of contents</span></button>
           <button class="menu-command" type="button" id="btnVerticalTabs" data-shell-action="verticalTabs" aria-pressed="false"><span data-i18n="tabs.vertical">Vertical tabs</span></button>
           <button class="menu-command" type="button" data-command="btnCompare"><span data-i18n="compare.toggle">Two documents</span></button>
+          <button class="menu-command" type="button" data-shell-action="resizeLayout" data-i18n="layout.resize">Pane sizes…</button>
+          <button class="menu-command" type="button" data-shell-action="moveTabBack" data-i18n="tabs.moveBack">Move active tab earlier</button>
+          <button class="menu-command" type="button" data-shell-action="moveTabForward" data-i18n="tabs.moveForward">Move active tab later</button>
           <button class="menu-command" type="button" data-command="btnWrap"><span data-i18n="toggle.wrap">Wrap long lines</span></button>
           <button class="menu-command" type="button" data-command="btnSync"><span data-i18n="toggle.sync">Sync scrolling</span></button>
           <hr class="">
@@ -182,10 +185,11 @@
     <div class="menu-panel toolbar-overflow" id="toolbarOverflow" role="group" data-i18n-aria="toolbar.more" aria-label="More tools" hidden></div>
   </div>
   <div class="workspacebar" id="workspaceBar">
-    <div id="documentTabs" class="document-tabs" role="tablist" data-i18n-aria="tabs.label" aria-label="Documents"></div>
+    <div id="tabList" class="tab-list-semantic" role="tablist" data-i18n-aria="tabs.label" aria-label="Documents"></div>
+    <div id="documentTabs" class="document-tabs"></div>
     <button type="button" class="btn btn-icon new-tab" id="btnNewTab" data-i18n-title="tabs.new" data-i18n-aria="tabs.new"><i data-icon="plus" data-size="18"></i></button>
     <div class="workspace-actions" id="workspaceActions">
-    <button type="button" class="btn reading-focus" id="btnFocus" aria-pressed="false" aria-keyshortcuts="F8" data-i18n-aria="reading.focusShort" data-i18n-title="reading.focus"><i data-icon="eye" data-size="16"></i><span data-i18n="reading.focusShort">Focus</span></button>
+    <button type="button" class="btn reading-focus" id="btnFocus" aria-pressed="false" aria-keyshortcuts="F8" data-i18n-aria="reading.focusShort" data-i18n-title="reading.focus"><i data-icon="maximize" data-size="16"></i><span data-i18n="reading.focusShort">Focus</span></button>
     <details class="reading-options" id="readingOptions">
       <summary data-i18n-aria="reading.settings" data-i18n-title="reading.settings"><i data-icon="settings" data-size="16"></i></summary>
       <div class="reading-panel">
@@ -211,8 +215,13 @@
 
     <aside class="sidebar" id="sidebar"><div class="sidebar-head"><div class="toc-heading"><span class="sidebar-title" data-i18n="toc.title">Contents</span><div class="toc-actions"><button type="button" class="btn btn-icon" id="tocExpandAll" data-i18n-title="toc.expandAll" data-i18n-aria="toc.expandAll"><i data-icon="expandAll" data-size="15"></i></button><button type="button" class="btn btn-icon" id="tocCollapseAll" data-i18n-title="toc.collapseAll" data-i18n-aria="toc.collapseAll"><i data-icon="collapseAll" data-size="15"></i></button></div></div><div class="toc-filter"><i data-icon="search" data-size="14"></i><input type="search" id="tocFilter" spellcheck="false" autocomplete="off" data-i18n-placeholder="toc.filter" data-i18n-aria="toc.filter" placeholder="Filter headings"><button type="button" class="toc-clear" id="tocClear" hidden="" data-i18n-title="action.close"><i data-icon="close" data-size="12"></i></button></div></div><div class="toc-scroll"><nav class="toc" id="toc" aria-label="Table of contents"></nav><p class="toc-empty" id="tocEmpty" hidden="">No matching headings</p><section class="bookmark-section" id="bookmarkSection" hidden=""><h2 data-i18n="reading.bookmarks">Bookmarks</h2><div id="bookmarkList"></div></section></div></aside>
 
-  <div class="workspace-views" id="workspaceViews">
-  <main class="panes" id="panes" data-mode="split">
+  <main class="workspace-views" id="workspaceViews">
+  <h1 class="sr-only" data-i18n="app.name">README Viewer</h1>
+  <div class="comparison-pages" role="group" data-i18n-aria="compare.toggle">
+    <button class="seg" type="button" data-compare-page="main" aria-controls="panes" aria-pressed="true" data-i18n="layout.main">Main document</button>
+    <button class="seg" type="button" data-compare-page="second" aria-controls="comparisonPane" aria-pressed="false" data-i18n="compare.label">Second document</button>
+  </div>
+  <div class="panes" id="panes" data-mode="split" role="tabpanel">
 
     <section class="pane pane-editor" id="paneEditor">
       <div class="pane-head">
@@ -234,7 +243,8 @@
     </section>
 
     <div class="resizer" id="resizer" role="separator" aria-orientation="vertical" tabindex="0"
-         data-i18n-title="resizer.hint" aria-label="Resize panes"></div>
+         aria-controls="paneEditor" aria-valuemin="15" aria-valuemax="85" aria-valuenow="50"
+         data-i18n-aria="layout.source" data-i18n-title="resizer.hint" aria-label="Resize source pane"></div>
 
     <section class="pane pane-preview" id="panePreview">
       <div class="pane-head">
@@ -249,12 +259,13 @@
         <i data-icon="search" data-size="14"></i>
         <input type="search" id="findInput" spellcheck="false" autocomplete="off"
                data-i18n-placeholder="find.placeholder" data-i18n-aria="find.placeholder" placeholder="Find in document">
-        <span class="find-count sb-mono" id="findCount"></span>
+        <span class="find-count sb-mono" id="findCount" role="status" aria-atomic="true"></span>
         <button type="button" class="btn btn-icon" id="findPrev" data-i18n-title="find.prev"><i data-icon="back" data-size="14"></i></button>
         <button type="button" class="btn btn-icon" id="findNext" data-i18n-title="find.next"><i data-icon="forward" data-size="14"></i></button>
         <button type="button" class="btn btn-icon" id="findClose" data-i18n-title="action.close"><i data-icon="close" data-size="14"></i></button>
       </div>
       <div class="preview" id="previewScroll" tabindex="0">
+        <p class="render-status" id="renderStatus" role="status" data-i18n="preview.loading" hidden>Preparing preview…</p>
         <article class="markdown-body" id="preview" dir="auto"></article>
 
         <div class="empty-state" id="emptyState">
@@ -275,8 +286,8 @@
       </div>
     </section>
 
-  </main>
-  <div id="compareDivider" class="compare-divider" role="separator" tabindex="0" aria-orientation="vertical" data-i18n-aria="compare.resize" aria-label="Resize document views" hidden></div>
+  </div>
+  <div id="compareDivider" class="compare-divider" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="panes" aria-valuemin="30" aria-valuemax="70" aria-valuenow="50" data-i18n-aria="compare.resize" aria-label="Resize document views" hidden></div>
   <section id="comparisonPane" class="comparison-pane" data-i18n-aria="compare.label" aria-label="Second document" hidden>
     <div class="comparison-head">
       <label class="sr-only" for="comparisonSelect" data-i18n="compare.choose">Choose second document</label>
@@ -287,10 +298,10 @@
     <div class="comparison-note" data-i18n="compare.readOnly">Read only · Open in main pane to edit</div>
     <div class="preview comparison-scroll" id="comparisonScroll" tabindex="0"><article class="markdown-body" id="comparisonPreview" dir="auto"></article></div>
   </section>
-  </div>
+  </main>
 </div>
 
-<footer class="statusbar">
+<footer class="statusbar" tabindex="0" aria-label="Document status" data-i18n-aria="status.label">
   <span class="sb-item" id="statusFile">Ready</span>
   <span class="sb-sep" aria-hidden="true"></span>
   <span class="sb-item sb-mono" id="statusPos">Ln 1, Col 1</span>
@@ -310,6 +321,25 @@
 <button type="button" class="btn focus-exit" id="btnExitReadingFocus" data-i18n="reading.exitFocus">Exit reading mode (Esc)</button>
 
 <input type="file" id="fileInput" hidden>
+
+<dialog id="paneSizes" class="preview-edit-dialog" aria-labelledby="paneSizesTitle">
+  <h2 id="paneSizesTitle" data-i18n="layout.sizes">Pane sizes</h2>
+  <div class="pane-size-options">
+    <label for="paneSizeTarget" data-i18n="layout.pane">Pane</label>
+    <select id="paneSizeTarget">
+      <option value="resizer" data-i18n="layout.source">Source pane</option>
+      <option value="compareDivider" data-i18n="layout.main">Main document</option>
+      <option value="tabRailResizer" data-i18n="tabs.vertical">Vertical tabs</option>
+    </select>
+    <output id="paneSizeValue" for="paneSizeTarget" aria-live="polite"></output>
+  </div>
+  <form class="modal-foot pane-size-actions" method="dialog">
+    <button class="btn" type="button" data-pane-step="-1" data-i18n="layout.smaller">Smaller</button>
+    <button class="btn" type="button" data-pane-step="1" data-i18n="layout.larger">Larger</button>
+    <button class="btn" type="button" data-pane-step="0" data-i18n="layout.reset">Reset</button>
+    <button class="btn btn-primary" data-i18n="action.close">Close</button>
+  </form>
+</dialog>
 
 <div id="previewFormatPanel" class="menu-panel preview-format-panel" role="dialog" aria-labelledby="previewFormatTitle" hidden>
   <form id="previewFormatForm">
@@ -412,11 +442,11 @@
 
 <div class="appearance-scrim" id="appearanceScrim" hidden></div>
 <section class="appearance-panel" id="appearancePanel" role="dialog" aria-modal="true" aria-labelledby="appearanceTitle" hidden>
-  <header class="appearance-head">
+  <div class="appearance-head">
     <span class="appearance-mark"><i data-icon="appearance" data-size="21"></i></span>
     <div><h2 id="appearanceTitle" data-i18n="appearance.heading">Appearance</h2><p data-i18n="appearance.live">Preview changes in your workspace.</p></div>
     <button type="button" class="btn btn-icon" id="appearanceClose" data-i18n-aria="action.close" data-i18n-title="action.close"><i data-icon="close" data-size="18"></i></button>
-  </header>
+  </div>
   <div class="appearance-body">
     <div class="appearance-field"><label for="appearanceTheme" data-i18n="theme.label">Theme</label><select id="appearanceTheme"><option value="auto" data-i18n="theme.system">System</option><option value="light" data-i18n="theme.light">Light</option><option value="dark" data-i18n="theme.dark">Dark</option></select></div>
     <fieldset class="appearance-section"><legend data-i18n="appearance.accent">Accent color</legend><div class="accent-presets" id="accentPresets"></div><div class="accent-custom"><label for="accentPicker" class="sr-only" data-i18n="appearance.custom">Custom color</label><input type="color" id="accentPicker" value="#0969da"><label for="accentHex" class="sr-only" data-i18n="appearance.hex">Hex color</label><input type="text" id="accentHex" dir="ltr" spellcheck="false" maxlength="7" value="#0969DA" aria-describedby="accentError accentHint"></div><p class="appearance-error" id="accentError" aria-live="polite" hidden data-i18n="appearance.invalid">Use a hex color such as #0969DA.</p><p id="accentHint" data-i18n="appearance.contrast">Your color is adapted for readable controls in each theme.</p><label class="appearance-check"><input type="checkbox" id="appearanceStandardLinks"><span data-i18n="appearance.links">Keep standard blue document links</span></label></fieldset>
@@ -439,7 +469,7 @@
     <p id="appearanceStorageError" class="appearance-error" role="alert" hidden data-i18n="appearance.storageError">Settings could not be saved. You can retry or cancel.</p>
   </div>
   <div class="font-suggestions" id="fontSuggestions" role="listbox" aria-label="Font suggestions" data-i18n-aria="fonts.suggestions" hidden></div>
-  <footer class="appearance-foot"><button type="button" class="btn" id="appearanceCancel" data-i18n="action.cancel">Cancel</button><button type="button" class="btn btn-primary" id="appearanceApply" data-i18n="appearance.apply">Apply</button></footer>
+  <div class="appearance-foot"><button type="button" class="btn" id="appearanceCancel" data-i18n="action.cancel">Cancel</button><button type="button" class="btn btn-primary" id="appearanceApply" data-i18n="appearance.apply">Apply</button></div>
 </section>
 
 <div class="drop-hint" id="dropHint">

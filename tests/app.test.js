@@ -436,6 +436,13 @@ test('awkward documents render without errors', async function (t) {
   }
 });
 
+async function waitForMarkdownPreview() {
+  const preview = doc.getElementById('preview');
+  const deadline = Date.now() + 15000;
+  while (preview.hasAttribute('aria-busy') && Date.now() < deadline) await harness.settle(25);
+  assert.equal(preview.hasAttribute('aria-busy'), false, 'Markdown preview finished');
+}
+
 test('a large document stays in one piece', async function (t) {
   if (skipIfNoDom(t)) return;
   const lines = ['# Big document', ''];
@@ -445,7 +452,10 @@ test('a large document stays in one piece', async function (t) {
   }
   const src = lines.join('\n');
   const started = Date.now();
-  await open(src, 'big.md');
+  const opening = open(src, 'big.md');
+  assert.equal(doc.getElementById('preview').getAttribute('aria-busy'), 'true');
+  await opening;
+  await waitForMarkdownPreview();
   const elapsed = Date.now() - started;
 
   assert.equal(RVApp.state.tasks.length, 500);
@@ -456,7 +466,7 @@ test('a large document stays in one piece', async function (t) {
 
   // Editing the very last checkbox must still hit the right marker.
   RVApp.setEditPreview(true);
-  await harness.settle(40);
+  await waitForMarkdownPreview();
   const boxes = taskBoxes();
   const before = editorValue();
   harness.click(win, boxes[499]);

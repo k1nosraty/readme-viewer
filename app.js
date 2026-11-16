@@ -115,7 +115,9 @@
     activeTab.source = el.editor.value;
     activeTab.editor = el.editor;
     activeTab.selection = [el.editor.selectionStart, el.editor.selectionEnd, el.editor.selectionDirection];
-    activeTab.scroll = [el.editor.scrollTop, el.editor.scrollLeft, el.previewScroll.scrollTop];
+    var previewTop = markdownRender && markdownRender.restoreTop;
+    activeTab.scroll = [el.editor.scrollTop, el.editor.scrollLeft,
+      previewTop == null ? el.previewScroll.scrollTop : previewTop];
     activeTab.nav = nav;
     activeTab.find = { query: el.findInput.value, hidden: el.findBar.hidden, index: find.index };
   }
@@ -293,19 +295,23 @@
   }
   function applyTabLayout() {
     var bar = $('documentTabs'), add = $('btnNewTab');
+    var tabList = $('tabList'), all = $('btnAllTabs');
     var titlebar = $('titlebarTabs'), side = $('verticalTabs'), workspace = $('workspaceBar');
     var inTitlebar = !state.verticalTabs && document.documentElement.hasAttribute('data-desktop-titlebar');
     var destination = state.verticalTabs ? side : inTitlebar ? titlebar : workspace;
     var focus = document.activeElement;
     if (bar.parentNode !== destination) {
       hideTabPreview();
-      var before = inTitlebar ? $('btnAllTabs') : destination === workspace ? $('workspaceActions') : null;
+      var before = destination === workspace ? $('workspaceActions') : null;
+      destination.insertBefore(tabList, before);
       destination.insertBefore(bar, before);
       destination.insertBefore(add, state.verticalTabs ? bar : before);
+      destination.insertBefore(all, before);
     }
     side.hidden = !state.verticalTabs;
     titlebar.hidden = !inTitlebar;
-    bar.setAttribute('aria-orientation', state.verticalTabs ? 'vertical' : 'horizontal');
+    bar.dataset.orientation = state.verticalTabs ? 'vertical' : 'horizontal';
+    tabList.setAttribute('aria-orientation', bar.dataset.orientation);
     $('btnVerticalTabs').setAttribute('aria-pressed', String(state.verticalTabs));
     var toggle = $('btnTabLayout');
     var label = state.verticalTabs ? 'tabs.switchHorizontal' : 'tabs.switchVertical';
@@ -313,7 +319,7 @@
     toggle.setAttribute('data-i18n-title', label);
     toggle.title = t(label);
     toggle.innerHTML = Icons.svg(state.verticalTabs ? 'tabsHorizontal' : 'tabsVertical', 16);
-    if (bar.contains(focus) || focus === add) focus.focus({ preventScroll: true });
+    if (bar.contains(focus) || focus === add || focus === all) focus.focus({ preventScroll: true });
     scrollTabIntoView(bar);
     positionTabRename();
     placeWorkspaceActions();
@@ -332,7 +338,7 @@
     state.verticalTabs = !state.verticalTabs;
     applyTabLayout();
     saveSettings();
-    scheduleRender(null, 0);
+    schedulePreviewMeasurement();
   }
   function wireTabRailResizer() {
     var rail = $('verticalTabs'), handle = $('tabRailResizer'), drag = null;
@@ -354,7 +360,16 @@
       applyWidth();
       handle.setAttribute('aria-valuenow', String(state.verticalTabWidth));
     }
-    function saveWidth() { saveSettings(); scheduleRender(null, 0); }
+    function saveWidth() { saveSettings(); schedulePreviewMeasurement(); }
+    paneSizeSteps[handle.id] = function (step) {
+      if (step) resize((rail.offsetWidth || Number(handle.getAttribute('aria-valuenow'))) + step * 12);
+      else {
+        state.verticalTabWidth = null;
+        el.layout.style.removeProperty('--tab-rail-size');
+        updateRange();
+      }
+      saveWidth();
+    };
     function direction() { return document.documentElement.dir === 'rtl' ? -1 : 1; }
     applyWidth();
     if (typeof ResizeObserver === 'function') new ResizeObserver(updateRange).observe(rail);
@@ -392,6 +407,7 @@
     item.setAttribute('data-tab-id', tab.id);
     var button = document.createElement('button');
     button.type = 'button'; button.setAttribute('role', 'tab');
+    button.id = 'document-tab-' + tab.id;
     button.setAttribute('dir', 'auto');
     button.setAttribute('aria-controls', 'panes');
     button.setAttribute('aria-keyshortcuts', 'F2');
@@ -479,6 +495,9 @@
       rename.setAttribute('aria-label', rename.title + ': ' + label);
       close.setAttribute('aria-label', tabText('tabs.close', 'Close tab') + ': ' + label);
     });
+    // The visual rail includes separate Rename and Close buttons. Only the tab buttons belong to the tablist.
+    $('tabList').setAttribute('aria-owns', tabs.map(function (tab) { return 'document-tab-' + tab.id; }).join(' '));
+    if (activeTab) el.panes.setAttribute('aria-labelledby', 'document-tab-' + activeTab.id);
     scrollTabIntoView(bar, scrollId);
     if (focusId && !bar.contains(focused)) {
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
@@ -492,6 +511,12 @@
     tabs.splice(to, 0, tab);
     renderTabs(tab.id);
     if (RV.Reading) RV.Reading.workspaceChanged();
+  }
+  function moveActiveTab(step) {
+    var index = tabs.indexOf(activeTab);
+    moveTab(index, index + step);
+    var tab = $('documentTabs').querySelector('[aria-selected="true"]');
+    if (tab) tab.focus({ preventScroll: true });
   }
   function wireTabReordering(bar) {
     if (!bar.setPointerCapture) return;
@@ -595,7 +620,8 @@
     render({ immediate: true });
     el.editor.setSelectionRange(tab.selection[0], tab.selection[1], tab.selection[2]);
     el.editor.scrollTop = tab.scroll[0]; el.editor.scrollLeft = tab.scroll[1];
-    el.previewScroll.scrollTop = tab.scroll[2];
+    if (markdownRender) markdownRender.restoreTop = tab.scroll[2];
+    else el.previewScroll.scrollTop = tab.scroll[2];
     updateNavButtons(); updateChrome(); trackModified();
     return true;
   }
@@ -721,12 +747,28 @@
   function showComparison(id) {
     var other = tabs.find(function (tab) { return tab !== activeTab && (!id || tab.id === id); });
     if (!other) return false;
+    if (!comparison.visible) selectComparisonPage('main');
     comparison.visible = true; comparison.id = other.id; comparison.signature = null;
     refreshComparison(); return true;
   }
   function hideComparison() {
+    var focusedInComparison = $('comparisonPane').contains(document.activeElement);
     comparison.visible = false; comparison.id = null;
     refreshComparison();
+    if (focusedInComparison) $('btnCompare').focus({ preventScroll: true });
+  }
+  function selectComparisonPage(page) {
+    $('workspaceViews').dataset.comparePage = page;
+    eachNode('[data-compare-page]', function (button) {
+      if (button.tagName === 'BUTTON') button.setAttribute('aria-pressed', String(button.dataset.comparePage === page));
+    }, $('workspaceViews'));
+    measureParts();
+    markActiveToc();
+  }
+  function compareLayout() {
+    if (window.innerWidth <= 599 && window.innerHeight <= 700) return 'pages';
+    if (isNarrowWorkspace() && !(window.innerWidth >= 600 && window.innerHeight <= 500)) return 'stack';
+    return 'columns';
   }
   function comparisonFolderPath(folder, href) {
     if (!folder || /^[a-z][a-z\d+.-]*:|^\/\/|^#/i.test(href)) return null;
@@ -750,12 +792,17 @@
     if (comparison.visible && !comparisonTab()) comparison.id = other.length ? other[0].id : null;
     if (!comparison.id) comparison.visible = false;
     pane.hidden = !comparison.visible;
-    if (divider) {
-      divider.hidden = !comparison.visible;
-      divider.setAttribute('aria-orientation', window.innerWidth <= 900 ? 'horizontal' : 'vertical');
+    var layout = compareLayout();
+    if (comparison.visible && layout === 'pages' && views.dataset.compareLayout !== layout) {
+      selectComparisonPage(pane.contains(document.activeElement) ? 'second' : 'main');
     }
+    views.dataset.compareLayout = layout;
+    divider.hidden = !comparison.visible || layout === 'pages';
+    divider.setAttribute('aria-orientation', layout === 'stack' ? 'horizontal' : 'vertical');
+    divider.setAttribute('aria-valuenow', String(Math.round(comparison.split)));
+    applySplitOrientation();
     views.setAttribute('data-compare', comparison.visible ? 'true' : 'false');
-    views.style.setProperty('--compare-split', comparison.split + '%');
+    views.style.setProperty('--compare-split', String(comparison.split / 100));
     var select = $('comparisonSelect');
     if (select && comparison.visible) {
       var options = other.map(function (tab) {
@@ -867,8 +914,16 @@
     }
     if (toggle) toggle.addEventListener('click', function () { if (comparison.visible) hideComparison(); else showComparison(); });
     if (select) select.addEventListener('change', function () { showComparison(Number(select.value)); });
-    if (activate) activate.addEventListener('click', function () { if (comparison.id) switchTab(comparison.id); });
+    if (activate) activate.addEventListener('click', function () {
+      if (comparison.id && switchTab(comparison.id) && compareLayout() === 'pages') {
+        selectComparisonPage('main');
+        $('workspaceViews').querySelector('button[data-compare-page="main"]').focus();
+      }
+    });
     if (close) close.addEventListener('click', hideComparison);
+    eachNode('button[data-compare-page]', function (button) {
+      button.addEventListener('click', function () { selectComparisonPage(button.dataset.comparePage); });
+    });
     if (preview) preview.addEventListener('click', function (event) {
       var link = event.target.closest && event.target.closest('a[href]');
       if (!link) return;
@@ -893,31 +948,11 @@
         event.preventDefault(); if (switchTab(tab.id)) openFolderLink(raw);
       }
     });
-    if (!divider) return;
-    var dragging = false;
     function resize(value) {
       comparison.split = clamp(value, 30, 70);
-      divider.setAttribute('aria-valuenow', String(Math.round(comparison.split)));
       refreshComparison();
     }
-    divider.addEventListener('pointerdown', function (event) {
-      dragging = true; event.preventDefault();
-      if (divider.setPointerCapture) { try { divider.setPointerCapture(event.pointerId); } catch (err) { void 0; } }
-    });
-    divider.addEventListener('pointermove', function (event) {
-      if (!dragging) return;
-      var rect = $('workspaceViews').getBoundingClientRect();
-      if (window.innerWidth <= 900) { if (rect.height) resize((event.clientY - rect.top) / rect.height * 100); }
-      else if (rect.width) resize((event.clientX - rect.left) / rect.width * 100);
-    });
-    ['pointerup', 'pointercancel'].forEach(function (type) {
-      divider.addEventListener(type, function () { dragging = false; measureParts(); });
-    });
-    divider.addEventListener('keydown', function (event) {
-      var stacked = window.innerWidth <= 900;
-      var delta = event.key === (stacked ? 'ArrowUp' : 'ArrowLeft') ? -3 : event.key === (stacked ? 'ArrowDown' : 'ArrowRight') ? 3 : 0;
-      if (!delta) return; event.preventDefault(); resize(comparison.split + delta); measureParts();
-    });
+    wirePaneDivider(divider, $('workspaceViews'), 30, 70, function () { return comparison.split; }, resize, measureParts);
   }
 
   var linkMenu = { node: null, link: null, origin: null, href: '', press: null, suppress: 0 };
@@ -1769,7 +1804,7 @@
 
   async function exportHtml() {
     if (!state.hasDocument) return;
-    render({ immediate: true });
+    render({ sync: true });
     var structured = !!structuredPreview;
     if (structuredPreview && structuredPreview.complete) structuredPreview.complete();
     var src = el.editor.value;
@@ -2024,12 +2059,18 @@
     });
     var focused = el.preview.contains(document.activeElement) ? document.activeElement : null;
     var cursor = el.preview.firstChild;
-    blocks.forEach(function (block) {
-      block.nodes.forEach(function (node) {
-        if (node !== cursor) el.preview.insertBefore(node, cursor);
-        cursor = node.nextSibling;
+    if (!cursor) {
+      var fragment = document.createDocumentFragment();
+      blocks.forEach(function (block) { block.nodes.forEach(function (node) { fragment.appendChild(node); }); });
+      el.preview.appendChild(fragment);
+    } else {
+      blocks.forEach(function (block) {
+        block.nodes.forEach(function (node) {
+          if (node !== cursor) el.preview.insertBefore(node, cursor);
+          cursor = node.nextSibling;
+        });
       });
-    });
+    }
     if (focused && focused.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
     folderUrls = folderUrls.filter(function (item) {
       if (item.img.isConnected) return true;
@@ -2050,7 +2091,8 @@
     button.className = 'btn preview-edit-control';
     button.title = range.label;
     button.setAttribute('aria-label', range.label);
-    button.textContent = t('previewEdit.short');
+    if (range.type) button.textContent = t('previewEdit.short');
+    else button.innerHTML = Icons.svg('pencil', 14);
     parent.appendChild(button);
     previewEditTargets.set(button, range);
     return button;
@@ -2249,11 +2291,34 @@
     if (key !== undefined && activeTab.structuredFolds) activeTab.structuredFolds.set(key, true);
   }
 
+  var markdownRender = null;
+  function clearMarkdownRender() {
+    if (!markdownRender) return;
+    cancelAnimationFrame(markdownRender.frame);
+    markdownRender = null;
+    el.preview.removeAttribute('aria-busy');
+    $('renderStatus').hidden = true;
+  }
+
+  function previewKey() {
+    return JSON.stringify([state.documentId, state.format, state.baseUrl, I18n.getLocale(),
+      state.editPreview, state.dirMode]);
+  }
+
   function render(opts) {
     opts = opts || {};
+    var src = el.editor.value;
+    var key = previewKey();
+    if (markdownRender && !opts.sync && markdownRender.src === src && markdownRender.key === key &&
+        markdownRender.folder === state.folder) {
+      if (opts.focusTask !== undefined) markdownRender.opts.focusTask = opts.focusTask;
+      return;
+    }
+    var previous = markdownRender && markdownRender.key === key ? markdownRender : null;
+    clearMarkdownRender();
     var structured = state.hasDocument && state.format !== 'markdown';
     el.preview.classList.toggle('structured-preview', structured);
-    $('structuredFind').hidden = !structured;
+    $('structuredFind').hidden = !state.hasDocument;
     if (structured) { renderStructured(el.editor.value); return; }
     clearVisual();
     structuredPreview = inlineCodeView = null;
@@ -2272,126 +2337,185 @@
       return;
     }
 
-    var src = el.editor.value;
-    var t0 = now();
-    md.reset();
-
-    var tokens;
-    try {
-      tokens = md.lexer(src);
-    } catch (err) {
-      var reason = (err && err.message) || String(err);
-      el.preview.textContent = t('error.parse', { reason: reason });
-      previewBlocks = [];
-      state.anchors = [];
-      state.toc = [];
-      state.tasks = [];
-      state.tasksOk = true;
-      state.taskReason = '';
-      renderToc();
-      applyTaskMode();
-      updateTaskStats();
-      updateStats(src, now() - t0);
-      toast(t('error.parse', { reason: reason }), 'error');
-      return;
+    var job = { src: src, key: key, folder: state.folder, opts: opts, frame: 0 };
+    if (previous) {
+      job.restoreTop = previous.restoreTop;
+      job.fragment = previous.fragment;
+      job.findScroll = previous.findScroll;
     }
+    var staged = !opts.sync && src.length >= 12000;
+    if (staged) {
+      markdownRender = job;
+      el.preview.setAttribute('aria-busy', 'true');
+      $('renderStatus').hidden = false;
+      if (previewContext !== key) {
+        reconcileBlocks([]);
+        previewBlocks = [];
+        state.anchors = []; state.toc = []; state.tasks = [];
+        renderToc(); updateTaskStats();
+      }
+      queue(begin);
+    } else begin();
 
-    var located = locateTokens(tokens, src);
-    var context = JSON.stringify([state.documentId, state.baseUrl, I18n.getLocale(), nativeAvailable(), state.editPreview]);
-    var reusable = new Map();
-    if (context === previewContext && previewFolder === state.folder && !find.hits.length) {
-      previewBlocks.forEach(function (block) {
-        if (!reusable.has(block.html)) reusable.set(block.html, []);
-        reusable.get(block.html).push(block);
+    function queue(next) {
+      job.frame = requestAnimationFrame(function () {
+        if (markdownRender !== job) return;
+        if (job.key !== previewKey() || job.src !== el.editor.value || job.folder !== state.folder) {
+          clearMarkdownRender();
+          return;
+        }
+        next();
       });
     }
-    var blocks = [];
-    var parts = [];
-    var toc = [];
 
-    for (var i = 0; i < tokens.length; i++) {
-      var token = tokens[i];
-      var html;
+    function begin() {
+      var t0 = now();
+      md.reset();
+
+      var tokens;
       try {
-        html = md.renderBlock(token, tokens.links);
+        tokens = md.lexer(src);
       } catch (err) {
-        html = errorBlock(err);
+        if (staged) clearMarkdownRender();
+        var reason = (err && err.message) || String(err);
+        el.preview.textContent = t('error.parse', { reason: reason });
+        previewBlocks = [];
+        state.anchors = [];
+        state.toc = [];
+        state.tasks = [];
+        state.tasksOk = true;
+        state.taskReason = '';
+        renderToc();
+        applyTaskMode();
+        updateTaskStats();
+        updateStats(src, now() - t0);
+        toast(t('error.parse', { reason: reason }), 'error');
+        return;
       }
-      if (!html) continue;
 
-      var matches = reusable.get(html);
-      var block = matches && matches.length ? matches.shift() : null;
-      if (!block) {
-        var holder = document.createElement('div');
-        holder.innerHTML = html;
-        if (!holder.firstElementChild) continue;
-        block = { html: html, first: holder.firstElementChild, nodes: Array.prototype.slice.call(holder.childNodes) };
-        enhanceLinks(holder); hl.all(holder);
-      }
-      var first = block.first;
-      if (state.editPreview && located[i].exact) {
-        var begin = located[i].start, raw = token.raw.replace(/\n+$/, '');
-        var range = { start: begin, end: begin + raw.length, source: src, documentId: state.documentId, label: t('previewEdit.block') };
-        if (!block.editButton) {
-          var tools = document.createElement('div');
-          tools.className = 'preview-edit-tools';
-          block.editButton = previewEditButton(tools, range);
-          block.nodes.unshift(tools);
-        } else previewEditTargets.set(block.editButton, range);
-      } else if (block.editButton) {
-        block.nodes.shift();
-        block.editButton = null;
-      }
-      blocks.push(block);
-
-      var line = located[i].line + 1;
-      var part = {
-        el: first,
-        line: line,
-        endLine: line + Tasks.countNewlines(token.raw || ''),
-        token: token,
-        top: 0,
-        height: 1
-      };
-      parts.push(part);
-      if (token.type === 'heading') {
-        toc.push({
-          id: first.id,
-          depth: token.depth,
-          text: md.plainText(token.tokens),
-          line: line,
-          part: part
+      var located = locateTokens(tokens, src);
+      var context = key;
+      var reusable = new Map();
+      if (context === previewContext && previewFolder === state.folder && !find.hits.length) {
+        previewBlocks.forEach(function (block) {
+          if (!reusable.has(block.html)) reusable.set(block.html, []);
+          reusable.get(block.html).push(block);
         });
       }
-    }
+      var blocks = [];
+      var parts = [];
+      var toc = [];
 
-    reconcileBlocks(blocks);
-    previewBlocks = blocks; previewContext = context; previewFolder = state.folder;
+      var cursor = 0, paintedFirstBlocks = Boolean(el.preview.firstChild);
+      if (staged) queue(build);
+      else build();
 
-    applyDirection(parts, src);
-    if (!el.findBar.hidden && el.findInput.value) runFind(true);
+      function build() {
+        var deadline = performance.now() + 9;
+        do {
+          buildBlock(cursor++);
+        } while (cursor < tokens.length && (!staged || performance.now() < deadline));
+        if (staged && !paintedFirstBlocks && blocks.length && cursor < tokens.length) {
+          applyDirection(parts, src);
+          reconcileBlocks(blocks);
+          paintedFirstBlocks = true;
+        }
+        if (staged) queue(cursor < tokens.length ? build : mount);
+        else mount();
+      }
+      function buildBlock(i) {
+        var token = tokens[i];
+        if (!token) return;
+        var html;
+        try {
+          html = md.renderBlock(token, tokens.links);
+        } catch (err) {
+          html = errorBlock(err);
+        }
+        if (!html) return;
 
-    state.anchors = parts;
-    state.toc = toc;
-    measureParts();
+        var matches = reusable.get(html);
+        var block = matches && matches.length ? matches.shift() : null;
+        if (!block) {
+          var holder = document.createElement('div');
+          holder.innerHTML = html;
+          if (!holder.firstElementChild) return;
+          block = { html: html, first: holder.firstElementChild, nodes: Array.prototype.slice.call(holder.childNodes) };
+          enhanceLinks(holder); hl.all(holder);
+        }
+        var first = block.first;
+        if (state.editPreview && located[i].exact) {
+          var begin = located[i].start, raw = token.raw.replace(/\n+$/, '');
+          var range = { start: begin, end: begin + raw.length, source: src, documentId: state.documentId, label: t('previewEdit.block') };
+          if (!block.editButton) {
+            var tools = document.createElement('div');
+            tools.className = 'preview-edit-tools';
+            block.editButton = previewEditButton(tools, range);
+            block.nodes.unshift(tools);
+          } else previewEditTargets.set(block.editButton, range);
+        } else if (block.editButton) {
+          block.nodes.shift();
+          block.editButton = null;
+        }
+        blocks.push(block);
 
-    bindTasks(tokens, src);
+        var line = located[i].line + 1;
+        var part = {
+          el: first,
+          line: line,
+          endLine: line + Tasks.countNewlines(token.raw || ''),
+          token: token,
+          top: 0,
+          height: 1
+        };
+        parts.push(part);
+        if (token.type === 'heading') {
+          toc.push({
+            id: first.id,
+            depth: token.depth,
+            text: md.plainText(token.tokens),
+            line: line,
+            part: part
+          });
+        }
+      }
 
-    state.lines = src ? src.split('\n').length : 1;
-    buildGutter();
-    renderToc();
-    markActiveToc();
-    updateStats(src, now() - t0);
+      function mount() {
+        reconcileBlocks(blocks);
+        applyDirection(parts, src);
+        previewBlocks = blocks; previewContext = context; previewFolder = state.folder;
+        if (staged) queue(finish);
+        else finish();
+      }
 
-    if (opts.focusTask !== undefined && opts.focusTask !== null) {
-      var box = el.preview.querySelector('input[data-rv-task="' + opts.focusTask + '"]');
-      if (box && !box.disabled && typeof box.focus === 'function') {
-        try { box.focus({ preventScroll: true }); } catch (e) { box.focus(); }
+      function finish() {
+        if (staged) clearMarkdownRender();
+        state.anchors = parts;
+        state.toc = toc;
+        measureParts();
+
+        bindTasks(tokens, src);
+
+        state.lines = src ? src.split('\n').length : 1;
+        buildGutter();
+        renderToc();
+        markActiveToc();
+        updateStats(src, now() - t0);
+
+        if (opts.focusTask !== undefined && opts.focusTask !== null) {
+          var box = el.preview.querySelector('input[data-rv-task="' + opts.focusTask + '"]');
+          if (box && !box.disabled && typeof box.focus === 'function') {
+            try { box.focus({ preventScroll: true }); } catch (e) { box.focus(); }
+          }
+        }
+        markGutterCursor();
+        if (RV.Reading) RV.Reading.refresh();
+        if (RV.Diagrams) RV.Diagrams.render(el.preview);
+        if (job.restoreTop !== undefined) el.previewScroll.scrollTop = job.restoreTop;
+        if (!el.findBar.hidden && el.findInput.value) runFind(!job.findScroll);
+        if (job.fragment) jumpToFragment(job.fragment);
       }
     }
-    markGutterCursor();
-    if (RV.Reading) RV.Reading.refresh();
-    if (RV.Diagrams) RV.Diagrams.render(el.preview);
   }
 
   document.addEventListener('rv:diagram-layout', function () { measureParts(); markActiveToc(); });
@@ -2745,6 +2869,7 @@
 
   /** Follow an in-document link; GitHub prefixes heading ids with "user-content-". */
   function jumpToFragment(fragment) {
+    if (markdownRender) { markdownRender.fragment = fragment; return true; }
     var id = fragment;
     try { id = decodeURIComponent(fragment); } catch (e) { void 0; }
     var node = byId(id) || byId('user-content-' + id) || byId('user-content-' + id.toLowerCase());
@@ -2868,11 +2993,16 @@
     buildGutter();
   }
 
+  function schedulePreviewMeasurement() {
+    requestAnimationFrame(function () { measureParts(); markActiveToc(); });
+  }
+
   function applyMode() {
     document.body.setAttribute('data-mode', state.mode);
     el.panes.setAttribute('data-mode', state.mode);
     // Anchors measured while a pane was hidden are meaningless: re-measure.
-    scheduleRender(null, 0);
+    buildGutter();
+    schedulePreviewMeasurement();
   }
 
   function applySidebar() {
@@ -2883,8 +3013,21 @@
     markActiveToc();
   }
 
+  function closeMobileSidebar() {
+    if (!isNarrowWorkspace() || !mobileSidebar) return;
+    mobileSidebar = false;
+    applySidebar();
+  }
+
   function applySplit() {
-    document.documentElement.style.setProperty('--split', state.split.toFixed(2) + '%');
+    document.documentElement.style.setProperty('--split', String(state.split / 100));
+    el.resizer.setAttribute('aria-valuenow', String(Math.round(state.split)));
+  }
+  function applySplitOrientation() {
+    var sideBySideComparison = comparison.visible && isNarrowWorkspace() && compareLayout() === 'columns';
+    var stacked = isNarrowWorkspace() && !sideBySideComparison;
+    el.panes.dataset.axis = stacked ? 'rows' : 'columns';
+    el.resizer.setAttribute('aria-orientation', stacked ? 'horizontal' : 'vertical');
   }
 
   function setDir(mode) {
@@ -3052,6 +3195,12 @@
       updateChrome();
       saveSettings();
     });
+    document.addEventListener('focusin', function (event) {
+      if (!el.sidebar.contains(event.target) && event.target !== el.btnToc) closeMobileSidebar();
+    });
+    document.addEventListener('pointerdown', function (event) {
+      if (!el.sidebar.contains(event.target) && !el.btnToc.contains(event.target)) closeMobileSidebar();
+    });
 
     el.btnEdit.addEventListener('click', function () { setEditPreview(!state.editPreview); });
 
@@ -3094,13 +3243,16 @@
     var target = document.activeElement;
     if (on) {
       if (RV.Shell) target = RV.Shell.popupFocusTarget(target);
-      focusSnapshot = { mode: state.mode, focus: target };
+      focusSnapshot = { mode: state.mode, focus: target, comparePage: $('workspaceViews').dataset.comparePage };
+      if (comparison.visible) selectComparisonPage('main');
       if (RV.Shell) RV.Shell.close();
       $('readingOptions').open = false;
       state.mode = 'preview';
     } else {
       target = focusSnapshot.focus;
-      state.mode = focusSnapshot.mode; focusSnapshot = null;
+      state.mode = focusSnapshot.mode;
+      if (comparison.visible && focusSnapshot.comparePage) selectComparisonPage(focusSnapshot.comparePage);
+      focusSnapshot = null;
     }
     state.readingFocus = on;
     document.body.setAttribute('data-reading-focus', on ? '1' : '0');
@@ -3713,6 +3865,11 @@
     clearFindMarks();
     var q = el.findBar.hidden ? '' : el.findInput.value;
     if (!q) { el.findCount.textContent = ''; return; }
+    if (markdownRender) {
+      markdownRender.findScroll = !keepIndex;
+      el.findCount.textContent = t('preview.loading');
+      return;
+    }
     if (structuredPreview && structuredPreview.complete) structuredPreview.complete();
     var pattern = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu');
     if (structuredPreview && structuredPreview.input) {
@@ -3782,6 +3939,7 @@
 
   function openFind() {
     if (state.readingFocus) setReadingFocus(false);
+    if (comparison.visible && compareLayout() === 'pages') selectComparisonPage('main');
     if (state.mode === 'write') setMode('split');
     if (VisualPreview.kind(state, el.editor.value) && !activeTab.showSource) showFileSource('code');
     el.findBar.hidden = false;
@@ -3798,7 +3956,8 @@
     el.findBar.hidden = true;
     clearFindMarks();
     el.findCount.textContent = '';
-    if (structuredPreview && structuredPreview.input) structuredPreview.input.focus({ preventScroll: true });
+    var target = structuredPreview && structuredPreview.input || $('structuredFind');
+    if (target.getClientRects().length) target.focus({ preventScroll: true });
   }
 
   function wireFind() {
@@ -3908,49 +4067,84 @@
     }, root);
   }
 
-  function wireResizer() {
-    var dragging = false;
-
-    el.resizer.addEventListener('pointerdown', function (e) {
-      dragging = true;
-      el.resizer.setAttribute('data-dragging', '1');
-      if (el.resizer.setPointerCapture) {
-        try { el.resizer.setPointerCapture(e.pointerId); } catch (err) { void 0; }
-      }
-      e.preventDefault();
-    });
-
-    el.resizer.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
-      var rect = el.panes.getBoundingClientRect();
-      if (!rect.width) return;
-      var pct = clamp((e.clientX - rect.left) / rect.width * 100, 15, 85);
-      state.split = pct;
-      applySplit();
-    });
-
-    var stop = function (e) {
-      if (!dragging) return;
-      dragging = false;
-      el.resizer.removeAttribute('data-dragging');
-      if (el.resizer.releasePointerCapture) {
-        try { el.resizer.releasePointerCapture(e.pointerId); } catch (err) { void 0; }
-      }
-      saveSettings();
-      scheduleRender(null, 0);
+  var paneSizeSteps = Object.create(null);
+  function wirePaneDivider(divider, container, min, max, current, resize, finish) {
+    var pointer = null;
+    function stacked() { return divider.getAttribute('aria-orientation') === 'horizontal'; }
+    function rtl() { return document.documentElement.dir === 'rtl'; }
+    paneSizeSteps[divider.id] = function (step) {
+      resize(step ? current() + step * 3 : 50);
+      finish();
     };
-    el.resizer.addEventListener('pointerup', stop);
-    el.resizer.addEventListener('pointercancel', stop);
-
-    el.resizer.addEventListener('keydown', function (e) {
-      var step = e.key === 'ArrowLeft' ? -3 : (e.key === 'ArrowRight' ? 3 : 0);
-      if (!step) return;
-      e.preventDefault();
-      state.split = clamp(state.split + step, 15, 85);
-      applySplit();
-      saveSettings();
-      scheduleRender(null, 0);
+    divider.addEventListener('pointerdown', function (event) {
+      if (event.button !== 0 || pointer !== null) return;
+      pointer = event.pointerId;
+      divider.setAttribute('data-dragging', '1');
+      if (divider.setPointerCapture) divider.setPointerCapture(pointer);
+      event.preventDefault();
     });
+    divider.addEventListener('pointermove', function (event) {
+      if (pointer === null || event.pointerId !== pointer) return;
+      var rect = container.getBoundingClientRect();
+      var size = stacked() ? rect.height : rect.width;
+      var offset = stacked() ? event.clientY - rect.top
+        : rtl() ? rect.right - event.clientX : event.clientX - rect.left;
+      if (size > 6) resize((offset - 3) / (size - 6) * 100);
+    });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (type) {
+      divider.addEventListener(type, function (event) {
+        if (pointer === null || event.pointerId !== pointer) return;
+        pointer = null;
+        divider.removeAttribute('data-dragging');
+        finish();
+      });
+    });
+    divider.addEventListener('keydown', function (event) {
+      var value, step = stacked() || !rtl() ? 3 : -3;
+      if (event.key === 'Home') value = min;
+      else if (event.key === 'End') value = max;
+      else if (event.key === (stacked() ? 'ArrowUp' : 'ArrowLeft')) value = current() - step;
+      else if (event.key === (stacked() ? 'ArrowDown' : 'ArrowRight')) value = current() + step;
+      else return;
+      event.preventDefault();
+      resize(value);
+      finish();
+    });
+  }
+
+  function wireResizer() {
+    wirePaneDivider(el.resizer, el.panes, 15, 85, function () { return state.split; }, function (value) {
+      state.split = clamp(value, 15, 85);
+      applySplit();
+    }, function () { saveSettings(); measureParts(); markActiveToc(); });
+  }
+
+  function visiblePaneSizes() {
+    return Array.from($('paneSizeTarget').options).filter(function (option) {
+      return $(option.value).getClientRects().length > 0;
+    });
+  }
+  function showPaneSize() {
+    var target = $('paneSizeTarget').value;
+    if (target) $('paneSizeValue').value = $(target).getAttribute('aria-valuenow') +
+      (target === 'tabRailResizer' ? ' px' : '%');
+  }
+  function openPaneSizes() {
+    var choices = visiblePaneSizes(), select = $('paneSizeTarget');
+    if (!choices.length) return;
+    Array.from(select.options).forEach(function (option) { option.disabled = !choices.includes(option); });
+    if (!choices.some(function (option) { return option.selected; })) select.value = choices[0].value;
+    showPaneSize();
+    $('paneSizes').showModal();
+  }
+  function wirePaneSizes() {
+    $('paneSizeTarget').addEventListener('change', showPaneSize);
+    eachNode('[data-pane-step]', function (button) {
+      button.addEventListener('click', function () {
+        paneSizeSteps[$('paneSizeTarget').value](Number(button.dataset.paneStep));
+        showPaneSize();
+      });
+    }, $('paneSizes'));
   }
 
   function shortcutKey(event) {
@@ -3984,7 +4178,7 @@
 
   function wireGlobalKeys() {
     document.addEventListener('keydown', function (e) {
-      if (!el.confirmModal.hidden || !el.helpModal.hidden || $('previewEditDialog').open) return;
+      if (!el.confirmModal.hidden || !el.helpModal.hidden || $('previewEditDialog').open || $('paneSizes').open) return;
       if (e.isComposing || e.keyCode === 229) return;
       if (formatAnchor) {
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && shortcutKey(e) === 'l') {
@@ -4283,7 +4477,6 @@
       tabbar = document.createElement('div'); tabbar.id = 'documentTabs';
       el.panes.parentNode.insertBefore(tabbar, el.panes);
     }
-    tabbar.setAttribute('role', 'tablist');
     wireTabReordering(tabbar);
     wireTabRename(tabbar);
     tabbar.addEventListener('scroll', hideTabPreview, { passive: true });
@@ -4303,6 +4496,7 @@
     var newButton = $('btnNewTab');
     if (newButton) newButton.addEventListener('click', function () { newTab(); });
     $('btnTabLayout').addEventListener('click', toggleTabLayout);
+    wirePaneSizes();
     if (!nativeAvailable() && /(?:^|[?&])desktop(?:-plain)?(?:[=&]|$)/.test(window.location.search)) {
       document.documentElement.dataset.desktopTitlebar = '';
     }
@@ -4315,6 +4509,9 @@
       redo: function () { undoFromMenu(true); },
       getTheme: function () { return state.theme; }, setTheme: setTheme,
       find: openFind, filterContents: focusContentsFilter,
+      resizeLayout: openPaneSizes, canResizeLayout: function () { return visiblePaneSizes().length > 0; },
+      moveTabBack: function () { moveActiveTab(-1); },
+      moveTabForward: function () { moveActiveTab(1); },
       close: function () { closeTab(activeTab.id); },
       verticalTabs: toggleTabLayout,
       canUndo: function () { return !!(activeTab && activeTab.undo.length); },
@@ -4343,6 +4540,7 @@
         },
         confirmClose: function () {
           if ($('previewEditDialog').open) return false;
+          if ($('paneSizes').open) { $('paneSizes').close(); return false; }
           return workspaceReady.then(function () {
             return RV.Reading && RV.Reading.saveSession();
           }).then(function (saved) {

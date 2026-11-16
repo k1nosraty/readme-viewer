@@ -80,6 +80,9 @@ test('diagram errors retain source and unsupported embedded config never reaches
   win.mermaid.render = async () => { calls++; throw new Error('invalid syntax'); };
   for (const text of ['not a diagram', '%%{init: {"securityLevel":"loose"}}%%\nflowchart TD\nA-->B', '---\nconfig:\n theme: dark\n---\nflowchart TD\nA-->B', 'flowchart TD\nA@{ img: "https://bad.invalid/a" }', 'flowchart TD\nA-->B\nclassDef bad fill:red;}body{color:red}', 'x'.repeat(50001)]) {
     win.RVApp.setDoc('```mermaid\n' + text + '\n```', 'bad.md');
+    const preview = doc.getElementById('preview');
+    for (let i = 0; i < 100 && preview.hasAttribute('aria-busy'); i++) await harness.settle(25);
+    assert.equal(preview.hasAttribute('aria-busy'), false);
     await win.RV.Diagrams.render(doc.getElementById('preview'));
     assert.equal(doc.querySelector('#preview pre').hidden, false);
     assert.ok(doc.querySelector('#preview .diagram-message'));

@@ -35,7 +35,7 @@ test('appearance preview, cancel, reset and focus preserve the document and save
   assert.equal(a.document.body.style.getPropertyValue('--titlebar-opacity'), '70%');
   assert.equal(a.api.state.font, 16); assert.equal(a.api.state.theme, 'auto');
   assert.equal(a.document.documentElement.dataset.surface, 'neutral');
-  assert.equal(a.document.documentElement.dataset.readingWidth, 'full');
+  assert.equal(a.document.documentElement.dataset.readingWidth, 'auto');
   assert.equal(a.document.activeElement, a.document.getElementById('brandMark'));
   assert.equal(a.api.state.dirty, false); assert.equal(a.api.el.editor.value, '# Original\n\n[Link](https://example.com)');
   a.open(); a.set('accentHex', '#abcdef'); a.click('appearanceReset');

@@ -91,7 +91,7 @@
 
   var DARK_TOKENS = '--token-keyword:#ff7b72;--token-title:#d2a8ff;--token-value:#79c0ff;--token-string:#a5d6ff;--token-comment:#8b949e;--token-tag:#7ee787;--token-symbol:#ffa657';
   var SYNTAX_CSS = [
-    ':root{--token-keyword:#d73a49;--token-title:#6f42c1;--token-value:#005cc5;--token-string:#032f62;--token-comment:#6a737d;--token-tag:#22863a;--token-symbol:#e36209}',
+    ':root{--token-keyword:#a72232;--token-title:#6f42c1;--token-value:#005cc5;--token-string:#032f62;--token-comment:#6a737d;--token-tag:#22863a;--token-symbol:#e36209}',
     'html[data-theme="dark"]{' + DARK_TOKENS + '}',
     '@media(prefers-color-scheme:dark){html[data-theme="system"]{' + DARK_TOKENS + '}}',
     '.hljs-doctag,.hljs-keyword,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-variable.language_{color:var(--token-keyword)}',

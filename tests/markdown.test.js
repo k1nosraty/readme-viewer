@@ -56,7 +56,7 @@ test('code blocks get a language bar and a copy control', function () {
   assert.match(out, /<span class="code-lang">python<\/span>/);
   assert.match(out, /data-copy-code/);
   assert.match(out, /<code class="hljs language-python">print\(1\)<\/code>/);
-  assert.match(out, /<pre dir="ltr">/);
+  assert.match(out, /<pre dir="ltr" tabindex="0" aria-label="python">/);
 });
 
 test('plain fenced blocks still render without a language', function () {
@@ -67,7 +67,7 @@ test('plain fenced blocks still render without a language', function () {
 
 test('tables are wrapped so wide content scrolls instead of overflowing', function () {
   const out = render('| a | b |\n| - | - |\n| 1 | 2 |\n').html;
-  assert.match(out, /^<div class="table-wrap"><table>/);
+  assert.match(out, /^<div class="table-wrap" tabindex="0"[^>]*><table>/);
   assert.match(out, /<\/table><\/div>/);
 });
 

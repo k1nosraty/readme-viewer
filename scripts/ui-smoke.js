@@ -399,6 +399,43 @@ async function assertTabsCentered(page, state) {
       await touch.locator('#tabTitleInput').fill('راهنمای تیم');
       await touch.locator('#tabRename button').tap();
       await touch.getByRole('tab', { name: 'راهنمای تیم', exact: true }).waitFor();
+
+      await touch.evaluate(() => {
+        for (let i = 0; i < 6; i++) RVApp.newTab('# Check\n\n- [ ] یادگیری PostgreSQL', `document-${i}-with-a-long-name.md`);
+        RVApp.setMode('preview');
+      });
+      await touch.locator('#btnAllTabs').tap();
+      await touch.locator('#allTabsPanel button').filter({ hasText: 'document-4-with-a-long-name.md' }).tap();
+      assert.equal(await touch.locator('#tabList').getAttribute('aria-owns').then(ids => ids.split(' ').length), 8);
+      assert.equal(await touch.locator('#panes').getAttribute('aria-labelledby'),
+        await touch.getByRole('tab', { selected: true }).getAttribute('id'));
+      await touch.keyboard.press('Control+f');
+      assert.equal(await touch.locator('#tocFilter').evaluate(input => input === document.activeElement), true);
+      await touch.locator('#previewScroll').focus();
+      assert.equal(await touch.locator('#sidebar').isVisible(), false, 'Contents closes when focus leaves it');
+      await touch.getByRole('button', { name: 'جست‌وجو در سند' }).tap();
+      await touch.locator('#findInput').fill('PostgreSQL');
+      assert.equal(await touch.locator('#findCount[role="status"]').textContent(), '1 / 1');
+      await touch.locator('#findClose').tap();
+      await touch.evaluate(() => { RVApp.setMode('split'); RVApp.showComparison(); });
+      await touch.locator('button[data-compare-page="second"]').tap();
+      assert.equal(await touch.locator('#panes').isVisible(), false);
+      await touch.locator('button[data-compare-page="main"]').tap();
+      assert.equal(await touch.locator('#panes').isVisible(), true);
+      await touch.setViewportSize({ width: 760, height: 400 });
+      await touch.waitForFunction(() => document.getElementById('workspaceViews').dataset.compareLayout === 'columns');
+      for (const id of ['editor', 'previewScroll', 'comparisonScroll']) {
+        assert.ok((await touch.locator('#' + id).boundingBox()).height >= 140, id + ' has reading space in landscape');
+      }
+      await touch.evaluate(() => RVApp.hideComparison());
+      const editorHeight = (await touch.locator('#paneEditor').boundingBox()).height;
+      await touch.locator('#resizer').press('ArrowDown');
+      assert.ok((await touch.locator('#paneEditor').boundingBox()).height > editorHeight);
+      await touch.locator('#brandMark').tap();
+      await touch.locator('#appMenuPanel button[aria-controls="menuView"]').tap();
+      await touch.locator('[data-shell-action="resizeLayout"]').tap();
+      await touch.locator('#paneSizes button[data-pane-step="0"]').tap();
+      assert.equal(await touch.locator('#resizer').getAttribute('aria-valuenow'), '50');
     } finally { await touch.close(); }
 
     assert.deepEqual(errors, []);

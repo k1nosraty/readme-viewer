@@ -133,8 +133,9 @@ npm run android:configure
 CARGO_PROFILE_DEV_OPT_LEVEL=s CARGO_PROFILE_DEV_CODEGEN_UNITS=1 npm run android:build -- --ci --debug --apk --split-per-abi --target aarch64 x86_64
 ```
 
-`android:configure` normalizes the generated project's compile and target SDK to stable Android
-SDK 36. Run it after initialization, because the current CLI generates SDK 37 settings. These
+`android:configure` sets the generated project's compile and target SDK to Android SDK 36
+and installs the activity that handles system bar, display cutout and keyboard insets. Run it
+after initialization. These
 commands build the debug Preview APK; they are not a production Play Store release setup.
 
 Generated Android outputs are under `src-tauri/gen/android/app/build/outputs/`. The old Java

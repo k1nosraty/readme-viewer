@@ -23,4 +23,10 @@ const wrapper = fs.readFileSync(wrapperFile, 'utf8')
   .replace(/^(?:networkTimeout|retries|retryBackOffMs)[\t ]*=.*\r?\n?/gm, '')
   .trimEnd();
 fs.writeFileSync(wrapperFile, wrapper + '\nnetworkTimeout=30000\nretries=3\nretryBackOffMs=5000\n');
-console.log('Configured Android SDK 36 and Gradle download retries.');
+
+const source = path.resolve(__dirname, '../packaging/android/MainActivity.kt');
+const androidPackage = fs.readFileSync(source, 'utf8').match(/^package ([\w.]+)/m)[1];
+const activity = path.join(project, 'app/src/main/java', ...androidPackage.split('.'), 'MainActivity.kt');
+assert.ok(fs.existsSync(activity), 'Generated Android MainActivity is missing');
+fs.copyFileSync(source, activity);
+console.log('Configured Android SDK 36, Gradle retries and system insets.');

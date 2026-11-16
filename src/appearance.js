@@ -349,7 +349,7 @@
     byId('appearanceReset').addEventListener('click', function () {
       closeFontSuggestions();
       clearTimeout(fontPreviewTimer); fontPreviewTimer = 0;
-      prefs = normalize(defaults); api.preview({ theme: 'auto', font: 16, width: 'full', spacing: 'normal' }); sync(); apply();
+      prefs = normalize(defaults); api.preview({ theme: 'auto', font: 16, width: 'auto', spacing: 'normal' }); sync(); apply();
     });
     byId('appearanceApply').addEventListener('click', function () {
       applyFontPreview();

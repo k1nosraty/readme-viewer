@@ -55,13 +55,15 @@
   }
   function fitTabs(bar) {
     if (!allTabsButton) return;
-    var inTitlebar = bar.parentElement.id === 'titlebarTabs' && bar.clientWidth > 0;
+    var vertical = bar.dataset.orientation === 'vertical';
+    var available = vertical ? bar.clientHeight : bar.clientWidth;
+    var required = vertical ? bar.scrollHeight : bar.scrollWidth;
     var reclaimed = 0;
-    if (inTitlebar && !allTabsButton.hidden) {
+    if (!vertical && !allTabsButton.hidden) {
       var gap = parseFloat(getComputedStyle(bar.parentElement).columnGap) || 0;
       reclaimed = allTabsButton.offsetWidth + gap;
     }
-    var show = inTitlebar && bar.scrollWidth > bar.clientWidth + reclaimed + 1;
+    var show = available > 0 && required > available + reclaimed + 1;
     if (allTabsButton.hidden === !show) return;
     if (!show) {
       var focus = document.activeElement;
@@ -206,6 +208,11 @@
     var canUndo = actions.canUndo();
     document.querySelectorAll('[data-shell-action="undo"]').forEach(function (button) { button.disabled = !canUndo; });
     document.querySelector('[data-shell-action="redo"]').disabled = !actions.canRedo();
+    var tabs = Array.from(document.querySelectorAll('#documentTabs [role="tab"]'));
+    var selected = tabs.findIndex(function (tab) { return tab.getAttribute('aria-selected') === 'true'; });
+    document.querySelector('[data-shell-action="moveTabBack"]').disabled = selected <= 0;
+    document.querySelector('[data-shell-action="moveTabForward"]').disabled = selected < 0 || selected >= tabs.length - 1;
+    document.querySelector('[data-shell-action="resizeLayout"]').disabled = !actions.canResizeLayout();
   }
   function items(menu) {
     return Array.prototype.slice.call(menu.querySelectorAll('.menu-commands > button:not(:disabled), .menu-commands > .menu-submenu > button'));
@@ -222,16 +229,18 @@
       if (!allTabsPanel.hidden) { closeAllTabs(true); return; }
       close();
       allTabsPanel.replaceChildren();
-      document.querySelectorAll('#titlebarTabs [role="tab"]').forEach(function (tab) {
+      document.querySelectorAll('#documentTabs [role="tab"]').forEach(function (tab) {
         var choice = document.createElement('button');
         choice.type = 'button';
         choice.className = 'menu-command';
         choice.textContent = tab.textContent;
+        choice.dir = 'auto';
         choice.title = tab.dataset.tabLocation || tab.textContent;
         choice.setAttribute('aria-pressed', tab.getAttribute('aria-selected'));
         choice.addEventListener('click', function () {
-          closeAllTabs(true);
+          closeAllTabs();
           tab.click();
+          if (tab.getAttribute('aria-selected') === 'true') tab.focus({ preventScroll: true });
         });
         allTabsPanel.appendChild(choice);
       });
@@ -240,6 +249,7 @@
       if (selected) selected.focus();
     });
     initToolbar();
+    fitTabs(document.getElementById('documentTabs'));
     document.getElementById('btnToolbarUndo').addEventListener('click', actions.undo);
     function openAppMenu(focus) {
       closeOverflow();

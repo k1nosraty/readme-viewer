@@ -47,6 +47,10 @@ try:
     wait("return window.RVApp && RVApp.state.ready && document.querySelector('#editor').value.includes('یادگیری PostgreSQL')")
     assert js("return !!window.__TAURI_INTERNALS__"), 'Expected native Tauri WebView'
     assert js("return document.documentElement.hasAttribute('data-desktop-titlebar') && !document.querySelector('#captionButtons').hidden && document.querySelector('#titlebarTabs #documentTabs') !== null"), 'Expected the shared desktop title bar and tabs'
+    assert js("return document.querySelector('#preview input[type=checkbox]').getAttribute('aria-label') === 'یادگیری PostgreSQL'"), 'Task name missing in native preview'
+    js("document.querySelector('#structuredFind').click(); const input = document.querySelector('#findInput'); input.value = 'PostgreSQL'; input.dispatchEvent(new Event('input')); return true")
+    assert js("return document.querySelector('#findCount[role=status]').textContent === '1 / 1'"), 'Markdown search did not announce its result'
+    js("document.querySelector('#findClose').click(); return true")
     fonts=request('POST',prefix+'/execute/async',{'script':'const done=arguments[arguments.length-1]; RV.Native.installedFontFamilies().then(done, error => done({error:String(error)}));','args':[]})
     assert isinstance(fonts,list) and any(fonts), 'Installed font catalog unavailable: '+str(fonts)
     js("document.querySelector('#btnEdit').click(); document.querySelector('#preview input[type=checkbox]').click(); return true")
@@ -96,7 +100,7 @@ try:
         wait("return !!document.querySelector('#preview .code-surface') && !document.querySelector('#preview iframe')")
         subprocess.run(['gio','launch',desktop,str(project/'assets'/'sample.svg')], check=True, timeout=15)
         wait("return document.querySelector('#preview .visual-file-svg img')?.naturalWidth === 60")
-    Path('native-test-results/linux-native.json').write_text(json.dumps({'native':True,'commandLineOpen':True,'openWith':True,'persianCheckbox':True,'savedToDisk':True,'crlf':True,'diagramChecks':result['result'],'offlineVisualPreviews':True}))
+    Path('native-test-results/linux-native.json').write_text(json.dumps({'native':True,'commandLineOpen':True,'openWith':True,'persianCheckbox':True,'accessibleTask':True,'markdownFind':True,'savedToDisk':True,'crlf':True,'diagramChecks':result['result'],'offlineVisualPreviews':True}))
 finally: request('DELETE',prefix)
 PY
 # Cleanup verifies the actual installed native package can be removed.
