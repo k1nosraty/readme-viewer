@@ -7,10 +7,51 @@ $installDir = Join-Path $env:RUNNER_TEMP 'README-Viewer-Native-Smoke'
 $progId = 'io.github.readmeviewer.viewer.Document'
 $extensions = @('.md', '.json', '.ini', '.conf', '.py', '.dart', '.ts', '.go', '.rs', '.html', '.svg')
 Add-Type -Name WindowState -Namespace ReadmeViewerSmoke -MemberDefinition @'
+private delegate bool WindowCallback(System.IntPtr window, System.IntPtr parameter);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+private static extern bool EnumWindows(WindowCallback callback, System.IntPtr parameter);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+private static extern uint GetWindowThreadProcessId(System.IntPtr window, out uint processId);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+private static extern bool IsWindowVisible(System.IntPtr window);
+[System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+private static extern int GetWindowText(System.IntPtr window, System.Text.StringBuilder caption, int length);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+private static extern bool SetWindowPos(System.IntPtr window, System.IntPtr after, int x, int y, int width, int height, uint flags);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool GetWindowRect(System.IntPtr window, out Rect bounds);
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern bool ShowWindowAsync(System.IntPtr window, int command);
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern bool IsZoomed(System.IntPtr window);
+
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+public struct Rect { public int Left, Top, Right, Bottom; }
+
+public static string Caption(System.IntPtr window) {
+    var caption = new System.Text.StringBuilder(512);
+    GetWindowText(window, caption, caption.Capacity);
+    return caption.ToString();
+}
+
+public static System.IntPtr FindViewer(uint processId) {
+    var result = System.IntPtr.Zero;
+    EnumWindows((window, parameter) => {
+        uint owner;
+        GetWindowThreadProcessId(window, out owner);
+        if (owner != processId || !IsWindowVisible(window) || !Caption(window).Contains("README Viewer")) {
+            return true;
+        }
+        result = window;
+        return false;
+    }, System.IntPtr.Zero);
+    return result;
+}
+
+public static bool RaiseForScreenshot(System.IntPtr window) {
+    const uint noSizeOrMoveOrActivation = 0x0013;
+    return SetWindowPos(window, new System.IntPtr(-1), 0, 0, 0, 0, noSizeOrMoveOrActivation);
+}
 '@
 function Set-TestWindowState([IntPtr]$window, [bool]$maximized) {
     $command = if ($maximized) { 3 } else { 9 } # SW_MAXIMIZE or SW_RESTORE
@@ -22,8 +63,12 @@ function Set-TestWindowState([IntPtr]$window, [bool]$maximized) {
     throw "Native window did not reach requested maximized state: $maximized"
 }
 
-function Save-DesktopScreenshot([string]$name) {
-    $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+function Save-AppScreenshot([IntPtr]$window, [string]$name) {
+    $rect = [ReadmeViewerSmoke.WindowState+Rect]::new()
+    if (![ReadmeViewerSmoke.WindowState]::GetWindowRect($window, [ref]$rect)) { throw 'Could not read native window bounds' }
+    $windowBounds = [Drawing.Rectangle]::FromLTRB($rect.Left, $rect.Top, $rect.Right, $rect.Bottom)
+    $bounds = [Drawing.Rectangle]::Intersect($windowBounds, [Windows.Forms.Screen]::FromHandle($window).Bounds)
+    if ($bounds.Width -lt 100 -or $bounds.Height -lt 100) { throw 'Native window is outside the desktop' }
     $image = [Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
     try {
         $graphics = [Drawing.Graphics]::FromImage($image)
@@ -61,21 +106,25 @@ try {
     [IO.File]::WriteAllText($fixture, "# Native Persian smoke`r`n`r`n- [ ] یادگیری PostgreSQL`r`n", [Text.UTF8Encoding]::new($false))
     $process = Start-Process $app.FullName -ArgumentList "`"$fixture`"" -PassThru
     try {
+        $window = [IntPtr]::Zero
         for ($i=0; $i -lt 60; $i++) {
             Start-Sleep -Seconds 1
             $process.Refresh()
             if ($process.HasExited) { throw 'Native app exited during launch' }
-            if ($process.MainWindowHandle -ne 0) { break }
+            $window = [ReadmeViewerSmoke.WindowState]::FindViewer($process.Id)
+            if ($window -ne [IntPtr]::Zero) { break }
         }
-        if ($process.MainWindowHandle -eq 0) { throw 'Native window never appeared' }
+        if ($window -eq [IntPtr]::Zero) { throw 'Visible README Viewer window never appeared' }
         Add-Type -AssemblyName System.Drawing
         Add-Type -AssemblyName System.Windows.Forms
-        Save-DesktopScreenshot 'windows-native.png'
-        Set-TestWindowState $process.MainWindowHandle $true
+        if (![ReadmeViewerSmoke.WindowState]::RaiseForScreenshot($window)) { throw 'Could not bring the viewer above the runner console' }
         Start-Sleep -Milliseconds 500
-        Save-DesktopScreenshot 'windows-native-maximized.png'
-        Set-TestWindowState $process.MainWindowHandle $false
-        @{ nativeExecutable=$app.Name; pid=$process.Id; windowTitle=$process.MainWindowTitle; openWith=$extensions; coverage='Installer, Open with registration and preserved defaults, native window launch, maximize and restore, screenshots, uninstall' } | ConvertTo-Json | Set-Content native-test-results/windows-native.json
+        Save-AppScreenshot $window 'windows-native.png'
+        Set-TestWindowState $window $true
+        Start-Sleep -Milliseconds 500
+        Save-AppScreenshot $window 'windows-native-maximized.png'
+        Set-TestWindowState $window $false
+        @{ nativeExecutable=$app.Name; pid=$process.Id; windowTitle=[ReadmeViewerSmoke.WindowState]::Caption($window); openWith=$extensions; coverage='Installer, Open with registration and preserved defaults, native window launch, maximize and restore, screenshots, uninstall' } | ConvertTo-Json | Set-Content native-test-results/windows-native.json
     } finally { if (!$process.HasExited) { Stop-Process -Id $process.Id -Force } }
 } finally {
     $uninstaller = (Get-ChildItem $installDir -Filter '*uninstall*.exe' | Select-Object -First 1).FullName
