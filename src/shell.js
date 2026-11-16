@@ -227,7 +227,7 @@
         choice.type = 'button';
         choice.className = 'menu-command';
         choice.textContent = tab.textContent;
-        choice.title = tab.title;
+        choice.title = tab.dataset.tabLocation || tab.textContent;
         choice.setAttribute('aria-pressed', tab.getAttribute('aria-selected'));
         choice.addEventListener('click', function () {
           closeAllTabs(true);

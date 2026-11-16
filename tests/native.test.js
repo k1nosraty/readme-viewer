@@ -157,20 +157,31 @@ for (const [platform, glass, tint] of [
 ]) {
   test(`${platform} reveals the shared title bar before opening launch documents (glass: ${glass})`, async () => {
     const calls = [], timers = new Map();
-    let onResize, stateReads = 0, timerId = 0;
+    let onResize, clickMaximize, delayedRead, maximized = false, stateReads = 0, timerId = 0;
     const nodes = new Map();
     const documentElement = { dataset: { theme: 'dark' } };
     const { native } = adapter({
-      window: { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: platform } },
+      window: { __TAURI_INTERNALS__: {}, RV: {
+        I18n: { t: key => key }, Icons: { svg: name => name }
+      }, navigator: { userAgent: platform } },
       document: {
         documentElement,
         getElementById(id) {
-          if (!nodes.has(id)) nodes.set(id, { hidden: true, dataset: { i18nAria: 'window.maximize' }, addEventListener() {} });
+          if (!nodes.has(id)) nodes.set(id, {
+            hidden: true, dataset: { i18nAria: 'window.maximize' }, setAttribute() {},
+            addEventListener(type, callback) {
+              if (id === 'btnWindowMaximize' && type === 'click') clickMaximize = callback;
+            }
+          });
           return nodes.get(id);
         }
       },
       MutationObserver: class { observe() {} },
-      setTimeout(callback) { timers.set(++timerId, callback); return timerId; },
+      setTimeout(callback) {
+        const id = ++timerId;
+        timers.set(id, () => { timers.delete(id); return callback(); });
+        return id;
+      },
       clearTimeout(id) { timers.delete(id); },
       invoke: async command => {
         if (command === 'set_window_backdrop') return glass;
@@ -180,7 +191,8 @@ for (const [platform, glass, tint] of [
       getCurrentWindow: () => ({
         onDragDropEvent: async () => {}, onCloseRequested: async () => {},
         onResized: async callback => { onResize = callback; },
-        isMaximized: async () => { stateReads++; return false; },
+        isMaximized: async () => { stateReads++; return delayedRead || maximized; },
+        toggleMaximize: async () => { maximized = !maximized; },
         show: async () => {
           assert.equal(documentElement.dataset.desktopTitlebar, '');
           assert.equal(documentElement.dataset.windowGlass, tint);
@@ -191,11 +203,30 @@ for (const [platform, glass, tint] of [
     });
     await native.initialize({ openPath: async path => { calls.push(path); } });
     assert.deepEqual(calls, ['show', '/docs/start.md', '/docs/queued.md']);
+    assert.equal(documentElement.dataset.windowMaximized, undefined);
+    maximized = true;
     for (let i = 0; i < 20; i++) onResize();
     assert.equal(stateReads, 1, 'resize events do not poll the window while dragging');
     assert.equal(timers.size, 1);
     await timers.values().next().value();
     assert.equal(stateReads, 2, 'one window state read after resizing');
+    assert.equal(nodes.get('btnWindowMaximize').dataset.i18nAria, 'window.restore');
+    assert.equal(documentElement.dataset.windowMaximized, platform === 'Windows NT' ? '' : undefined);
+    maximized = false;
+    onResize();
+    await timers.values().next().value();
+    assert.equal(nodes.get('btnWindowMaximize').dataset.i18nAria, 'window.maximize');
+    assert.equal(documentElement.dataset.windowMaximized, undefined);
+    let resolveRead;
+    delayedRead = new Promise(resolve => { resolveRead = resolve; });
+    onResize();
+    const staleResize = timers.values().next().value();
+    delayedRead = null;
+    await clickMaximize();
+    resolveRead(false);
+    await staleResize;
+    assert.equal(nodes.get('btnWindowMaximize').dataset.i18nAria, 'window.restore');
+    assert.equal(documentElement.dataset.windowMaximized, platform === 'Windows NT' ? '' : undefined);
   });
 }
 test('desktop open paths use the scoped Rust resolver, content URIs remain direct', async () => {

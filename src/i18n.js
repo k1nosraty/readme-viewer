@@ -186,11 +186,14 @@
       'tabs.all': 'All tabs',
       'tabs.new': 'New tab',
       'tabs.close': 'Close tab',
+      'tabs.rename': 'Rename tab',
+      'tabs.title': 'Tab name',
       'tabs.vertical': 'Vertical tabs',
       'tabs.resize': 'Resize vertical tabs',
       'tabs.switchVertical': 'Switch to vertical tabs',
       'tabs.switchHorizontal': 'Switch to horizontal tabs',
       'tabs.untitled': 'Untitled',
+      'tabs.previewEmpty': 'No content yet',
       'heading.anchor': 'Link to this section: {title}',
 
       'action.open': 'Open',
@@ -295,7 +298,7 @@
       'empty.sample': 'Load sample document',
       'empty.hint': 'Everything is processed locally in your browser. Nothing is uploaded.',
 
-      'drop.hint': 'Drop a Markdown file to open it',
+      'drop.hint': 'Drop a file to open it',
 
       'unsaved.title': 'Unsaved changes',
       'unsaved.body': '“{name}” has changes that are not saved yet.',
@@ -557,11 +560,14 @@
       'tabs.all': 'همهٔ تب‌ها',
       'tabs.new': 'تب جدید',
       'tabs.close': 'بستن تب',
+      'tabs.rename': 'ویرایش نام تب',
+      'tabs.title': 'نام تب',
       'tabs.vertical': 'تب‌های عمودی',
       'tabs.resize': 'تنظیم عرض تب‌های عمودی',
       'tabs.switchVertical': 'تغییر به تب‌های عمودی',
       'tabs.switchHorizontal': 'تغییر به تب‌های افقی',
       'tabs.untitled': 'بدون نام',
+      'tabs.previewEmpty': 'هنوز محتوایی ندارد',
       'app.name': 'نمایشگر README',
       'heading.anchor': 'پیوند به این بخش: {title}',
 
@@ -667,7 +673,7 @@
       'empty.sample': 'بارگذاری سند نمونه',
       'empty.hint': 'همه‌چیز به‌صورت محلی در مرورگر پردازش می‌شود؛ چیزی ارسال نمی‌شود.',
 
-      'drop.hint': 'فایل مارک‌داون را اینجا رها کنید',
+      'drop.hint': 'فایل را برای باز کردن اینجا رها کنید',
 
       'unsaved.title': 'تغییرات ذخیره نشده',
       'unsaved.body': '«{name}» تغییرات ذخیره نشده دارد.',

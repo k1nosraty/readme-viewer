@@ -103,10 +103,12 @@
   var tabs = [], activeTab = null, nextTabId = 1;
   var manualBaseUrl = '';
   var mobileSidebar = false;
+  var narrowWorkspace = window.matchMedia && window.matchMedia('(max-width: 900px)');
   var documentFields = ['handle', 'name', 'saved', 'dirty', 'needsSave', 'hasDocument', 'bom', 'eol',
     'encoding', 'diskBytes', 'baseUrl', 'autoBase', 'folder', 'tocFilter', 'format', 'formatOverride', 'draftName'];
 
   function tabText(key, fallback) { var value = t(key); return value === key ? fallback : value; }
+  function isNarrowWorkspace() { return narrowWorkspace ? narrowWorkspace.matches : window.innerWidth <= 900; }
   function captureTab() {
     if (!activeTab) return;
     documentFields.forEach(function (key) { activeTab[key] = state[key]; });
@@ -118,16 +120,161 @@
     activeTab.find = { query: el.findInput.value, hidden: el.findBar.hidden, index: find.index };
   }
   var tabSignature = '';
+  var tabTitleSegmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter() : null;
+  var tabPreviewTimer, tabPreviewCloseTimer, tabPreviewAnchor, tabRename;
   function tabLocation(tab) {
     var handle = tab === activeTab ? state.handle : tab.handle;
     var folder = tab === activeTab ? state.folder : tab.folder;
     return handle && handle.path || (folder ? folder.root.fullPath + '/' + folder.path : '');
   }
+  function tabSource(tab) { return tab === activeTab ? el.editor.value : tab.source; }
+  function hasDraftTitle(tab) {
+    var doc = tab === activeTab ? state : tab;
+    return doc.draftName && !doc.handle;
+  }
+  function draftTabTitle(tab) {
+    // A tab label only needs a short prefix, even for drafts with very long lines.
+    var source = tabSource(tab).slice(0, 512).split(/[\r\n]/, 1)[0].trimStart();
+    var title = '', count = 0;
+    for (var part of tabTitleSegmenter ? tabTitleSegmenter.segment(source) : source) {
+      title += tabTitleSegmenter ? part.segment : part;
+      if (++count === 20) break;
+    }
+    return title.trimEnd() || tabText('tabs.untitled', 'Untitled');
+  }
   function tabLabel(tab, location) {
+    if (tab.customTitle) return tab.customTitle;
+    if (hasDraftTitle(tab)) return draftTabTitle(tab);
     var name = (tab === activeTab ? state.name : tab.name) || tabText('tabs.untitled', 'Untitled');
-    if (tabs.filter(function (other) { return (other === activeTab ? state.name : other.name) === name; }).length < 2) return name;
+    var duplicate = tabs.some(function (other) {
+      return other !== tab && !other.customTitle && (other === activeTab ? state.name : other.name) === name && !hasDraftTitle(other);
+    });
+    if (!duplicate) return name;
     var path = location.replace(/\\/g, '/').split('/').filter(Boolean);
     return name + ' — ' + (path.length > 1 ? path[path.length - 2] : '#' + (tabs.indexOf(tab) + 1));
+  }
+  function normalizeTabTitle(title) {
+    return typeof title === 'string' ? title.replace(/[\r\n\u2028\u2029]+/g, ' ').trim() : '';
+  }
+  function tabRenameButton(tab) {
+    return $('documentTabs').querySelector('[data-tab-focus="rename-' + tab.id + '"]');
+  }
+  function positionTabRename() {
+    if (!tabRename) return;
+    var button = tabRenameButton(tabRename.tab);
+    if (!button || !button.getClientRects().length) { finishTabRename(false); return; }
+    button.setAttribute('aria-expanded', 'true');
+    positionTabPanel($('tabRename'), button.parentElement);
+  }
+  function beginTabRename(tab, trigger) {
+    if (pendingSave || pendingDiscard) return;
+    finishTabRename(false);
+    hideTabPreview();
+    var input = $('tabTitleInput');
+    input.value = tabLabel(tab, tabLocation(tab));
+    tabRename = { tab: tab, trigger: trigger, initialValue: input.value };
+    $('tabRename').hidden = false;
+    positionTabRename();
+    input.focus({ preventScroll: true });
+    input.select();
+  }
+  function finishTabRename(apply, focus) {
+    if (!tabRename) return;
+    var { tab, trigger, initialValue } = tabRename;
+    var value = $('tabTitleInput').value;
+    tabRename = null;
+    $('tabRename').hidden = true;
+    var button = tabRenameButton(tab);
+    if (!button) return;
+    button.setAttribute('aria-expanded', 'false');
+    if (apply && value !== initialValue) {
+      tab.customTitle = normalizeTabTitle(value);
+      renderTabs(tab.id);
+      refreshComparison();
+      if (RV.Reading) RV.Reading.workspaceChanged();
+    }
+    if (focus) (trigger.isConnected ? trigger : button).focus({ preventScroll: true });
+  }
+  function wireTabRename(bar) {
+    var panel = $('tabRename');
+    panel.addEventListener('submit', function (event) {
+      event.preventDefault();
+      finishTabRename(true, true);
+    });
+    panel.addEventListener('keydown', function (event) {
+      event.stopPropagation();
+      if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229) {
+        event.preventDefault();
+        finishTabRename(false, true);
+      }
+    });
+    panel.addEventListener('focusout', function (event) {
+      if (!panel.contains(event.relatedTarget)) finishTabRename(false);
+    });
+    document.addEventListener('pointerdown', function (event) {
+      if (!panel.contains(event.target)) finishTabRename(false);
+    }, true);
+    bar.addEventListener('scroll', positionTabRename, { passive: true });
+    window.addEventListener('resize', positionTabRename);
+  }
+  function hideTabPreview() {
+    clearTimeout(tabPreviewTimer);
+    clearTimeout(tabPreviewCloseTimer);
+    if (!tabPreviewAnchor) return;
+    $('tabPreview').hidden = true;
+    tabPreviewAnchor.removeAttribute('aria-describedby');
+    tabPreviewAnchor = null;
+  }
+  function queueTabPreview(tab, anchor) {
+    if (tabRename) return;
+    clearTimeout(tabPreviewCloseTimer);
+    if (anchor === tabPreviewAnchor) return;
+    hideTabPreview();
+    tabPreviewAnchor = anchor;
+    tabPreviewTimer = setTimeout(function () { showTabPreview(tab, anchor); }, 400);
+  }
+  function leaveTabPreview(anchor) {
+    if (!anchor || anchor !== tabPreviewAnchor || anchor.matches(':focus-visible')) return;
+    if ($('tabPreview').hidden) { hideTabPreview(); return; }
+    clearTimeout(tabPreviewCloseTimer);
+    // Leave time to cross the gap between the tab and its preview.
+    tabPreviewCloseTimer = setTimeout(hideTabPreview, 160);
+  }
+  function showTabPreview(tab, anchor) {
+    if (!anchor.isConnected || !anchor.getClientRects().length) { hideTabPreview(); return; }
+    var preview = $('tabPreview');
+    var source = tabSource(tab).slice(0, 4096).trim();
+    var excerpt = source.split(/\r?\n[ \t]*\r?\n/, 1)[0];
+    if (source && (tab === activeTab ? state.format : tab.format) === 'markdown') {
+      var tokens = window.marked.lexer(source);
+      var block = tokens.find(function (token) { return token.type === 'paragraph'; }) ||
+        tokens.find(function (token) { return token.type === 'heading'; });
+      if (block) excerpt = Markdown.plainText(block.tokens).trim() || excerpt;
+    }
+    var location = tabLocation(tab);
+    $('tabPreviewTitle').textContent = tabLabel(tab, location);
+    $('tabPreviewLocation').textContent = location;
+    $('tabPreviewLocation').hidden = !location;
+    $('tabPreviewText').textContent = excerpt || t('tabs.previewEmpty');
+    preview.hidden = false;
+    positionTabPanel(preview, anchor.parentElement);
+    anchor.setAttribute('aria-describedby', 'tabPreviewText');
+  }
+  function positionTabPanel(panel, item) {
+    var rect = item.getBoundingClientRect(), bounds = panel.getBoundingClientRect();
+    var rtl = document.documentElement.dir === 'rtl';
+    var left = rtl ? rect.right - bounds.width : rect.left;
+    var top = rect.bottom + 6;
+    if (top + bounds.height > window.innerHeight - 8) top = rect.top - bounds.height - 6;
+    if (state.verticalTabs) {
+      var beside = rtl ? rect.left - bounds.width - 6 : rect.right + 6;
+      if (beside >= 8 && beside + bounds.width <= window.innerWidth - 8) {
+        left = beside;
+        top = rect.top;
+      }
+    }
+    panel.style.left = Math.max(8, Math.min(left, window.innerWidth - bounds.width - 8)) + 'px';
+    panel.style.top = Math.max(8, Math.min(top, window.innerHeight - bounds.height - 8)) + 'px';
   }
   function scrollTabIntoView(bar, id) {
     if (RV.Shell) RV.Shell.fitTabs(bar);
@@ -151,6 +298,7 @@
     var destination = state.verticalTabs ? side : inTitlebar ? titlebar : workspace;
     var focus = document.activeElement;
     if (bar.parentNode !== destination) {
+      hideTabPreview();
       var before = inTitlebar ? $('btnAllTabs') : destination === workspace ? $('workspaceActions') : null;
       destination.insertBefore(bar, before);
       destination.insertBefore(add, state.verticalTabs ? bar : before);
@@ -167,6 +315,7 @@
     toggle.innerHTML = Icons.svg(state.verticalTabs ? 'tabsHorizontal' : 'tabsVertical', 16);
     if (bar.contains(focus) || focus === add) focus.focus({ preventScroll: true });
     scrollTabIntoView(bar);
+    positionTabRename();
     placeWorkspaceActions();
   }
   function placeWorkspaceActions() {
@@ -237,69 +386,105 @@
       event.preventDefault(); resize(width); saveWidth();
     });
   }
+  function createTabElement(tab, bar) {
+    var item = document.createElement('div');
+    item.className = 'document-tab';
+    item.setAttribute('data-tab-id', tab.id);
+    var button = document.createElement('button');
+    button.type = 'button'; button.setAttribute('role', 'tab');
+    button.setAttribute('dir', 'auto');
+    button.setAttribute('aria-controls', 'panes');
+    button.setAttribute('aria-keyshortcuts', 'F2');
+    button.setAttribute('data-tab-focus', 'tab-' + tab.id);
+    button.addEventListener('keydown', function (event) {
+      if (event.key === 'F2' && !event.isComposing && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+        event.preventDefault();
+        beginTabRename(tab, button);
+        return;
+      }
+      var index = tabs.indexOf(tab), next = index;
+      var rtl = document.documentElement.getAttribute('dir') === 'rtl';
+      var forward = state.verticalTabs ? 'ArrowDown' : (rtl ? 'ArrowLeft' : 'ArrowRight');
+      var backward = state.verticalTabs ? 'ArrowUp' : (rtl ? 'ArrowRight' : 'ArrowLeft');
+      var step = event.key === forward ? 1 : (event.key === backward ? -1 : 0);
+      if (step && event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey) {
+        event.preventDefault();
+        moveTab(index, index + step);
+        return;
+      }
+      if (step) next = (index + step + tabs.length) % tabs.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = tabs.length - 1;
+      else return;
+      event.preventDefault();
+      if (switchTab(tabs[next].id)) {
+        var target = bar.querySelector('[data-tab-focus="tab-' + tabs[next].id + '"]');
+        if (target) target.focus({ preventScroll: true });
+      }
+    });
+    button.addEventListener('click', function () { switchTab(tab.id); });
+    button.addEventListener('dblclick', function () { beginTabRename(tab, button); });
+    var rename = document.createElement('button');
+    rename.type = 'button'; rename.className = 'document-tab-rename'; rename.innerHTML = Icons.svg('pencil', 12);
+    rename.setAttribute('data-tab-focus', 'rename-' + tab.id);
+    rename.setAttribute('aria-controls', 'tabRename');
+    rename.setAttribute('aria-expanded', 'false');
+    rename.addEventListener('click', function () { beginTabRename(tab, rename); });
+    var close = document.createElement('button');
+    close.type = 'button'; close.className = 'document-tab-close'; close.innerHTML = Icons.svg('close', 12);
+    close.setAttribute('data-tab-focus', 'close-' + tab.id);
+    close.addEventListener('click', function () { closeTab(tab.id); });
+    item.addEventListener('pointerenter', function (event) {
+      if (event.pointerType === 'mouse' && !event.buttons) queueTabPreview(tab, button);
+    });
+    item.addEventListener('pointerleave', function () { leaveTabPreview(button); });
+    button.addEventListener('focus', function () {
+      if (button.matches(':focus-visible')) queueTabPreview(tab, button);
+    });
+    button.addEventListener('blur', function () {
+      if (tabPreviewAnchor === button && !item.matches(':hover') && !$('tabPreview').matches(':hover')) hideTabPreview();
+    });
+    item.appendChild(button); item.appendChild(rename); item.appendChild(close);
+    return item;
+  }
   function renderTabs(scrollId) {
     var bar = $('documentTabs');
     if (!bar) return;
-    var signature = JSON.stringify(tabs.map(function (tab) {
-      return [tab.id, tab === activeTab, tab === activeTab ? state.name : tab.name,
-        tab === activeTab ? state.dirty : tab.dirty, tabLocation(tab)];
-    })) + I18n.getLocale();
+    var rows = tabs.map(function (tab) {
+      var location = tabLocation(tab);
+      return [tab.id, tab === activeTab, tabLabel(tab, location), tab === activeTab ? state.dirty : tab.dirty, location];
+    });
+    var signature = JSON.stringify(rows) + I18n.getLocale();
     if (signature === tabSignature) return;
     tabSignature = signature;
     var focused = document.activeElement;
     var focusId = focused && focused.getAttribute('data-tab-focus');
-    bar.textContent = '';
-    tabs.forEach(function (tab) {
-      var selected = tab === activeTab;
-      var name = selected ? state.name : tab.name;
-      var dirty = selected ? state.dirty : tab.dirty;
-      var item = document.createElement('div');
-      item.className = 'document-tab' + (selected ? ' is-active' : '');
-      item.setAttribute('data-tab-id', tab.id);
-      var button = document.createElement('button');
-      button.type = 'button'; button.setAttribute('role', 'tab');
-      button.setAttribute('aria-selected', selected ? 'true' : 'false');
-      button.setAttribute('aria-controls', 'panes');
-      button.setAttribute('tabindex', selected ? '0' : '-1');
-      button.setAttribute('data-tab-focus', 'tab-' + tab.id);
-      button.addEventListener('keydown', function (event) {
-        var index = tabs.indexOf(tab), next = index;
-        var rtl = document.documentElement.getAttribute('dir') === 'rtl';
-        var forward = state.verticalTabs ? 'ArrowDown' : (rtl ? 'ArrowLeft' : 'ArrowRight');
-        var backward = state.verticalTabs ? 'ArrowUp' : (rtl ? 'ArrowRight' : 'ArrowLeft');
-        var step = event.key === forward ? 1 : (event.key === backward ? -1 : 0);
-        if (step && event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey) {
-          event.preventDefault();
-          moveTab(index, index + step);
-          return;
-        }
-        if (step) next = (index + step + tabs.length) % tabs.length;
-        else if (event.key === 'Home') next = 0;
-        else if (event.key === 'End') next = tabs.length - 1;
-        else return;
-        event.preventDefault();
-        if (switchTab(tabs[next].id)) {
-          var target = bar.querySelector('[data-tab-focus="tab-' + tabs[next].id + '"]');
-          if (target) target.focus({ preventScroll: true });
-        }
-      });
-      var location = tabLocation(tab), label = tabLabel(tab, location);
-      button.textContent = (dirty ? '• ' : '') + label;
-      button.title = location || label;
+    hideTabPreview();
+    // Keep the same click target when the first click of a double-click selects a tab.
+    if (bar.children.length !== tabs.length || tabs.some(function (tab, index) {
+      return bar.children[index].getAttribute('data-tab-id') !== String(tab.id);
+    })) bar.textContent = '';
+    tabs.forEach(function (tab, index) {
+      var [, selected, label, dirty, location] = rows[index];
+      var item = bar.children[index] || bar.appendChild(createTabElement(tab, bar));
+      var [button, rename, close] = item.children;
+      item.classList.toggle('is-active', selected);
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      var text = (dirty ? '• ' : '') + label;
+      if (button.textContent !== text) button.textContent = text;
+      button.dataset.tabLocation = location;
       button.setAttribute('aria-label', button.textContent + (location ? ': ' + location : ''));
-      button.addEventListener('click', function () { switchTab(tab.id); });
-      var close = document.createElement('button');
-      close.type = 'button'; close.className = 'document-tab-close'; close.innerHTML = Icons.svg('close', 12);
-      close.setAttribute('data-tab-focus', 'close-' + tab.id);
-      close.setAttribute('aria-label', tabText('tabs.close', 'Close tab') + ': ' + (name || tabText('tabs.untitled', 'Untitled')));
-      close.addEventListener('click', function () { closeTab(tab.id); });
-      item.appendChild(button); item.appendChild(close); bar.appendChild(item);
+      rename.title = t('tabs.rename');
+      rename.setAttribute('aria-label', rename.title + ': ' + label);
+      close.setAttribute('aria-label', tabText('tabs.close', 'Close tab') + ': ' + label);
     });
     scrollTabIntoView(bar, scrollId);
-    if (focusId) {
+    if (focusId && !bar.contains(focused)) {
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
       if (replacement) replacement.focus({ preventScroll: true });
     }
+    positionTabRename();
   }
   function moveTab(from, to) {
     if (pendingSave || pendingDiscard || from === to || from < 0 || to < 0 || to >= tabs.length) return;
@@ -358,7 +543,7 @@
     // Pointer capture keeps tab reordering separate from native file drops.
     bar.addEventListener('pointerdown', function (event) {
       if (drag || !event.isPrimary || event.button !== 0 || event.pointerType === 'touch' ||
-          tabs.length < 2 || pendingSave || pendingDiscard || event.target.closest('.document-tab-close')) return;
+          tabs.length < 2 || pendingSave || pendingDiscard || event.target.closest('.document-tab-close, .document-tab-rename')) return;
       var source = event.target.closest('.document-tab');
       if (!source) return;
       drag = { source: source, pointer: event.pointerId, vertical: state.verticalTabs,
@@ -430,13 +615,14 @@
   }
   function listTabs() {
     captureTab();
-    return tabs.map(function (tab) { return { id: tab.id, name: tab.name, source: tab.source,
+    return tabs.map(function (tab) { return { id: tab.id, name: tab.name, customTitle: tab.customTitle, source: tab.source,
       dirty: tab.dirty, hasDocument: tab.hasDocument, needsSave: tab.needsSave, active: tab === activeTab, handle: tab.handle, saved: tab.saved,
       bom: tab.bom, eol: tab.eol, encoding: tab.encoding, baseUrl: tab.baseUrl, autoBase: tab.autoBase,
       format: tab.format, formatOverride: tab.formatOverride, draftName: tab.draftName, showSource: tab.showSource }; });
   }
   function restoreTab(snapshot, original) {
     if (!snapshot || (!original && typeof snapshot.source !== 'string')) return false;
+    var empty = !original && snapshot.empty === true;
     var metadata = { bom: !!snapshot.bom, eol: snapshot.eol === '\r\n' ? '\r\n' : '\n', encoding: 'utf-8',
       format: snapshot.format, formatOverride: snapshot.formatOverride, draftName: snapshot.draftName };
     var name = typeof snapshot.name === 'string' ? snapshot.name : 'README.md';
@@ -444,15 +630,20 @@
     var handle = original ? original.handle : null;
     var source = original ? original.decoded.text : snapshot.source;
     if (original) Object.assign(metadata, original.decoded);
-    if (tabs.length === 1 && !state.hasDocument && !el.editor.value && !pendingSave && !pendingDiscard) {
-      setDoc(source, name, handle, metadata); id = activeTab.id;
-    } else id = newTab(source, name, handle, metadata);
+    if (tabs.length === 1 && !state.hasDocument && !activeTab.customTitle && !el.editor.value && !pendingSave && !pendingDiscard) {
+      if (!empty) setDoc(source, name, handle, metadata);
+      id = activeTab.id;
+    } else id = empty ? newTab() : newTab(source, name, handle, metadata);
     if (!id) return false;
+    activeTab.customTitle = normalizeTabTitle(snapshot.customTitle);
     activeTab.showSource = !!snapshot.showSource;
-    if (!original) {
+    if (!original && !empty) {
       state.needsSave = true;
       setDirty(true);
-    } else trackModified();
+    } else {
+      if (original) trackModified();
+      updateChrome();
+    }
     if (activeTab.showSource) render({ immediate: true });
     return id;
   }
@@ -507,7 +698,7 @@
         return opened && opened.path === handle.path;
       })[0];
       if (existing) return switchTab(existing.id);
-      if (activeTab && tabs.length === 1 && !state.hasDocument && !el.editor.value) {
+      if (activeTab && tabs.length === 1 && !activeTab.customTitle && !state.hasDocument && !el.editor.value) {
         setDoc(decoded.text, file.name || 'README.md', handle, decoded);
       } else if (!newTab(decoded.text, file.name || 'README.md', handle, decoded)) return false;
       pushHistory(); rememberRecent(); trackModified(); return true;
@@ -1106,7 +1297,7 @@
 
     el.btnWrap.setAttribute('aria-pressed', state.wrap ? 'true' : 'false');
     el.btnSync.setAttribute('aria-pressed', state.sync ? 'true' : 'false');
-    el.btnToc.setAttribute('aria-pressed', (window.innerWidth <= 900 ? mobileSidebar : state.sidebar) ? 'true' : 'false');
+    el.btnToc.setAttribute('aria-pressed', String(isNarrowWorkspace() ? mobileSidebar : state.sidebar));
 
     eachNode('[data-mode-btn]', function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-mode-btn') === state.mode ? 'true' : 'false');
@@ -2685,7 +2876,7 @@
   }
 
   function applySidebar() {
-    var visible = window.innerWidth <= 900 ? mobileSidebar : state.sidebar;
+    var visible = isNarrowWorkspace() ? mobileSidebar : state.sidebar;
     el.sidebar.hidden = !visible;
     el.layout.setAttribute('data-sidebar', visible ? 'on' : 'off');
     el.btnToc.setAttribute('aria-pressed', visible ? 'true' : 'false');
@@ -2855,7 +3046,7 @@
     });
 
     el.btnToc.addEventListener('click', function () {
-      if (window.innerWidth <= 900) mobileSidebar = !mobileSidebar;
+      if (isNarrowWorkspace()) mobileSidebar = !mobileSidebar;
       else state.sidebar = !state.sidebar;
       applySidebar();
       updateChrome();
@@ -3784,7 +3975,7 @@
 
   function focusContentsFilter() {
     if (state.readingFocus) setReadingFocus(false);
-    if (window.innerWidth <= 900) mobileSidebar = true;
+    if (isNarrowWorkspace()) mobileSidebar = true;
     else state.sidebar = true;
     applySidebar(); updateChrome(); saveSettings();
     el.tocFilter.focus();
@@ -4094,6 +4285,16 @@
     }
     tabbar.setAttribute('role', 'tablist');
     wireTabReordering(tabbar);
+    wireTabRename(tabbar);
+    tabbar.addEventListener('scroll', hideTabPreview, { passive: true });
+    window.addEventListener('resize', hideTabPreview);
+    window.addEventListener('blur', hideTabPreview);
+    document.addEventListener('pointerdown', hideTabPreview, true);
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') hideTabPreview();
+    });
+    $('tabPreview').addEventListener('pointerenter', function () { clearTimeout(tabPreviewCloseTimer); });
+    $('tabPreview').addEventListener('pointerleave', function () { leaveTabPreview(tabPreviewAnchor); });
     wireTabRailResizer();
     function revealActiveTab() { scrollTabIntoView(tabbar); }
     if (typeof ResizeObserver === 'function') new ResizeObserver(revealActiveTab).observe(tabbar);

@@ -7,8 +7,8 @@ const { chromium } = require('playwright');
 
 async function dragTab(page, source, target, vertical) {
   const tabs = page.getByRole('tab');
-  const from = await tabs.and(page.getByTitle(source, { exact: true })).boundingBox();
-  const to = await tabs.and(page.getByTitle(target, { exact: true })).boundingBox();
+  const from = await tabs.filter({ hasText: source }).boundingBox();
+  const to = await page.locator('.document-tab').filter({ has: tabs.filter({ hasText: target }) }).boundingBox();
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
   await page.mouse.move(to.x + to.width * (vertical ? 0.5 : 0.85), to.y + to.height * (vertical ? 0.2 : 0.5), { steps: 8 });
@@ -135,13 +135,71 @@ async function assertTabsCentered(page, state) {
     await page.setViewportSize({ width: 1200, height: 720 });
     await page.evaluate(() => {
       RV.I18n.setLocale('en'); RVApp.applyLocale();
-      RVApp.setDoc('# One', 'one.md');
+      RVApp.setDoc('# One\n\nFirst **paragraph**.\n\nThis paragraph stays out of the preview.', 'one.md');
       RVApp.newTab('# Two', 'two.md');
       RVApp.newTab('# Three', 'three.md');
       RVApp.setMode('write');
     });
     const order = () => page.evaluate(() => RVApp.listTabs().map(tab => tab.name));
     await page.locator('#editor').fill('# Three edited');
+    const tabPreview = page.locator('#tabPreview');
+    const tabExcerpt = tabPreview.locator('#tabPreviewText');
+    const oneTab = page.getByRole('tab', { name: 'one.md', exact: true });
+    const twoTab = page.getByRole('tab', { name: 'two.md', exact: true });
+    await oneTab.hover();
+    await tabPreview.waitFor({ state: 'visible' });
+    assert.equal(await tabExcerpt.textContent(), 'First paragraph.');
+    const previewBox = await tabPreview.boundingBox();
+    await page.mouse.move(previewBox.x + 20, previewBox.y + 14);
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 200)));
+    assert.equal(await tabPreview.isVisible(), true, 'the pointer can enter the preview to read it');
+    assert.equal(await page.locator('#editor').inputValue(), '# Three edited');
+    await twoTab.hover();
+    await tabPreview.waitFor({ state: 'visible' });
+    assert.equal(await tabExcerpt.textContent(), 'Two');
+    await page.keyboard.press('Escape');
+    await tabPreview.waitFor({ state: 'hidden' });
+    await page.mouse.move(0, 400);
+    await page.locator('[role="tab"][aria-selected="true"]').press('Home');
+    await tabPreview.waitFor({ state: 'visible' });
+    assert.equal(await oneTab.getAttribute('aria-describedby'), 'tabPreviewText');
+    assert.equal(await tabExcerpt.textContent(), 'First paragraph.');
+    await page.keyboard.press('Escape');
+    assert.equal(await tabPreview.isVisible(), false);
+    await page.keyboard.press('F2');
+    const renameField = page.getByRole('textbox', { name: 'Tab name', exact: true });
+    assert.equal(await renameField.inputValue(), 'one.md');
+    await renameField.fill('Keyboard cancellation');
+    await page.keyboard.press('Escape');
+    assert.equal(await oneTab.evaluate(tab => tab === document.activeElement), true);
+    await page.getByRole('tab', { name: /three\.md$/ }).click();
+    await page.getByRole('button', { name: 'Rename tab: one.md', exact: true }).click();
+    assert.equal(await renameField.inputValue(), 'one.md');
+    await renameField.fill('  یادداشت انتشار  ');
+    await renameField.press('Enter');
+    await page.getByRole('tab', { name: 'یادداشت انتشار', exact: true }).waitFor();
+    assert.deepEqual(await order(), ['one.md', 'two.md', 'three.md']);
+    assert.equal(await page.locator('#editor').inputValue(), '# Three edited');
+    const renamedPencil = page.getByRole('button', { name: 'Rename tab: یادداشت انتشار', exact: true });
+    assert.equal(await renamedPencil.evaluate(button => button === document.activeElement), true);
+    await renamedPencil.click();
+    await renameField.fill('Discarded title');
+    await renameField.press('Escape');
+    await renamedPencil.click();
+    assert.equal(await renameField.inputValue(), 'یادداشت انتشار');
+    await renameField.fill('');
+    await page.locator('#tabRename').getByRole('button', { name: 'Apply', exact: true }).click();
+    await page.getByRole('tab', { name: 'one.md', exact: true }).dblclick();
+    assert.equal(await renameField.inputValue(), 'one.md');
+    assert.equal(await page.getByRole('tab', { name: 'one.md', exact: true }).getAttribute('aria-selected'), 'true');
+    await renameField.fill('First review');
+    await renameField.press('Enter');
+    await page.getByRole('tab', { name: 'First review', exact: true }).dblclick();
+    assert.equal(await renameField.inputValue(), 'First review');
+    await renameField.fill('');
+    await renameField.press('Enter');
+    await page.getByRole('tab', { name: 'one.md', exact: true }).waitFor();
+    await page.getByRole('tab', { name: /three\.md$/ }).click();
     await dragTab(page, 'one.md', 'three.md', false);
     assert.deepEqual(await order(), ['two.md', 'three.md', 'one.md']);
     const toggle = page.locator('#btnTabLayout');
@@ -149,7 +207,12 @@ async function assertTabsCentered(page, state) {
     assert.equal(await toggle.getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#btnVerticalTabs').getAttribute('aria-pressed'), 'true');
     await page.locator('#verticalTabs [role="tablist"]').waitFor();
+    const verticalTab = page.getByRole('tab', { name: 'one.md' });
+    await verticalTab.hover();
+    await tabPreview.waitFor({ state: 'visible' });
+    assert.ok((await tabPreview.boundingBox()).x > (await verticalTab.boundingBox()).x);
     await dragTab(page, 'one.md', 'two.md', true);
+    await tabPreview.waitFor({ state: 'hidden' });
     assert.deepEqual(await order(), ['one.md', 'two.md', 'three.md']);
     assert.equal(await page.locator('#editor').inputValue(), '# Three edited');
     await page.locator('[role="tab"][aria-selected="true"]').press('Control+Shift+ArrowUp');
@@ -180,9 +243,12 @@ async function assertTabsCentered(page, state) {
         const r = rail.getBoundingClientRect();
         return rail.children.length === 2 && rail.scrollWidth <= rail.clientWidth + 1 && Array.from(rail.children).every(tab => {
           const bounds = tab.getBoundingClientRect();
-          return bounds.left >= r.left - 1 && bounds.right <= r.right + 1;
+          return bounds.left >= r.left - 1 && bounds.right <= r.right + 1 && [...tab.querySelectorAll('button')].every(button => {
+            const target = button.getBoundingClientRect();
+            return target.width > 0 && button.contains(document.elementFromPoint(target.x + target.width / 2, target.y + target.height / 2));
+          });
         });
-      }), true, 'both tabs fit with their close buttons at ' + width);
+      }), true, 'both tabs fit with their rename and close buttons at ' + width);
       assert.equal(await page.locator('#btnOpen').evaluate(button => button.closest('#toolbar') !== null),
         true, 'file tools stay out of the tab strip');
       assert.equal(await page.locator('#btnFocus').isVisible(), true, 'Focus remains visible at ' + width);
@@ -247,6 +313,10 @@ async function assertTabsCentered(page, state) {
     assert.doesNotMatch(await backdrop(), /\//, 'maximum opacity makes the title bar opaque');
     await page.locator('#appearanceCancel').click();
     assert.match(await backdrop(), /\/ 0\.7\)/, 'Cancel restores the previous opacity');
+    await page.evaluate(() => { document.documentElement.dataset.windowMaximized = ''; });
+    assert.doesNotMatch(await backdrop(), /\//, 'maximizing covers the native caption controls with an opaque surface');
+    await page.evaluate(() => { delete document.documentElement.dataset.windowMaximized; });
+    assert.match(await backdrop(), /\/ 0\.7\)/, 'restoring brings back the selected opacity');
     await page.emulateMedia({ forcedColors: 'active' });
     assert.equal(await page.evaluate(() =>
       getComputedStyle(document.body).getPropertyValue('--window-base') ===
@@ -309,6 +379,27 @@ async function assertTabsCentered(page, state) {
     await page.reload();
     await rail.waitFor();
     assert.equal(await width(), savedWidth, 'vertical tab width survives reload');
+
+    const touch = await browser.newPage({ viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true });
+    try {
+      await touch.goto(pathToFileURL(path.resolve(__dirname, '../index.html')).href);
+      await touch.waitForFunction(() => window.RVApp && RVApp.state.ready);
+      await touch.evaluate(() => {
+        RV.I18n.setLocale('fa'); RVApp.applyLocale();
+        RVApp.setDoc('# راهنمای نصب', 'راهنمای نصب و راه‌اندازی پروژه.md');
+        RVApp.newTab('# یادداشت', 'یادداشت‌های آزمون رابط.md');
+      });
+      assert.equal(await touch.locator('#sidebar').isVisible(), false, 'the mobile contents drawer starts closed');
+      const actions = touch.locator('.document-tab.is-active :is(.document-tab-rename, .document-tab-close)');
+      assert.equal(await actions.evaluateAll(buttons => buttons.every(button => {
+        const box = button.getBoundingClientRect(), rail = button.closest('.document-tabs').getBoundingClientRect();
+        return box.width >= 44 && box.left >= rail.left && box.right <= rail.right;
+      })), true, 'both tab actions fit at 320px in RTL with touch targets');
+      await touch.locator('.document-tab.is-active .document-tab-rename').tap();
+      await touch.locator('#tabTitleInput').fill('راهنمای تیم');
+      await touch.locator('#tabRename button').tap();
+      await touch.getByRole('tab', { name: 'راهنمای تیم', exact: true }).waitFor();
+    } finally { await touch.close(); }
 
     assert.deepEqual(errors, []);
     console.log('UI smoke passed: responsive menus, font suggestions, flat toolbar, Focus, horizontal tabs, and persistent vertical tab width.');

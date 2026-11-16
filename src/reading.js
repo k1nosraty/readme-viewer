@@ -127,11 +127,12 @@
   function snapshot() {
     if (!restoring) lastTop = app.el.previewScroll.scrollTop;
     savePosition();
-    var tabs = app.listTabs().filter(function (tab) { return tab.hasDocument; });
+    var tabs = app.listTabs().filter(function (tab) { return tab.hasDocument || tab.customTitle; });
     return { active: tabs.findIndex(function (tab) { return tab.active; }), documents: tabs.map(function (tab) {
       var path = nativeFiles && !tab.dirty && tab.handle && tab.handle.path;
       if (path && /^content:/i.test(path)) path = '';
       return { source: path ? undefined : tab.source, path: path || undefined, name: tab.name,
+        customTitle: tab.customTitle || undefined, empty: !tab.hasDocument || undefined,
         bom: tab.bom, eol: tab.eol, encoding: tab.encoding,
         format: tab.format, formatOverride: tab.formatOverride, draftName: tab.draftName, showSource: !!tab.showSource,
         reading: JSON.parse(JSON.stringify(records[tabKeys[tab.id]] || {})) };
@@ -141,7 +142,7 @@
     return a && b && a.active === b.active && a.documents.length === b.documents.length &&
       a.documents.every(function (doc, i) {
         var other = b.documents[i];
-        return ['source', 'path', 'name', 'bom', 'eol', 'encoding', 'format', 'formatOverride', 'draftName', 'showSource'].every(function (key) { return doc[key] === other[key]; }) &&
+        return ['source', 'path', 'name', 'customTitle', 'empty', 'bom', 'eol', 'encoding', 'format', 'formatOverride', 'draftName', 'showSource'].every(function (key) { return doc[key] === other[key]; }) &&
           JSON.stringify(doc.reading) === JSON.stringify(other.reading);
       });
   }
@@ -160,7 +161,9 @@
         if (sameSnapshot(value, lastSnapshot)) {
           failed = false; byId('sessionStatus').textContent = t('reading.saved'); return Promise.resolve(true);
         }
-        var size = value.documents.reduce(function (sum, doc) { return sum + (doc.source || '').length * 2; }, 0);
+        var size = value.documents.reduce(function (sum, doc) {
+          return sum + ((doc.source || '').length + (doc.customTitle || '').length) * 2;
+        }, 0);
         if (size > 32 * 1024 * 1024) throw new Error('Draft limit exceeded');
         byId('sessionStatus').textContent = t('reading.saving');
         if (durableStorage()) operation = RV.Drafts.write(value);
@@ -280,7 +283,7 @@
         var id = app.restoreTab(item, original);
         if (id) {
           restored.push({ id: id, index: index });
-          if (!original) hasCopies = true;
+          if (!original && !item.empty) hasCopies = true;
           if (item.reading && typeof item.reading === 'object') {
             var key = 'restored:' + id + ':' + keyForDocument();
             records[key] = {
@@ -315,7 +318,7 @@
         return app.whenDocumentsReady().then(function () {
           if (!prefs.session || version !== generation) return;
           var active = app.listTabs().find(function (tab) { return tab.active; });
-          var interacted = app.state.documentId !== initial || !!app.el.editor.value;
+          var interacted = app.state.documentId !== initial || !!app.el.editor.value || !!(active && active.customTitle);
           restore(session, new Map(files.filter(Boolean)));
           if (interacted && active) app.switchTab(active.id);
         });

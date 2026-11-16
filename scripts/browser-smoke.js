@@ -198,6 +198,34 @@ const { chromium } = require('playwright');
         }
       }
     }
+    const wideTable = '| Key | Value |\n| --- | --- |\n| A | ' + 'LongIdentifier'.repeat(10) + ' |';
+    const rawTable = '<table><tr><th>Key</th><th>Value</th></tr><tr><td>A</td><td>B</td></tr></table>';
+    await page.evaluate(source => {
+      RVApp.setMode('preview');
+      RVApp.setDoc(source, 'tables.md');
+    }, wideTable + '\n\n' + rawTable);
+    const roundedTable = await page.locator('#preview .table-wrap').evaluate(frame => {
+      const css = getComputedStyle(frame);
+      frame.scrollLeft = 100;
+      return { radii: [css.borderTopLeftRadius, css.borderTopRightRadius, css.borderBottomLeftRadius, css.borderBottomRightRadius],
+        scroll: frame.scrollLeft, fits: frame.offsetWidth <= frame.parentElement.clientWidth };
+    });
+    assert.deepEqual(roundedTable.radii, ['15px', '15px', '15px', '15px']);
+    assert.ok(roundedTable.fits && roundedTable.scroll > 0, 'wide tables scroll inside the rounded frame');
+    assert.equal(await page.locator('#preview table').last().evaluate(table => getComputedStyle(table).borderRadius), '15px');
+    const tableHtml = await page.evaluate(() => RV.Export.build({
+      html: document.getElementById('preview').innerHTML, theme: 'dark', dir: 'rtl'
+    }));
+    const tableExport = await browser.newPage({ viewport: { width: 360, height: 600 } });
+    try {
+      await tableExport.setContent(tableHtml);
+      assert.equal(await tableExport.locator('.table-wrap').evaluate(frame => {
+        const css = getComputedStyle(frame);
+        return css.borderRadius === '15px' && css.borderTopColor === 'rgb(61, 68, 77)' &&
+          frame.scrollWidth > frame.clientWidth && document.documentElement.scrollWidth === innerWidth;
+      }), true, 'standalone tables keep rounded, scrollable dark frames');
+    } finally { await tableExport.close(); }
+    await page.evaluate(() => RVApp.setMode('split'));
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const readingSource = '# Reading tools\n\n- [x] Completed\n- [ ] Pending\n';

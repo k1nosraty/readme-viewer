@@ -6,6 +6,34 @@ if (!$installer) { throw 'Native NSIS installer missing' }
 $installDir = Join-Path $env:RUNNER_TEMP 'README-Viewer-Native-Smoke'
 $progId = 'io.github.readmeviewer.viewer.Document'
 $extensions = @('.md', '.json', '.ini', '.conf', '.py', '.dart', '.ts', '.go', '.rs', '.html', '.svg')
+Add-Type -Name WindowState -Namespace ReadmeViewerSmoke -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool ShowWindowAsync(System.IntPtr window, int command);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool IsZoomed(System.IntPtr window);
+'@
+function Set-TestWindowState([IntPtr]$window, [bool]$maximized) {
+    $command = if ($maximized) { 3 } else { 9 } # SW_MAXIMIZE or SW_RESTORE
+    if (![ReadmeViewerSmoke.WindowState]::ShowWindowAsync($window, $command)) { throw 'Could not change the native window state' }
+    for ($i=0; $i -lt 50; $i++) {
+        if ([ReadmeViewerSmoke.WindowState]::IsZoomed($window) -eq $maximized) { return }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "Native window did not reach requested maximized state: $maximized"
+}
+
+function Save-DesktopScreenshot([string]$name) {
+    $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $image = [Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
+    try {
+        $graphics = [Drawing.Graphics]::FromImage($image)
+        try {
+            $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+            $image.Save((Join-Path (Get-Location) "native-test-results/$name"))
+        } finally { $graphics.Dispose() }
+    } finally { $image.Dispose() }
+}
+
 $originalDefaults = @{}
 foreach ($extension in $extensions) {
     $originalDefaults[$extension] = [Microsoft.Win32.Registry]::GetValue("HKEY_CURRENT_USER\Software\Classes\$extension", '', $null)
@@ -42,13 +70,12 @@ try {
         if ($process.MainWindowHandle -eq 0) { throw 'Native window never appeared' }
         Add-Type -AssemblyName System.Drawing
         Add-Type -AssemblyName System.Windows.Forms
-        $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
-        $image = [Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
-        $graphics = [Drawing.Graphics]::FromImage($image)
-        $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
-        $image.Save((Join-Path (Get-Location) 'native-test-results/windows-native.png'))
-        $graphics.Dispose(); $image.Dispose()
-        @{ nativeExecutable=$app.Name; pid=$process.Id; windowTitle=$process.MainWindowTitle; openWith=$extensions; coverage='Installer, Open with registration and preserved defaults, native window launch, screenshot, uninstall' } | ConvertTo-Json | Set-Content native-test-results/windows-native.json
+        Save-DesktopScreenshot 'windows-native.png'
+        Set-TestWindowState $process.MainWindowHandle $true
+        Start-Sleep -Milliseconds 500
+        Save-DesktopScreenshot 'windows-native-maximized.png'
+        Set-TestWindowState $process.MainWindowHandle $false
+        @{ nativeExecutable=$app.Name; pid=$process.Id; windowTitle=$process.MainWindowTitle; openWith=$extensions; coverage='Installer, Open with registration and preserved defaults, native window launch, maximize and restore, screenshots, uninstall' } | ConvertTo-Json | Set-Content native-test-results/windows-native.json
     } finally { if (!$process.HasExited) { Stop-Process -Id $process.Id -Force } }
 } finally {
     $uninstaller = (Get-ChildItem $installDir -Filter '*uninstall*.exe' | Select-Object -First 1).FullName

@@ -15,8 +15,16 @@ const abort = () => new DOMException('Save cancelled.', 'AbortError');
 async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
   const byId = id => document.getElementById(id);
   const maximize = byId('btnWindowMaximize');
+  const documentRoot = document.documentElement;
+  let maximizedRevision = 0;
   const syncMaximized = async () => {
+    const revision = ++maximizedRevision;
     const maximized = await window.isMaximized();
+    if (revision !== maximizedRevision) return;
+    if (windows) {
+      if (maximized) documentRoot.dataset.windowMaximized = '';
+      else delete documentRoot.dataset.windowMaximized;
+    }
     const key = maximized ? 'window.restore' : 'window.maximize';
     if (maximize.dataset.i18nAria === key) return;
     const label = root.RV.I18n.t(key);
@@ -27,12 +35,11 @@ async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
     maximize.innerHTML = root.RV.Icons.svg(maximized ? 'copy' : 'windowMaximize', 15);
   };
   byId('btnWindowMinimize').addEventListener('click', () => window.minimize().catch(report));
-  maximize.addEventListener('click', () => window.toggleMaximize().catch(report));
+  maximize.addEventListener('click', () => window.toggleMaximize().then(syncMaximized).catch(report));
   byId('btnWindowClose').addEventListener('click', () => window.close().catch(report));
 
   byId('titlebarDrag').hidden = false;
   byId('captionButtons').hidden = false;
-  const documentRoot = document.documentElement;
   documentRoot.dataset.desktopTitlebar = '';
   onTitlebar?.();
   let backdropRevision = 0;

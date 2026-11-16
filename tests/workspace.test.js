@@ -468,7 +468,7 @@ test('same-name tabs expose locations and settings menus close with Escape', asy
   api.newTab('# Second', 'README.md', { path: '/repo/examples/README.md' });
   const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
   assert.notEqual(tabs[0].textContent, tabs[1].textContent);
-  assert.equal(tabs[0].title, '/repo/docs/README.md');
+  assert.match(tabs[0].getAttribute('aria-label'), /\/repo\/docs\/README\.md$/);
   assert.match(tabs[1].getAttribute('aria-label'), /examples/);
   assert.ok(document.querySelector('#menuFile #restoreSession'));
   assert.ok(document.querySelector('#menuFile #baseUrl'));
@@ -478,4 +478,47 @@ test('same-name tabs expose locations and settings menus close with Escape', asy
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(menu.hidden, true);
   assert.equal(document.activeElement, launcher);
+});
+
+test('draft tab title follows the first twenty characters of the first line through undo and recovery', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, document, window } = app;
+  const title = () => document.querySelector('[role="tab"][aria-selected="true"]').textContent;
+  assert.equal(title(), 'Untitled');
+  edit(app, '\nSecond line');
+  assert.equal(title(), '• Untitled');
+  const firstTwenty = '1234567890123456789👩‍💻';
+  edit(app, firstTwenty + ' rest\nSecond line');
+  assert.equal(title(), '• ' + firstTwenty);
+  edit(app, 'تست فارسی\nSecond line');
+  assert.equal(title(), '• تست فارسی');
+  api.el.editor.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+  assert.equal(title(), '• ' + firstTwenty);
+  const draft = api.listTabs()[0];
+  api.restoreTab(draft);
+  assert.equal(title(), '• ' + firstTwenty);
+  assert.equal(api.state.name, 'README.md');
+  api.setDoc(draft.source, 'saved.md');
+  edit(app, 'A different line');
+  assert.equal(title(), '• saved.md');
+});
+
+test('opening a new file preserves a named empty tab and its clean state', async t => {
+  const app = await workspace(t); if (!app) return;
+  const { api, document } = app;
+  const blank = api.listTabs()[0].id;
+  const rename = document.querySelector('.document-tab-rename');
+  rename.getClientRects = () => [{}];
+  const form = document.getElementById('tabRename');
+  rename.click();
+  document.getElementById('tabTitleInput').value = '  جلسهٔ بعد  ';
+  form.dispatchEvent(new app.window.Event('submit', { bubbles: true, cancelable: true }));
+  const bytes = new TextEncoder().encode('# Release');
+  assert.equal(await api.openFileTab({ name: 'release.md', arrayBuffer: async () => bytes.buffer }), true);
+  const [named, opened] = api.listTabs();
+  assert.equal(named.id, blank);
+  assert.equal(named.customTitle, 'جلسهٔ بعد');
+  assert.equal(named.hasDocument || named.dirty, false);
+  assert.equal(opened.name, 'release.md');
+  assert.equal(opened.customTitle, undefined);
 });
