@@ -97,7 +97,7 @@ jobs:
       - name: Install Linux WebView and test libraries
         timeout-minutes: 8
         run: |
-          sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Dpkg::Use-Pty=0 install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev webkit2gtk-driver xvfb dbus-x11 openbox xcompmgr xdotool x11-utils x11-xserver-utils scrot python3-pil
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Dpkg::Use-Pty=0 install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev webkit2gtk-driver xvfb dbus-x11 mutter xdotool x11-utils scrot python3-pil
       - name: Restore tauri-driver binary
         id: tauri-driver-cache
         uses: actions/cache/restore@v4
@@ -150,7 +150,7 @@ jobs:
         run: cargo test --release --locked --manifest-path src-tauri/Cargo.toml --lib
       - name: Installed native WebView open, edit and save
         timeout-minutes: 5
-        run: dbus-run-session -- xvfb-run -a -s '-screen 0 1600x1000x24 +extension COMPOSITE' bash scripts/test-native-linux.sh
+        run: dbus-run-session -- xvfb-run -a -s '-screen 0 2560x1440x24 +extension COMPOSITE' bash scripts/test-native-linux.sh
       - name: Linux package checksums
         run: |
           find src-tauri/target/release/bundle -type f \( -name '*.deb' -o -name '*.AppImage' \) -exec sh -c 'cd "$(dirname "$1")"; sha256sum "$(basename "$1")" > "$(basename "$1").sha256"' sh {} \;

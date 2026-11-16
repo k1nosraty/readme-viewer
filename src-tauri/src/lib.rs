@@ -6,8 +6,6 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
 mod atomic_file;
-#[cfg(target_os = "linux")]
-mod linux_native;
 #[cfg(desktop)]
 mod session_files;
 mod visual_preview;
@@ -304,7 +302,8 @@ fn set_window_backdrop(window: tauri::WebviewWindow) -> bool {
         window
             .gtk_window()
             .ok()
-            .is_some_and(|native| linux_native::enable_rounded_frame(&native))
+            .and_then(|native| WidgetExt::screen(&native))
+            .is_some_and(|screen| screen.is_composited())
     }
     #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
