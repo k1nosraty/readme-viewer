@@ -4,7 +4,7 @@
 
 Read project READMEs with their diagrams and task lists. Open a source file to fold a function and edit a line in place. Navigate JSON trees and grouped INI settings.
 
-**[Download the latest release][release]** · [What’s new in 2.2.1][notes] · [Try without installing](#try-without-installing)
+**[Download the latest release][release]** · [What’s new in 2.2.2][notes] · [Try without installing](#try-without-installing)
 
 ![README Viewer desktop workspace showing a Markdown document, a Mermaid flowchart, an interactive checklist, and a table of contents](docs/screenshots/markdown-workspace.webp)
 
@@ -12,7 +12,7 @@ Read project READMEs with their diagrams and task lists. Open a source file to f
 
 ## Download
 
-These are the **2.2.1** packages. The [release page][release] includes SHA-256 checksums and signed desktop updates.
+These are the **2.2.2** packages. The [release page][release] includes SHA-256 checksums and signed desktop updates.
 
 | Platform | Download | Requirements |
 | --- | --- | --- |
@@ -64,7 +64,7 @@ The interface is available in English and Persian. Mixed-direction Markdown rend
 
 ## Try without installing
 
-Download the [2.2.1 source ZIP][source], extract the whole archive, and open `index.html` in a browser. Keep the extracted folders together so the preview, syntax grammars, and diagrams work offline. Choose **Load sample document** on the empty screen to try it out.
+Download the [2.2.2 source ZIP][source], extract the whole archive, and open `index.html` in a browser. Keep the extracted folders together so the preview, syntax grammars, and diagrams work offline. Choose **Load sample document** on the empty screen to try it out.
 
 Chrome and Edge can save back to a file you’ve opened when the browser grants file access. Other browsers download the saved copy. Remote images and external links can still use the network.
 
@@ -75,11 +75,11 @@ Chrome and Edge can save back to a file you’ve opened when the browser grants 
 Run the JavaScript tests with `npm ci && npm test`. For browser and platform checks, see [validation in the native app guide](docs/native-app.md#validation-status).
 
 [release]: https://github.com/k1nosraty/readme-viewer/releases/latest
-[notes]: https://github.com/k1nosraty/readme-viewer/releases/tag/v2.2.1
-[windows]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.1/README.Viewer_2.2.1_x64-setup.exe
-[deb]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.1/README.Viewer_2.2.1_amd64.deb
-[appimage]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.1/README.Viewer_2.2.1_amd64.AppImage
-[arm64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.1/README-Viewer-2.2.1-Android-ARM64-Debug-Preview.apk
-[x86_64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.1/README-Viewer-2.2.1-Android-X86_64-Debug-Preview.apk
-[source]: https://github.com/k1nosraty/readme-viewer/archive/refs/tags/v2.2.1.zip
+[notes]: https://github.com/k1nosraty/readme-viewer/releases/tag/v2.2.2
+[windows]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.2/README.Viewer_2.2.2_x64-setup.exe
+[deb]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.2/README.Viewer_2.2.2_amd64.deb
+[appimage]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.2/README.Viewer_2.2.2_amd64.AppImage
+[arm64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.2/README-Viewer-2.2.2-Android-ARM64-Debug-Preview.apk
+[x86_64]: https://github.com/k1nosraty/readme-viewer/releases/download/v2.2.2/README-Viewer-2.2.2-Android-X86_64-Debug-Preview.apk
+[source]: https://github.com/k1nosraty/readme-viewer/archive/refs/tags/v2.2.2.zip
 [issues]: https://github.com/k1nosraty/readme-viewer/issues

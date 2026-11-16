@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.2.2 — 2026-11-17
+
+- Match the window frame on Windows and Linux. Use rounded outer corners for normal windows on supported desktops and square corners when maximized.
+- Give desktop window controls a consistent layout and keep larger touch targets on touchscreens.
+- Validate frame geometry and opacity in the installed desktop apps. Check that Android’s system bars and keyboard leave the editor visible.
+
 ## 2.2.1 — 2026-11-16
 
 - Preserve Contents visibility and filter focus across window sizes. Keep the sidebar and drawer on the same side in English and Persian.
