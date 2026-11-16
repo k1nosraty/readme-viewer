@@ -23,7 +23,7 @@ trap 'adb shell am force-stop "$package"; adb uninstall "$package"' EXIT
 adb logcat -c
 adb shell monkey -p "$package" -c android.intent.category.LAUNCHER 1
 for attempt in $(seq 1 60); do
-  if adb shell pidof "$package" > native-test-results/android-pid.txt; then break; fi
+  if adb shell pidof -s "$package" > native-test-results/android-pid.txt; then break; fi
   sleep 1
 done
 test -s native-test-results/android-pid.txt
@@ -45,7 +45,11 @@ test -s native-test-results/android-window.xml
 grep -F "<hierarchy" native-test-results/android-window.xml > /dev/null
 adb exec-out screencap -p > native-test-results/android-native.png
 adb logcat -d > native-test-results/android-logcat.txt
-if grep -E 'FATAL EXCEPTION|Fatal signal' native-test-results/android-logcat.txt; then exit 1; fi
+app_pid=$(tr -d '\r\n' < native-test-results/android-pid.txt)
+test "$app_pid" = "$(adb shell pidof -s "$package" | tr -d '\r\n')"
+# UIAutomator is a separate process and can fail while retrying a hierarchy dump.
+adb logcat -d --pid="$app_pid" > native-test-results/android-app-logcat.txt
+if grep -E 'FATAL EXCEPTION|Fatal signal' native-test-results/android-app-logcat.txt; then exit 1; fi
 version=$(node -p "require('./package.json').version")
 # Publish each architecture separately to avoid downloading unused native libraries.
 package_apk() {

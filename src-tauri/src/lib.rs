@@ -6,6 +6,8 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
 mod atomic_file;
+#[cfg(target_os = "linux")]
+mod linux_native;
 #[cfg(desktop)]
 mod session_files;
 mod visual_preview;
@@ -291,23 +293,22 @@ fn restart_app(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn set_window_backdrop(window: tauri::WebviewWindow, dark: bool) -> bool {
+fn set_window_backdrop(window: tauri::WebviewWindow) -> bool {
     #[cfg(target_os = "windows")]
     {
-        windows_native::apply_backdrop(&window, dark)
+        windows_native::round_window(&window);
+        false
     }
     #[cfg(target_os = "linux")]
     {
-        let _ = dark;
         window
             .gtk_window()
             .ok()
-            .and_then(|native| WidgetExt::screen(&native))
-            .is_some_and(|screen| screen.is_composited())
+            .is_some_and(|native| linux_native::enable_rounded_frame(&native))
     }
     #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
-        let _ = (window, dark);
+        let _ = window;
         false
     }
 }
@@ -408,6 +409,18 @@ pub fn run() {
             visual_preview::unmount_visual_preview
         ])
         .on_window_event(|window, event| {
+            #[cfg(target_os = "windows")]
+            if window.label() == "main" && matches!(
+                event, tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. }
+            ) && !window.is_minimized().unwrap_or(false) {
+                if let Ok(hwnd) = window.hwnd() {
+                    windows_native::update_window_region(
+                        hwnd,
+                        window.scale_factor().unwrap_or(1.0),
+                        window.is_maximized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false),
+                    );
+                }
+            }
             if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {
                 record_dropped_directories(window.app_handle(), paths);
                 let paths = document_paths(

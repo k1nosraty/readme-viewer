@@ -1,47 +1,81 @@
-use std::mem::size_of_val;
+use std::cell::Cell;
 use tauri::WebviewWindow;
 use windows::core::{w, Error};
-use windows::Win32::Foundation::E_FAIL;
+use windows::Win32::Foundation::{E_FAIL, HWND, RECT};
 use windows::Win32::Graphics::DirectWrite::{
     DWriteCreateFactory, IDWriteFactory, DWRITE_FACTORY_TYPE_SHARED,
 };
-use windows::Win32::Graphics::Dwm::{
-    DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE,
-    DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
-};
-use windows::Win32::UI::Controls::MARGINS;
+use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, DeleteObject, SetWindowRgn};
+use windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
 
-pub fn apply_backdrop(window: &WebviewWindow, dark: bool) -> bool {
-    let Ok(hwnd) = window.hwnd() else {
-        return false;
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct WindowRegion {
+    handle: HWND,
+    width: i32,
+    height: i32,
+    diameter: i32,
+}
+
+thread_local! {
+    static LAST_REGION: Cell<Option<WindowRegion>> = const { Cell::new(None) };
+}
+
+pub fn update_window_region(hwnd: HWND, scale: f64, square: bool) {
+    let mut bounds = RECT::default();
+    if unsafe { GetWindowRect(hwnd, &mut bounds) }.is_err() {
+        return;
+    }
+    let shape = WindowRegion {
+        handle: hwnd,
+        width: bounds.right - bounds.left,
+        height: bounds.bottom - bounds.top,
+        diameter: if square { 0 } else { (16.0 * scale).round() as i32 },
     };
-    let dark_caption = i32::from(dark);
-    unsafe {
-        let _ = DwmSetWindowAttribute(
+    if shape.width <= 0 || shape.height <= 0 {
+        return;
+    }
+    LAST_REGION.with(|last| {
+        if last.get() == Some(shape) {
+            return;
+        }
+        // SetWindowRgn sends window-position messages. Remember the geometry before calling it.
+        let previous = last.replace(Some(shape));
+        let success = unsafe {
+            if square {
+                SetWindowRgn(hwnd, None, true) != 0
+            } else {
+                let region = CreateRoundRectRgn(
+                    0,
+                    0,
+                    shape.width + 1,
+                    shape.height + 1,
+                    shape.diameter,
+                    shape.diameter,
+                );
+                if region.0.is_null() {
+                    false
+                } else if SetWindowRgn(hwnd, Some(region), true) != 0 {
+                    true // Windows owns the region after a successful call.
+                } else {
+                    let _ = DeleteObject(region.into());
+                    false
+                }
+            }
+        };
+        if !success {
+            last.set(previous);
+        }
+    });
+}
+
+pub fn round_window(window: &WebviewWindow) {
+    if let Ok(hwnd) = window.hwnd() {
+        update_window_region(
             hwnd,
-            DWMWA_USE_IMMERSIVE_DARK_MODE,
-            std::ptr::from_ref(&dark_caption).cast(),
-            size_of_val(&dark_caption) as u32,
-        );
-        let _ = DwmSetWindowAttribute(
-            hwnd,
-            DWMWA_WINDOW_CORNER_PREFERENCE,
-            std::ptr::from_ref(&DWMWCP_ROUND).cast(),
-            size_of_val(&DWMWCP_ROUND) as u32,
+            window.scale_factor().unwrap_or(1.0),
+            window.is_maximized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false),
         );
     }
-    // Legacy acrylic stutters during window moves and resizes on Windows 10 and early Windows 11.
-    if window_vibrancy::apply_mica(window, Some(dark)).is_err() {
-        return false;
-    }
-    // Mica is drawn behind the transparent WebView, across the client area.
-    let margins = MARGINS {
-        cxLeftWidth: -1,
-        cxRightWidth: -1,
-        cyTopHeight: -1,
-        cyBottomHeight: -1,
-    };
-    unsafe { DwmExtendFrameIntoClientArea(hwnd, &margins).is_ok() }
 }
 
 pub fn installed_font_families() -> windows::core::Result<Vec<String>> {

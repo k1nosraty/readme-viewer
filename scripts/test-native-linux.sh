@@ -15,14 +15,31 @@ printf '# Native Persian smoke\r\n\r\n- [ ] یادگیری PostgreSQL\r\n' > "$f
 wrapper=$(mktemp)
 printf '#!/bin/sh\nexec "%s" "%s"\n' "$app" "$fixture" > "$wrapper"
 chmod +x "$wrapper"
-cleanup() { kill "${driver_pid:-}" 2>/dev/null || true; rm -f "$fixture" "$wrapper"; sudo dpkg -r "$name"; }
+cleanup() {
+  for pid in "${driver_pid:-}" "${compositor_pid:-}" "${wm_pid:-}"; do
+    if test -n "$pid"; then kill "$pid" 2>/dev/null || true; fi
+  done
+  rm -f "$fixture" "$wrapper"
+  sudo dpkg -r "$name"
+}
 trap cleanup EXIT
+openbox > native-test-results/openbox.log 2>&1 &
+wm_pid=$!
+xcompmgr -a > native-test-results/compositor.log 2>&1 &
+compositor_pid=$!
+for attempt in $(seq 1 30); do
+  if xprop -root _NET_SUPPORTING_WM_CHECK | grep -q 'window id #'; then break; fi
+  sleep 0.2
+done
+xprop -root _NET_SUPPORTING_WM_CHECK | grep -q 'window id #'
+xsetroot -solid '#c72277'
 export NATIVE_TEST_APPLICATION="$wrapper" NATIVE_TEST_FIXTURE="$fixture" NATIVE_TEST_DESKTOP="$desktop"
 tauri-driver > native-test-results/tauri-driver.log 2>&1 &
 driver_pid=$!
 python3 - <<'PY'
 import base64,configparser,json,os,subprocess,tempfile,time,urllib.request
 from pathlib import Path
+from PIL import Image
 base='http://127.0.0.1:4444'
 def request(method,url,data=None,timeout=20):
     raw=None if data is None else json.dumps(data).encode()
@@ -43,10 +60,58 @@ def wait(script):
         if js(script): return
         time.sleep(1)
     raise AssertionError('Native UI condition timed out: '+script)
+def xdotool(*args):
+    return subprocess.check_output(['xdotool', *args], text=True, timeout=10).strip()
+def window_state(window):
+    return subprocess.check_output(['xprop','-id',window,'_NET_WM_STATE'], text=True, timeout=10)
+def wait_until(check, message):
+    for _ in range(60):
+        if check(): return
+        time.sleep(0.1)
+    raise AssertionError(message)
+def window_alive(window):
+    return subprocess.run(['xprop','-id',window], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5).returncode == 0
+def bounds(window):
+    values=dict(line.split('=',1) for line in xdotool('getwindowgeometry','--shell',window).splitlines())
+    return [int(values[key]) for key in ('X','Y','WIDTH','HEIGHT')]
+def click_caption(window, button):
+    x,y,_,_=bounds(window)
+    pos=js(f"const r = document.getElementById('{button}').getBoundingClientRect(); return [r.x+r.width/2,r.y+r.height/2]")
+    xdotool('mousemove',str(round(x+pos[0])),str(round(y+pos[1])),'click','1')
+def screenshot_frame(window, label):
+    x,y,width,height=bounds(window)
+    filename='native-test-results/linux-frame-'+label+'.png'
+    subprocess.run(['scrot','-o',filename], check=True, timeout=10)
+    with Image.open(filename) as image:
+        rgb=image.convert('RGB')
+        corners=[rgb.getpixel((left,top)) for left in (x,x+width-1) for top in (y,y+height-1)]
+        return corners, rgb.getpixel((x+12,y)), rgb.getpixel((max(0,x-12),max(0,y-12)))
+closed=False
 try:
     wait("return window.RVApp && RVApp.state.ready && document.querySelector('#editor').value.includes('یادگیری PostgreSQL')")
     assert js("return !!window.__TAURI_INTERNALS__"), 'Expected native Tauri WebView'
     assert js("return document.documentElement.hasAttribute('data-desktop-titlebar') && !document.querySelector('#captionButtons').hidden && document.querySelector('#titlebarTabs #documentTabs') !== null"), 'Expected the shared desktop title bar and tabs'
+    window=xdotool('getactivewindow')
+    assert 'README Viewer' in xdotool('getwindowname',window), 'Installed viewer is not the active Linux window'
+    assert js("return document.documentElement.hasAttribute('data-window-corners') && /round 8px/.test(getComputedStyle(document.body).clipPath)"), 'The restored GTK WebView did not apply rounded corners'
+    controls=js("""return [...document.querySelectorAll('#captionButtons button')].map(button => {
+      const r=button.getBoundingClientRect();
+      return {width:r.width,height:r.height,hit:button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};
+    })""")
+    assert controls == [{'width':38,'height':32,'hit':True}]*3, str(controls)
+    colors, edge, backdrop = screenshot_frame(window,'restored')
+    assert colors == [backdrop]*4 and edge != backdrop, f'The Linux desktop is not visible at the four rounded corners: {colors}, edge {edge}, backdrop {backdrop}, bounds {bounds(window)}'
+    click_caption(window,'btnWindowMaximize')
+    wait_until(lambda: '_NET_WM_STATE_MAXIMIZED_HORZ' in window_state(window), 'Maximize button did not maximize the Linux window')
+    wait("return document.documentElement.hasAttribute('data-window-maximized') && getComputedStyle(document.body).clipPath === 'none'")
+    screenshot_frame(window,'maximized')
+    click_caption(window,'btnWindowMaximize')
+    wait_until(lambda: '_NET_WM_STATE_MAXIMIZED_HORZ' not in window_state(window), 'Restore button did not restore the Linux window')
+    wait("return !document.documentElement.hasAttribute('data-window-maximized') && /round 8px/.test(getComputedStyle(document.body).clipPath)")
+    click_caption(window,'btnWindowMinimize')
+    wait_until(lambda: '_NET_WM_STATE_HIDDEN' in window_state(window), 'Minimize button did not minimize the Linux window')
+    xdotool('windowactivate','--sync',window)
+    wait_until(lambda: '_NET_WM_STATE_HIDDEN' not in window_state(window), 'Linux window did not return after minimization')
     assert js("return document.querySelector('#preview input[type=checkbox]').getAttribute('aria-label') === 'یادگیری PostgreSQL'"), 'Task name missing in native preview'
     js("document.querySelector('#structuredFind').click(); const input = document.querySelector('#findInput'); input.value = 'PostgreSQL'; input.dispatchEvent(new Event('input')); return true")
     assert js("return document.querySelector('#findCount[role=status]').textContent === '1 / 1'"), 'Markdown search did not announce its result'
@@ -100,8 +165,12 @@ try:
         wait("return !!document.querySelector('#preview .code-surface') && !document.querySelector('#preview iframe')")
         subprocess.run(['gio','launch',desktop,str(project/'assets'/'sample.svg')], check=True, timeout=15)
         wait("return document.querySelector('#preview .visual-file-svg img')?.naturalWidth === 60")
-    Path('native-test-results/linux-native.json').write_text(json.dumps({'native':True,'commandLineOpen':True,'openWith':True,'persianCheckbox':True,'accessibleTask':True,'markdownFind':True,'savedToDisk':True,'crlf':True,'diagramChecks':result['result'],'offlineVisualPreviews':True}))
-finally: request('DELETE',prefix)
+    click_caption(window,'btnWindowClose')
+    wait_until(lambda: not window_alive(window), 'Close button did not close the installed Linux window')
+    closed=True
+    Path('native-test-results/linux-native.json').write_text(json.dumps({'native':True,'commandLineOpen':True,'openWith':True,'persianCheckbox':True,'accessibleTask':True,'markdownFind':True,'savedToDisk':True,'crlf':True,'diagramChecks':result['result'],'offlineVisualPreviews':True,'roundedCorners':True,'captionControls':controls,'maximizeRestore':True,'minimize':True,'close':True}))
+finally:
+    if not closed: request('DELETE',prefix)
 PY
 # Cleanup verifies the actual installed native package can be removed.
 cleanup

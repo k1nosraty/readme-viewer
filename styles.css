@@ -1886,6 +1886,13 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   --titlebar-drag-min: 36px;
 }
 [data-desktop-titlebar] body { --window-base: var(--bg-inset); background: var(--window-base); }
+@media screen {
+  [data-desktop-titlebar][data-window-corners]:not([data-window-maximized]) body {
+    /* Keep the body background inside the clip instead of painting it on the canvas. */
+    contain: style;
+    clip-path: inset(0 round 8px);
+  }
+}
 /* Prevent the native caption controls showing through the Windows WebView on maximize. */
 [data-desktop-titlebar][data-window-glass]:where(:not([data-window-maximized])) body {
   --window-base: color-mix(in srgb, var(--bg-inset) var(--titlebar-opacity, 70%), transparent);
@@ -1945,17 +1952,19 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 .tab-overflow { flex: none; }
 .titlebar-tabs :focus-visible { outline-offset: -2px; }
 .titlebar-drag { flex: 1 0 var(--titlebar-drag-min); align-self: stretch; user-select: none; }
-.caption-buttons { display: flex; flex: none; align-self: stretch; }
+.caption-buttons { display: flex; flex: none; align-self: center; padding-inline-end: 4px; gap: 2px; }
 .caption-buttons button {
   display: grid;
   place-items: center;
-  width: 46px;
-  min-height: 38px;
+  width: 38px;
+  height: 32px;
   padding: 0;
   border: 0;
+  border-radius: 6px;
   background: transparent;
   color: inherit;
 }
+.caption-buttons svg { width: 13px; height: 13px; }
 .caption-buttons button:focus-visible { outline-offset: -3px; }
 .caption-buttons button:hover { background: var(--bg-hover); }
 .caption-buttons #btnWindowClose:hover { background: #c42b1c; color: #fff; }
@@ -2028,7 +2037,7 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   [data-desktop-titlebar] .tools-island .workspacebar { padding-inline: 2px; }
   [data-desktop-titlebar] .statusbar { gap: 6px; padding-inline: 8px; }
   [data-desktop-titlebar] .statusbar :is(#statusPerf, .sb-sep:has(+ #statusPerf)) { display: none; }
-  .caption-buttons button { width: 40px; }
+  .caption-buttons button { width: 34px; }
 }
 @media (max-width: 640px) and (pointer: fine) {
   [data-desktop-titlebar] .titlebar-tabs .document-tab { min-width: 76px; height: 34px; min-height: 34px; }
@@ -2036,9 +2045,6 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   [data-desktop-titlebar] .titlebar-tabs .document-tab-close { width: 24px; min-width: 24px; height: 28px; }
   [data-desktop-titlebar] .titlebar-tabs .document-tab-rename { width: 18px; height: 28px; }
   [data-desktop-titlebar] .titlebar-tabs .new-tab { width: 30px; min-width: 30px; height: 30px; min-height: 30px; }
-}
-@media (max-width: 420px) {
-  .caption-buttons button { width: 38px; }
 }
 @media (max-width: 520px) and (pointer: fine) {
   [data-desktop-titlebar] .menu-line { gap: 3px; }
@@ -2048,7 +2054,10 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   [data-desktop-titlebar] .titlebar-tabs .document-tab { min-width: 60px; padding-inline: 3px; gap: 1px; }
   [data-desktop-titlebar] .titlebar-tabs :is(.document-tab-close, .document-tab-rename) { width: 16px; min-width: 16px; padding-inline: 2px; }
   [data-desktop-titlebar] .titlebar-tabs .new-tab { width: 26px; min-width: 26px; height: 26px; min-height: 26px; }
-  [data-desktop-titlebar] .caption-buttons button { width: 34px; }
+  .caption-buttons { padding-inline-end: 0; gap: 0; }
+}
+@media (pointer: coarse) {
+  .caption-buttons button { min-width: 44px; height: 44px; }
 }
 @media print { .focus-exit { display: none !important; } }
 .font-choice > input[aria-invalid="true"] { border-color: var(--danger); }

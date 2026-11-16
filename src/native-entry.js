@@ -12,7 +12,7 @@ const root = window;
 const available = () => !!root.__TAURI_INTERNALS__;
 const abort = () => new DOMException('Save cancelled.', 'AbortError');
 
-async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
+async function setupDesktopTitlebar(window, report, onTitlebar) {
   const byId = id => document.getElementById(id);
   const maximize = byId('btnWindowMaximize');
   const documentRoot = document.documentElement;
@@ -21,10 +21,8 @@ async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
     const revision = ++maximizedRevision;
     const maximized = await window.isMaximized();
     if (revision !== maximizedRevision) return;
-    if (windows) {
-      if (maximized) documentRoot.dataset.windowMaximized = '';
-      else delete documentRoot.dataset.windowMaximized;
-    }
+    if (maximized) documentRoot.dataset.windowMaximized = '';
+    else delete documentRoot.dataset.windowMaximized;
     const key = maximized ? 'window.restore' : 'window.maximize';
     if (maximize.dataset.i18nAria === key) return;
     const label = root.RV.I18n.t(key);
@@ -42,17 +40,12 @@ async function setupDesktopTitlebar(window, windows, report, onTitlebar) {
   byId('captionButtons').hidden = false;
   documentRoot.dataset.desktopTitlebar = '';
   onTitlebar?.();
-  let backdropRevision = 0;
   const syncBackdrop = async () => {
-    const revision = ++backdropRevision;
-    const glass = await invoke('set_window_backdrop', { dark: documentRoot.dataset.theme === 'dark' });
-    if (revision !== backdropRevision) return;
-    if (glass) documentRoot.dataset.windowGlass = '';
-    else delete documentRoot.dataset.windowGlass;
+    if (await invoke('set_window_backdrop')) {
+      documentRoot.dataset.windowCorners = '';
+      documentRoot.dataset.windowGlass = '';
+    }
   };
-  if (windows) {
-    new MutationObserver(() => syncBackdrop().catch(report)).observe(documentRoot, { attributeFilter: ['data-theme'] });
-  }
   let resizeTimer;
   await Promise.all([
     syncBackdrop(),
@@ -268,7 +261,7 @@ const Native = {
       })
     ];
     if (desktopTitlebar) {
-      listeners.push(setupDesktopTitlebar(window, windows, report, hooks.onTitlebar));
+      listeners.push(setupDesktopTitlebar(window, report, hooks.onTitlebar));
     }
     if (android) {
       // Registering takes over Android's default Back navigation and exit.

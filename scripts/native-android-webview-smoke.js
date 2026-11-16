@@ -12,10 +12,14 @@ async function checkSystemInsets(landscape = false) {
   adb('shell', 'rm', '-f', dump);
   // UIAutomator can return success without a file while the window is still updating.
   for (let attempt = 0; attempt < 4; attempt++) {
-    lastDump = adb('shell', 'uiautomator', 'dump', dump, '2>&1').toString();
-    if (lastDump.includes('dumped to:')) {
-      hierarchy = adb('shell', 'cat', dump).toString();
-      if (hierarchy.includes('class="android.webkit.WebView"')) break;
+    try {
+      lastDump = adb('shell', 'uiautomator', 'dump', dump, '2>&1').toString();
+      if (lastDump.includes('dumped to:')) {
+        hierarchy = adb('shell', 'cat', dump).toString();
+        if (hierarchy.includes('class="android.webkit.WebView"')) break;
+      }
+    } catch (error) {
+      lastDump = error.stdout?.toString().trim() || error.message;
     }
     await sleep(500);
   }

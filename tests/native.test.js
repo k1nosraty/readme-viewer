@@ -151,7 +151,7 @@ test('startup, native-open, drop and close confirmation share app hooks', async 
 });
 
 for (const [platform, glass, tint] of [
-  ['Windows NT', true, ''],
+  ['Windows NT', false, undefined],
   ['X11; Linux x86_64', true, ''],
   ['X11; Linux x86_64', false, undefined]
 ]) {
@@ -196,6 +196,7 @@ for (const [platform, glass, tint] of [
         show: async () => {
           assert.equal(documentElement.dataset.desktopTitlebar, '');
           assert.equal(documentElement.dataset.windowGlass, tint);
+          assert.equal(documentElement.dataset.windowCorners, tint);
           assert.equal(nodes.get('captionButtons').hidden, false);
           calls.push('show');
         }
@@ -211,7 +212,7 @@ for (const [platform, glass, tint] of [
     await timers.values().next().value();
     assert.equal(stateReads, 2, 'one window state read after resizing');
     assert.equal(nodes.get('btnWindowMaximize').dataset.i18nAria, 'window.restore');
-    assert.equal(documentElement.dataset.windowMaximized, platform === 'Windows NT' ? '' : undefined);
+    assert.equal(documentElement.dataset.windowMaximized, '');
     maximized = false;
     onResize();
     await timers.values().next().value();
@@ -226,7 +227,7 @@ for (const [platform, glass, tint] of [
     resolveRead(false);
     await staleResize;
     assert.equal(nodes.get('btnWindowMaximize').dataset.i18nAria, 'window.restore');
-    assert.equal(documentElement.dataset.windowMaximized, platform === 'Windows NT' ? '' : undefined);
+    assert.equal(documentElement.dataset.windowMaximized, '');
   });
 }
 test('desktop open paths use the scoped Rust resolver, content URIs remain direct', async () => {

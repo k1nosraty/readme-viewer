@@ -10,8 +10,8 @@
         "minWidth": 360,
         "minHeight": 480,
         "decorations": false,
+        "shadow": false,
         "visible": false,
-        "transparent": true,
         "dragDropEnabled": true
       }
     ]

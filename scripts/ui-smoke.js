@@ -228,6 +228,7 @@ async function assertTabsCentered(page, state) {
       RVApp.setEmpty();
       document.documentElement.dataset.desktopTitlebar = '';
       document.documentElement.dataset.windowGlass = '';
+      document.documentElement.dataset.windowCorners = '';
       document.getElementById('captionButtons').hidden = false;
       document.getElementById('titlebarDrag').hidden = false;
     });
@@ -239,6 +240,11 @@ async function assertTabsCentered(page, state) {
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await assertToolbarFits(page, 'Windows ' + width);
       await assertTabsCentered(page, width);
+      assert.equal(await page.locator('#captionButtons button').evaluateAll(buttons => buttons.every(button => {
+        const { left, top, width, height } = button.getBoundingClientRect();
+        return width >= 34 && width <= 38 && height === 32 &&
+          button.contains(document.elementFromPoint(left + width / 2, top + height / 2));
+      })), true, 'compact caption controls remain clickable at ' + width);
       assert.equal(await page.locator('#titlebarTabs #documentTabs').evaluate(rail => {
         const r = rail.getBoundingClientRect();
         return rail.children.length === 2 && rail.scrollWidth <= rail.clientWidth + 1 && Array.from(rail.children).every(tab => {
@@ -254,6 +260,10 @@ async function assertTabsCentered(page, state) {
       assert.equal(await page.locator('#btnFocus').isVisible(), true, 'Focus remains visible at ' + width);
       assert.equal(await page.locator('#btnAllTabs').isVisible(), false, 'the tab list stays hidden when both tabs fit');
     }
+    assert.match(await page.locator('body').evaluate(body => getComputedStyle(body).clipPath), /round 8px/);
+    await page.evaluate(() => { document.documentElement.dataset.windowMaximized = ''; });
+    assert.equal(await page.locator('body').evaluate(body => getComputedStyle(body).clipPath), 'none');
+    await page.evaluate(() => { delete document.documentElement.dataset.windowMaximized; });
     for (const theme of ['light', 'dark']) {
       await page.evaluate(theme => document.querySelector('[data-theme-choice="' + theme + '"]').click(), theme);
       assert.equal(await page.locator('.tools-island').evaluate(node => {
