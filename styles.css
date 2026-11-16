@@ -2148,7 +2148,7 @@ html[data-theme="dark"] .visual-svg-thumb {
 #paneSizes { max-inline-size: 400px; }
 
 @media (pointer: coarse) {
-  .toolbar .btn, .toolbar > .tgroup .seg, .toolbar-overflow .seg,
+  .menu-line > .tab-overflow, .toolbar .btn, .toolbar > .tgroup .seg, .toolbar-overflow .seg,
   .workspacebar :is(.tab-overflow, .document-tab-rename, .document-tab-close, .new-tab, .reading-focus, .workspace-compare, summary),
   .vertical-tabs :is(.tab-overflow, .document-tab-rename, .document-tab-close, .new-tab),
   .find-bar .btn { min-inline-size: 44px; min-block-size: 44px; }

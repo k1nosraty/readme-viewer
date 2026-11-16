@@ -302,12 +302,13 @@
     var focus = document.activeElement;
     if (bar.parentNode !== destination) {
       hideTabPreview();
-      var before = destination === workspace ? $('workspaceActions') : null;
+      var before = destination === workspace ? $('workspaceActions') : all.parentNode === destination ? all : null;
       destination.insertBefore(tabList, before);
       destination.insertBefore(bar, before);
       destination.insertBefore(add, state.verticalTabs ? bar : before);
-      destination.insertBefore(all, before);
     }
+    var allHost = destination === workspace ? $('btnTabLayout').parentNode : destination;
+    if (all.parentNode !== allHost) allHost.insertBefore(all, allHost === destination ? null : titlebar);
     side.hidden = !state.verticalTabs;
     titlebar.hidden = !inTitlebar;
     bar.dataset.orientation = state.verticalTabs ? 'vertical' : 'horizontal';
@@ -1919,27 +1920,16 @@
       '</code></pre></div>\n';
   }
 
-  function applyDirection(parts, src) {
-    if (state.dirMode !== 'auto') {
-      el.preview.setAttribute('dir', state.dirMode);
-      for (var i = 0; i < parts.length; i++) parts[i].el.setAttribute('dir', state.dirMode);
+  function applyBlockDirection(node, mode) {
+    if (mode !== 'auto') { node.setAttribute('dir', mode); return; }
+    if (node.tagName === 'PRE' || node.classList.contains('code-block')) {
+      node.setAttribute('dir', 'ltr');
       return;
     }
-    el.preview.setAttribute('dir', Direction.dominantDir(src));
-    for (var j = 0; j < parts.length; j++) {
-      var node = parts[j].el;
-      var tag = node.tagName;
-      if (tag === 'PRE' || node.classList.contains('code-block')) {
-        node.setAttribute('dir', 'ltr');
-        continue;
-      }
-      var text = node.textContent || '';
-      var dir = node.classList.contains('table-wrap')
-        ? Direction.dominantDir(text)
-        : Direction.blockDir(text);
-      if (dir) node.setAttribute('dir', dir);
-      else node.removeAttribute('dir');
-    }
+    var text = node.textContent || '';
+    var dir = node.classList.contains('table-wrap') ? Direction.dominantDir(text) : Direction.blockDir(text);
+    if (dir) node.setAttribute('dir', dir);
+    else node.removeAttribute('dir');
   }
 
   function enhanceLinks(root) {
@@ -2406,6 +2396,8 @@
       var parts = [];
       var toc = [];
 
+      var direction = state.dirMode;
+      var documentDir = direction === 'auto' ? Direction.dominantDir(src) : direction;
       var cursor = 0, paintedFirstBlocks = Boolean(el.preview.firstChild);
       if (staged) queue(build);
       else build();
@@ -2416,7 +2408,7 @@
           buildBlock(cursor++);
         } while (cursor < tokens.length && (!staged || performance.now() < deadline));
         if (staged && !paintedFirstBlocks && blocks.length && cursor < tokens.length) {
-          applyDirection(parts, src);
+          el.preview.setAttribute('dir', documentDir);
           reconcileBlocks(blocks);
           paintedFirstBlocks = true;
         }
@@ -2444,6 +2436,7 @@
           enhanceLinks(holder); hl.all(holder);
         }
         var first = block.first;
+        applyBlockDirection(first, direction);
         if (state.editPreview && located[i].exact) {
           var begin = located[i].start, raw = token.raw.replace(/\n+$/, '');
           var range = { start: begin, end: begin + raw.length, source: src, documentId: state.documentId, label: t('previewEdit.block') };
@@ -2482,7 +2475,7 @@
 
       function mount() {
         reconcileBlocks(blocks);
-        applyDirection(parts, src);
+        el.preview.setAttribute('dir', documentDir);
         previewBlocks = blocks; previewContext = context; previewFolder = state.folder;
         if (staged) queue(finish);
         else finish();
@@ -2492,14 +2485,15 @@
         if (staged) clearMarkdownRender();
         state.anchors = parts;
         state.toc = toc;
-        measureParts();
+        if (!staged) measureParts();
 
         bindTasks(tokens, src);
 
         state.lines = src ? src.split('\n').length : 1;
         buildGutter();
         renderToc();
-        markActiveToc();
+        if (staged) schedulePreviewMeasurement();
+        else markActiveToc();
         updateStats(src, now() - t0);
 
         if (opts.focusTask !== undefined && opts.focusTask !== null) {
@@ -2565,6 +2559,9 @@
   /* ------------------------------------------------------ interactive tasks */
 
   function toggleTaskFromPreview(box) {
+    var index = parseInt(box.getAttribute('data-rv-task'), 10);
+    var task = state.tasks[index];
+    if (task) box.checked = task.checked;
     if (!state.editPreview) { toast(t('edit.off'), 'info'); return; }
     if (!state.tasksOk) {
       toast(t('edit.unavailable', { reason: state.taskReason }), 'warning');
@@ -2575,8 +2572,6 @@
       scheduleRender(null, 0);
       return;
     }
-    var index = parseInt(box.getAttribute('data-rv-task'), 10);
-    var task = state.tasks[index];
     var result = Tasks.toggleTask(el.editor.value, task);
     if (!result) {
       // The source moved since the last render: refresh and let the user click again.
@@ -3462,9 +3457,6 @@
       var editTarget = edit && previewEditTargets.get(edit);
       if (editTarget) { e.preventDefault(); openPreviewEdit(editTarget, edit); return; }
 
-      var box = target.closest('input[data-rv-task]');
-      if (box) { e.preventDefault(); toggleTaskFromPreview(box); return; }
-
       var copy = target.closest('[data-copy-code]');
       if (copy) { e.preventDefault(); copyCode(copy); return; }
 
@@ -3507,6 +3499,9 @@
       }
     });
 
+    el.preview.addEventListener('change', function (event) {
+      if (event.target.matches('input[data-rv-task]')) toggleTaskFromPreview(event.target);
+    });
     el.preview.addEventListener('keydown', function (e) {
       var target = e.target;
       if (!target || typeof target.closest !== 'function') return;

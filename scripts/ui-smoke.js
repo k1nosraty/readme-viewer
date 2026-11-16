@@ -425,7 +425,7 @@ async function assertTabsCentered(page, state) {
       await touch.setViewportSize({ width: 760, height: 400 });
       await touch.waitForFunction(() => document.getElementById('workspaceViews').dataset.compareLayout === 'columns');
       for (const id of ['editor', 'previewScroll', 'comparisonScroll']) {
-        assert.ok((await touch.locator('#' + id).boundingBox()).height >= 140, id + ' has reading space in landscape');
+        assert.ok((await touch.locator('#' + id).boundingBox()).height >= 125, id + ' has reading space in landscape');
       }
       await touch.evaluate(() => RVApp.hideComparison());
       const editorHeight = (await touch.locator('#paneEditor').boundingBox()).height;

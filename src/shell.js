@@ -59,7 +59,7 @@
     var available = vertical ? bar.clientHeight : bar.clientWidth;
     var required = vertical ? bar.scrollHeight : bar.scrollWidth;
     var reclaimed = 0;
-    if (!vertical && !allTabsButton.hidden) {
+    if (!vertical && !allTabsButton.hidden && bar.parentElement === allTabsButton.parentElement) {
       var gap = parseFloat(getComputedStyle(bar.parentElement).columnGap) || 0;
       reclaimed = allTabsButton.offsetWidth + gap;
     }

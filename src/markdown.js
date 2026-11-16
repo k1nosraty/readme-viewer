@@ -159,8 +159,12 @@
         var cls = item.task ? ' class="task-list-item"' : '';
         if (item.task) {
           var first = item.tokens[0];
-          var checkbox = first && first.tokens && first.tokens.find(function (token) { return token.type === 'checkbox'; });
-          if (checkbox) checkbox.label = plainText(first.tokens).replace(/\s+/g, ' ').trim();
+          var tokens = first && first.type === 'paragraph' ? first.tokens : item.tokens;
+          var checkbox = tokens[0];
+          if (checkbox && checkbox.type === 'checkbox') {
+            var text = first === checkbox ? item.tokens[1] : first;
+            checkbox.label = plainText(first === checkbox ? text && text.tokens : tokens).replace(/\s+/g, ' ').trim();
+          }
         }
         return '<li' + cls + '>' + this.parser.parse(item.tokens) + '</li>\n';
       },
@@ -173,7 +177,7 @@
         var index = taskSeq++;
         // `task-list-item-checkbox` is the class github-markdown-css aligns on; `rv-task` is ours.
         return '<input class="task-list-item-checkbox rv-task" type="checkbox" ' +
-          'data-rv-task="' + index + '" aria-label="' + esc(token.label || t('edit.task')) + '"' +
+          'data-rv-task="' + index + '" aria-label="' + esc(token.label || t('edit.task')).replace(/&amp;(?=(?:#\d+|#x[\da-f]+|[a-z][\da-z]+);)/gi, '&') + '"' +
           (token.checked ? ' checked' : '') + ' disabled> ';
       },
 

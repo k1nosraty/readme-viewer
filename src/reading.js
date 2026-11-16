@@ -81,12 +81,24 @@
     var task = target.closest('.task-list-item');
     if (task && prefs.hideDone) task.classList.add('find-visible');
   }
+  var headingFrame = 0;
   function headingButtons() {
+    cancelAnimationFrame(headingFrame);
     if (!current || app.state.format !== 'markdown') return;
-    var data = record();
-    app.state.toc.forEach(function (heading) {
-      var node = byId(heading.id);
-      if (!node || !app.el.preview.contains(node)) return;
+    var data = record(), headings = app.state.toc, cursor = 0;
+    var documentId = app.state.documentId, staged = headings.length > 120;
+    function batch() {
+      if (headings !== app.state.toc || documentId !== app.state.documentId) return;
+      var deadline = performance.now() + 8;
+      while (cursor < headings.length && (!staged || performance.now() < deadline)) {
+        addTools(headings[cursor++]);
+      }
+      if (cursor < headings.length) headingFrame = requestAnimationFrame(batch);
+    }
+    batch();
+    function addTools(heading) {
+      var node = heading.part.el;
+      if (!app.el.preview.contains(node)) return;
       var controls = node.querySelector('.section-tools');
       if (!controls) {
         controls = document.createElement('span'); controls.className = 'section-tools';
@@ -105,7 +117,7 @@
       controls.children[1].setAttribute('aria-pressed', marked ? 'true' : 'false');
       controls.children[1].setAttribute('aria-label', t('reading.bookmark') + ': ' + heading.text);
       controls.children[1].title = t('reading.bookmark');
-    });
+    }
   }
   function renderBookmarks() {
     var list = byId('bookmarkList'); list.textContent = '';

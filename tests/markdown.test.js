@@ -48,6 +48,8 @@ test('checkbox indexes follow document order across blocks and nesting', functio
   assert.equal(out.tasks, 4);
   const order = out.html.match(/data-rv-task="(\d+)"/g).map(function (m) { return m.slice(-2, -1); });
   assert.deepEqual(order, ['0', '1', '2', '3']);
+  assert.deepEqual(Array.from(out.html.matchAll(/data-rv-task="\d+" aria-label="([^"]+)"/g), match => match[1]),
+    ['one', 'two', 'three', 'four']);
 });
 
 test('code blocks get a language bar and a copy control', function () {
