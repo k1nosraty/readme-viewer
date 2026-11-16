@@ -30,7 +30,22 @@ for attempt in $(seq 1 30); do
   sleep 0.2
 done
 xprop -root _NET_SUPPORTING_WM_CHECK | grep -q 'window id #'
-scrot -o native-test-results/linux-desktop-background.png
+python3 - <<'PY_DESKTOP'
+import subprocess
+import time
+
+from PIL import Image
+
+filename = 'native-test-results/linux-desktop-background.png'
+for _ in range(30):
+    subprocess.run(['scrot', '-o', filename], check=True, timeout=10)
+    with Image.open(filename) as desktop:
+        if any(desktop.convert('RGB').getpixel((desktop.width // 2, desktop.height // 2))):
+            break
+    time.sleep(0.2)
+else:
+    raise AssertionError('Mutter did not paint the desktop background')
+PY_DESKTOP
 export NATIVE_TEST_APPLICATION="$wrapper" NATIVE_TEST_FIXTURE="$fixture" NATIVE_TEST_DESKTOP="$desktop"
 tauri-driver > native-test-results/tauri-driver.log 2>&1 &
 driver_pid=$!
