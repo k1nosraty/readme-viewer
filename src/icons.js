@@ -37,6 +37,7 @@
     forward: '<path d="M5 12h14"/><path d="m13 18 6-6-6-6"/>',
     download: '<path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 21h16"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .9-1 1.6v.4"/><path d="M12 17h.01"/>',
+    pencil: '<path d="m14.7 5.3 4 4M4 20l4.6-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z"/>',
     close: '<path d="m6 6 12 12"/><path d="m18 6-12 12"/>',
     checkCircle: '<path d="M21.6 11.1V12a9.6 9.6 0 1 1-5.7-8.8"/><path d="m8.8 11.8 3 3L21.6 5"/>',
     copy: '<path d="M9 8h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z"/><path d="M5 16H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1"/>',

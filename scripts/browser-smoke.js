@@ -5,6 +5,161 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
 
+function pdfFixture() {
+  const pages = [1, 2, 3].map(number => 'BT /F1 20 Tf 72 700 Td (Searchable text on page ' + number + ') Tj ET');
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>',
+    ...pages.map((_, index) => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> >> /Contents ' + (7 + index) + ' 0 R >>'),
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    ...pages.map(text => '<< /Length ' + text.length + ' >>\nstream\n' + text + '\nendstream')
+  ];
+  let data = '%PDF-1.7\n';
+  const offsets = objects.map((object, index) => {
+    const offset = data.length;
+    data += (index + 1) + ' 0 obj\n' + object + '\nendobj\n';
+    return String(offset).padStart(10, '0') + ' 00000 n \n';
+  });
+  const xref = data.length;
+  return Buffer.from(data + 'xref\n0 ' + (objects.length + 1) + '\n0000000000 65535 f \n' + offsets.join('') +
+    'trailer\n<< /Size ' + (objects.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+}
+
+async function checkPdfTabs(browser) {
+  const http = require('node:http');
+  const { preparePdfReader } = require('./prepare-tauri-assets');
+  const root = path.resolve(__dirname, '..');
+  const output = path.join(root, 'native-test-results', 'pdf-browser-assets');
+  await preparePdfReader(path.join(root, 'src/pdf-reader'), path.join(output, 'pdf'));
+  const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
+    '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+  const server = http.createServer(async (request, response) => {
+    try {
+      const relative = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname).slice(1);
+      const base = relative.startsWith('pdf/') ? output : root;
+      const file = path.resolve(base, relative);
+      if (!file.startsWith(base + path.sep) || !/^(?:pdf\/|src\/|vendor\/|index\.html$|app\.js$|styles\.css$)/.test(relative)) {
+        response.writeHead(404).end(); return;
+      }
+      response.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' }).end(await fs.readFile(file));
+    } catch {
+      if (!response.headersSent) response.writeHead(404);
+      response.end();
+    }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+  try {
+    await page.goto('http://127.0.0.1:' + server.address().port + '/index.html');
+    await page.waitForFunction(() => window.RVApp?.state.ready);
+    await page.evaluate(async bytes => {
+      RVApp.setDoc('Keep this document open.', 'notes.md');
+      RVApp.setMode('write');
+      RV.Native.available = RV.Native.supportsPdf = () => true;
+      const file = new File([new Uint8Array(bytes)], 'Reading.PDF', { type: 'application/pdf' });
+      await RVApp.openFileTab(file, {
+        path: '/test/Reading.PDF',
+        name: file.name,
+        getFile: async () => file,
+        createWritable: async () => ({
+          write: async blob => { window.savedPdf = Array.from(new Uint8Array(await blob.arrayBuffer())); },
+          close: async () => {}
+        })
+      });
+    }, Array.from(pdfFixture()));
+    const display = page.locator('#pdfWorkspace .pdf-view:not([hidden]) iframe');
+    const reader = page.frameLocator('#pdfWorkspace .pdf-view:not([hidden]) iframe');
+    const text = reader.locator('.textLayer span', { hasText: 'Searchable text on page 1' }).first();
+    await text.waitFor();
+    assert.equal(await page.locator('#panes').getAttribute('data-mode'), 'preview');
+    assert.equal(await page.getByRole('tab').count(), 2);
+    assert.equal(await page.locator('#btnSave').isEnabled(), true);
+    await page.getByRole('button', { name: 'Rename tab: Reading.PDF', exact: true }).click();
+    const title = page.getByRole('textbox', { name: 'Tab name', exact: true });
+    await title.fill('Review copy');
+    await title.press('Enter');
+    assert.equal(await page.evaluate(() => RVApp.state.name), 'Reading.PDF');
+    const copied = await text.evaluate(node => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const selection = window.getSelection();
+      selection.removeAllRanges(); selection.addRange(range);
+      const clipboard = new DataTransfer();
+      node.dispatchEvent(new ClipboardEvent('copy', { bubbles: true, cancelable: true, clipboardData: clipboard }));
+      return clipboard.getData('text/plain');
+    });
+    assert.match(copied, /Searchable text/);
+    await reader.locator('#viewerContainer').focus();
+    await page.keyboard.press('Control+f');
+    await reader.locator('#findInput').fill('Searchable');
+    await reader.locator('#findCount').getByText(/of 3/).waitFor();
+    await reader.locator('#findNext').click();
+    await reader.locator('#pageNumber').getByText('Page 2 of 3', { exact: true }).waitFor();
+    await reader.locator('#findPrevious').click();
+    await reader.locator('#pageNumber').getByText('Page 1 of 3', { exact: true }).waitFor();
+    await reader.locator('#findClose').click();
+    const first = reader.locator('.pdfViewer .page').first();
+    const fitted = (await first.boundingBox()).width;
+    await reader.getByRole('button', { name: 'Zoom in' }).click();
+    assert.ok((await first.boundingBox()).width > fitted);
+    await reader.getByRole('button', { name: 'Fit width' }).click();
+    assert.equal((await first.boundingBox()).width, fitted);
+
+    const highlightButton = reader.getByRole('button', { name: 'Highlight', exact: true });
+    await highlightButton.click();
+    await reader.locator('#highlight[aria-pressed="true"]').waitFor();
+    const line = await text.boundingBox();
+    await page.mouse.move(line.x + 3, line.y + line.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(line.x + line.width - 3, line.y + line.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await reader.locator('.highlightEditor').first().waitFor();
+
+    await reader.getByRole('button', { name: 'Text box', exact: true }).click();
+    const box = await first.boundingBox();
+    await page.mouse.click(box.x + 160, box.y + 185);
+    const editor = reader.locator('.freeTextEditor [contenteditable=true]');
+    await editor.fill('Example editable note');
+    await editor.evaluate(node => node.blur());
+    const note = reader.locator('.freeTextEditor').first();
+    await note.dblclick();
+    const revised = 'Edited note · یادداشت فارسی';
+    await editor.fill(revised);
+    await editor.evaluate(node => node.blur());
+    await note.click();
+    const originalPosition = await note.boundingBox();
+    await page.mouse.move(originalPosition.x + 10, originalPosition.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(originalPosition.x + 105, originalPosition.y + 55, { steps: 12 });
+    await page.mouse.up();
+    assert.ok((await note.boundingBox()).x > originalPosition.x + 50, 'the selected text box moves by dragging');
+    assert.equal(await page.evaluate(() => RVApp.state.dirty), true);
+    await page.getByRole('tab', { name: 'notes.md' }).click();
+    assert.equal(await page.locator('#panes').getAttribute('data-mode'), 'write');
+    assert.equal(await page.locator('#editor').inputValue(), 'Keep this document open.');
+    await page.getByRole('tab', { name: /Review copy/ }).click();
+    assert.equal(await display.count(), 1);
+    assert.ok((await note.textContent()).includes(revised));
+    await page.evaluate(() => { window.pdfCloseConfirmation = RVApp.confirmAllDirty(true); });
+    await page.locator('#btnConfirmCancel').click();
+    assert.equal(await page.evaluate(() => window.pdfCloseConfirmation), false);
+    const saved = await page.evaluate(async () => await RVApp.save(false));
+    assert.equal(saved, true);
+    assert.equal(await page.evaluate(() => RVApp.state.dirty), false);
+    await page.evaluate(async () => {
+      await RVApp.openFileTab(new File([new Uint8Array(window.savedPdf)], 'Edited.pdf', { type: 'application/pdf' }));
+    });
+    const editedPdf = page.frameLocator('#pdfWorkspace .pdf-view:not([hidden]) iframe');
+    const annotation = editedPdf.locator('.freeTextAnnotation');
+    await annotation.waitFor();
+    assert.ok((await annotation.textContent()).includes(revised));
+    assert.ok((await annotation.boundingBox()).x > originalPosition.x + 50, 'the saved text box retains its moved position');
+    await editedPdf.locator('.highlightAnnotation').first().waitFor();
+  } finally {
+    await page.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+}
 (async function () {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
   try {
@@ -198,6 +353,22 @@ const { chromium } = require('playwright');
         }
       }
     }
+    const wideTable = '| Key | Value |\n| --- | --- |\n| A | ' + 'LongIdentifier'.repeat(10) + ' |';
+    const rawTable = '<table><tr><th>Key</th><th>Value</th></tr><tr><td>A</td><td>B</td></tr></table>';
+    await page.evaluate(source => {
+      RVApp.setMode('preview');
+      RVApp.setDoc(source, 'tables.md');
+    }, wideTable + '\n\n' + rawTable);
+    const roundedTable = await page.locator('#preview .table-wrap').evaluate(frame => {
+      const css = getComputedStyle(frame);
+      frame.scrollLeft = 100;
+      return { radii: [css.borderTopLeftRadius, css.borderTopRightRadius, css.borderBottomLeftRadius, css.borderBottomRightRadius],
+        scroll: frame.scrollLeft, fits: frame.offsetWidth <= frame.parentElement.clientWidth };
+    });
+    assert.deepEqual(roundedTable.radii, ['15px', '15px', '15px', '15px']);
+    assert.ok(roundedTable.fits && roundedTable.scroll > 0, 'wide tables scroll inside the rounded frame');
+    assert.equal(await page.locator('#preview table').last().evaluate(table => getComputedStyle(table).borderRadius), '15px');
+    await page.evaluate(() => RVApp.setMode('split'));
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const readingSource = '# Reading tools\n\n- [x] Completed\n- [ ] Pending\n';
@@ -409,7 +580,8 @@ const { chromium } = require('playwright');
       assert.ok(await desktop.locator('.topbar').evaluate(header =>
         header.clientHeight < 115 && document.documentElement.scrollWidth <= innerWidth), 'desktop header remains two rows');
     }
+    await checkPdfTabs(browser);
     assert.deepEqual(errors, []);
-    console.log('Chromium smoke test passed: offline open, Persian/CRLF, task editing, responsive layout, HTML export, structured preview.');
+    console.log('Chromium smoke test passed: offline open, Persian/CRLF, task editing, responsive layout, HTML export, structured and PDF previews.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

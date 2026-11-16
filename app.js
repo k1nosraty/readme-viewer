@@ -118,16 +118,144 @@
     activeTab.find = { query: el.findInput.value, hidden: el.findBar.hidden, index: find.index };
   }
   var tabSignature = '';
+  var tabTitleSegmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter() : null;
+  var tabPreviewTimer, tabPreviewAnchor, tabRename;
   function tabLocation(tab) {
     var handle = tab === activeTab ? state.handle : tab.handle;
     var folder = tab === activeTab ? state.folder : tab.folder;
     return handle && handle.path || (folder ? folder.root.fullPath + '/' + folder.path : '');
   }
+  function tabSource(tab) { return tab === activeTab ? el.editor.value : tab.source; }
+  function draftTabTitle(tab) {
+    var doc = tab === activeTab ? state : tab;
+    if (!doc.draftName || doc.handle) return '';
+    var source = tabSource(tab);
+    var title = '', count = 0;
+    for (var part of tabTitleSegmenter ? tabTitleSegmenter.segment(source) : source) {
+      var character = tabTitleSegmenter ? part.segment : part;
+      if (/[\r\n]/.test(character)) break;
+      title += character;
+      if (++count === 20) break;
+    }
+    return title.trim() ? title : tabText('tabs.untitled', 'Untitled');
+  }
   function tabLabel(tab, location) {
+    if (tab.customTitle) return tab.customTitle;
+    var title = draftTabTitle(tab);
+    if (title) return title;
     var name = (tab === activeTab ? state.name : tab.name) || tabText('tabs.untitled', 'Untitled');
-    if (tabs.filter(function (other) { return (other === activeTab ? state.name : other.name) === name; }).length < 2) return name;
+    var duplicate = tabs.some(function (other) {
+      return other !== tab && !other.customTitle && (other === activeTab ? state.name : other.name) === name && !draftTabTitle(other);
+    });
+    if (!duplicate) return name;
     var path = location.replace(/\\/g, '/').split('/').filter(Boolean);
     return name + ' — ' + (path.length > 1 ? path[path.length - 2] : '#' + (tabs.indexOf(tab) + 1));
+  }
+  function normalizeTabTitle(title) {
+    return typeof title === 'string' ? title.replace(/[\r\n]+/g, ' ').trim() : '';
+  }
+  function tabRenameButton(tab) {
+    return $('documentTabs').querySelector('[data-tab-focus="rename-' + tab.id + '"]');
+  }
+  function positionTabRename() {
+    if (!tabRename) return;
+    var button = tabRenameButton(tabRename.tab);
+    if (!button || !button.getClientRects().length) { finishTabRename(false); return; }
+    button.setAttribute('aria-expanded', 'true');
+    positionTabPanel($('tabRename'), button.parentElement);
+  }
+  function beginTabRename(tab) {
+    finishTabRename(false);
+    hideTabPreview();
+    var input = $('tabTitleInput');
+    input.value = tabLabel(tab, tabLocation(tab));
+    tabRename = { tab: tab, initialValue: input.value };
+    $('tabRename').hidden = false;
+    positionTabRename();
+    input.focus({ preventScroll: true });
+    input.select();
+  }
+  function finishTabRename(apply, focus) {
+    if (!tabRename) return;
+    var { tab, initialValue } = tabRename;
+    var value = $('tabTitleInput').value;
+    tabRename = null;
+    $('tabRename').hidden = true;
+    var button = tabRenameButton(tab);
+    if (button) {
+      button.setAttribute('aria-expanded', 'false');
+      if (focus) button.focus({ preventScroll: true });
+    }
+    if (!apply || !button || value === initialValue) return;
+    tab.customTitle = normalizeTabTitle(value);
+    renderTabs(tab.id);
+    refreshComparison();
+    if (RV.Reading) RV.Reading.workspaceChanged();
+  }
+  function wireTabRename(bar) {
+    var panel = $('tabRename');
+    panel.addEventListener('submit', function (event) {
+      event.preventDefault();
+      finishTabRename(true, true);
+    });
+    panel.addEventListener('keydown', function (event) {
+      event.stopPropagation();
+      if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229) {
+        event.preventDefault();
+        finishTabRename(false, true);
+      }
+    });
+    panel.addEventListener('focusout', function (event) {
+      if (!panel.contains(event.relatedTarget)) finishTabRename(false);
+    });
+    document.addEventListener('pointerdown', function (event) {
+      if (!panel.contains(event.target)) finishTabRename(false);
+    }, true);
+    bar.addEventListener('scroll', positionTabRename, { passive: true });
+    window.addEventListener('resize', positionTabRename);
+  }
+  function hideTabPreview() {
+    clearTimeout(tabPreviewTimer);
+    if (!tabPreviewAnchor) return;
+    $('tabPreview').hidden = true;
+    tabPreviewAnchor.removeAttribute('aria-describedby');
+    tabPreviewAnchor = null;
+  }
+  function showTabPreview(tab, anchor) {
+    var preview = $('tabPreview');
+    var source = tabSource(tab).slice(0, 4096).trim();
+    var excerpt = source.split(/\r?\n[ \t]*\r?\n/, 1)[0];
+    if (source && (tab === activeTab ? state.format : tab.format) === 'markdown') {
+      var tokens = window.marked.lexer(source);
+      var block = tokens.find(function (token) { return token.type === 'paragraph'; }) ||
+        tokens.find(function (token) { return token.type === 'heading'; });
+      if (block) excerpt = Markdown.plainText(block.tokens).trim() || excerpt;
+    }
+    var location = tabLocation(tab);
+    $('tabPreviewLocation').textContent = location;
+    $('tabPreviewLocation').hidden = !location;
+    $('tabPreviewText').textContent = excerpt || t((tab === activeTab ? state.format : tab.format) === 'pdf' ? 'pdf.document' : 'tabs.previewEmpty');
+    preview.hidden = false;
+    positionTabPanel(preview, anchor.parentElement);
+    tabPreviewAnchor = anchor;
+    anchor.setAttribute('aria-describedby', preview.id);
+  }
+  function positionTabPanel(panel, item) {
+    var rect = item.getBoundingClientRect(), bounds = panel.getBoundingClientRect();
+    var rtl = document.documentElement.dir === 'rtl';
+    var left = rtl ? rect.right - bounds.width : rect.left;
+    var top = rect.bottom + 6;
+    if (state.verticalTabs) {
+      var beside = rtl ? rect.left - bounds.width - 6 : rect.right + 6;
+      if (beside >= 8 && beside + bounds.width <= window.innerWidth - 8) {
+        left = beside;
+        top = rect.top;
+      }
+    } else if (top + bounds.height > window.innerHeight - 8) {
+      top = rect.top - bounds.height - 6;
+    }
+    panel.style.left = Math.max(8, Math.min(left, window.innerWidth - bounds.width - 8)) + 'px';
+    panel.style.top = Math.max(8, Math.min(top, window.innerHeight - bounds.height - 8)) + 'px';
   }
   function scrollTabIntoView(bar, id) {
     if (RV.Shell) RV.Shell.fitTabs(bar);
@@ -151,6 +279,7 @@
     var destination = state.verticalTabs ? side : inTitlebar ? titlebar : workspace;
     var focus = document.activeElement;
     if (bar.parentNode !== destination) {
+      hideTabPreview();
       var before = inTitlebar ? $('btnAllTabs') : destination === workspace ? $('workspaceActions') : null;
       destination.insertBefore(bar, before);
       destination.insertBefore(add, state.verticalTabs ? bar : before);
@@ -167,6 +296,7 @@
     toggle.innerHTML = Icons.svg(state.verticalTabs ? 'tabsHorizontal' : 'tabsVertical', 16);
     if (bar.contains(focus) || focus === add) focus.focus({ preventScroll: true });
     scrollTabIntoView(bar);
+    positionTabRename();
     placeWorkspaceActions();
   }
   function placeWorkspaceActions() {
@@ -237,69 +367,94 @@
       event.preventDefault(); resize(width); saveWidth();
     });
   }
+  function createTabElement(tab, bar) {
+    var item = document.createElement('div');
+    item.className = 'document-tab';
+    item.setAttribute('data-tab-id', tab.id);
+    var button = document.createElement('button');
+    button.type = 'button'; button.setAttribute('role', 'tab');
+    button.setAttribute('aria-controls', 'panes');
+    button.setAttribute('data-tab-focus', 'tab-' + tab.id);
+    button.addEventListener('keydown', function (event) {
+      var index = tabs.indexOf(tab), next = index;
+      var rtl = document.documentElement.getAttribute('dir') === 'rtl';
+      var forward = state.verticalTabs ? 'ArrowDown' : (rtl ? 'ArrowLeft' : 'ArrowRight');
+      var backward = state.verticalTabs ? 'ArrowUp' : (rtl ? 'ArrowRight' : 'ArrowLeft');
+      var step = event.key === forward ? 1 : (event.key === backward ? -1 : 0);
+      if (step && event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey) {
+        event.preventDefault();
+        moveTab(index, index + step);
+        return;
+      }
+      if (step) next = (index + step + tabs.length) % tabs.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = tabs.length - 1;
+      else return;
+      event.preventDefault();
+      if (switchTab(tabs[next].id)) {
+        var target = bar.querySelector('[data-tab-focus="tab-' + tabs[next].id + '"]');
+        if (target) target.focus({ preventScroll: true });
+      }
+    });
+    button.addEventListener('click', function () { switchTab(tab.id); });
+    button.addEventListener('dblclick', function () { beginTabRename(tab); });
+    var rename = document.createElement('button');
+    rename.type = 'button'; rename.className = 'document-tab-rename'; rename.innerHTML = Icons.svg('pencil', 12);
+    rename.setAttribute('data-tab-focus', 'rename-' + tab.id);
+    rename.setAttribute('aria-controls', 'tabRename');
+    rename.setAttribute('aria-expanded', 'false');
+    rename.addEventListener('click', function () { beginTabRename(tab); });
+    var close = document.createElement('button');
+    close.type = 'button'; close.className = 'document-tab-close'; close.innerHTML = Icons.svg('close', 12);
+    close.setAttribute('data-tab-focus', 'close-' + tab.id);
+    close.addEventListener('click', function () { closeTab(tab.id); });
+    item.addEventListener('pointerenter', function (event) {
+      if (tabRename || event.pointerType !== 'mouse' || event.buttons) return;
+      hideTabPreview();
+      tabPreviewTimer = setTimeout(function () { showTabPreview(tab, button); }, 120);
+    });
+    item.addEventListener('pointerleave', hideTabPreview);
+    item.appendChild(button); item.appendChild(rename); item.appendChild(close);
+    return item;
+  }
   function renderTabs(scrollId) {
     var bar = $('documentTabs');
     if (!bar) return;
-    var signature = JSON.stringify(tabs.map(function (tab) {
-      return [tab.id, tab === activeTab, tab === activeTab ? state.name : tab.name,
-        tab === activeTab ? state.dirty : tab.dirty, tabLocation(tab)];
-    })) + I18n.getLocale();
+    var rows = tabs.map(function (tab) {
+      var location = tabLocation(tab);
+      return [tab.id, tab === activeTab, tabLabel(tab, location), tab === activeTab ? state.dirty : tab.dirty, location];
+    });
+    var signature = JSON.stringify(rows) + I18n.getLocale();
     if (signature === tabSignature) return;
     tabSignature = signature;
     var focused = document.activeElement;
     var focusId = focused && focused.getAttribute('data-tab-focus');
-    bar.textContent = '';
-    tabs.forEach(function (tab) {
-      var selected = tab === activeTab;
-      var name = selected ? state.name : tab.name;
-      var dirty = selected ? state.dirty : tab.dirty;
-      var item = document.createElement('div');
-      item.className = 'document-tab' + (selected ? ' is-active' : '');
-      item.setAttribute('data-tab-id', tab.id);
-      var button = document.createElement('button');
-      button.type = 'button'; button.setAttribute('role', 'tab');
-      button.setAttribute('aria-selected', selected ? 'true' : 'false');
-      button.setAttribute('aria-controls', 'panes');
-      button.setAttribute('tabindex', selected ? '0' : '-1');
-      button.setAttribute('data-tab-focus', 'tab-' + tab.id);
-      button.addEventListener('keydown', function (event) {
-        var index = tabs.indexOf(tab), next = index;
-        var rtl = document.documentElement.getAttribute('dir') === 'rtl';
-        var forward = state.verticalTabs ? 'ArrowDown' : (rtl ? 'ArrowLeft' : 'ArrowRight');
-        var backward = state.verticalTabs ? 'ArrowUp' : (rtl ? 'ArrowRight' : 'ArrowLeft');
-        var step = event.key === forward ? 1 : (event.key === backward ? -1 : 0);
-        if (step && event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey) {
-          event.preventDefault();
-          moveTab(index, index + step);
-          return;
-        }
-        if (step) next = (index + step + tabs.length) % tabs.length;
-        else if (event.key === 'Home') next = 0;
-        else if (event.key === 'End') next = tabs.length - 1;
-        else return;
-        event.preventDefault();
-        if (switchTab(tabs[next].id)) {
-          var target = bar.querySelector('[data-tab-focus="tab-' + tabs[next].id + '"]');
-          if (target) target.focus({ preventScroll: true });
-        }
-      });
-      var location = tabLocation(tab), label = tabLabel(tab, location);
-      button.textContent = (dirty ? '• ' : '') + label;
-      button.title = location || label;
+    hideTabPreview();
+    // Keep the same click target when the first click of a double-click selects a tab.
+    if (bar.children.length !== tabs.length || tabs.some(function (tab, index) {
+      return bar.children[index].getAttribute('data-tab-id') !== String(tab.id);
+    })) bar.textContent = '';
+    tabs.forEach(function (tab, index) {
+      var [, selected, label, dirty, location] = rows[index];
+      var item = bar.children[index] || bar.appendChild(createTabElement(tab, bar));
+      var [button, rename, close] = item.children;
+      item.classList.toggle('is-active', selected);
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      var text = (dirty ? '• ' : '') + label;
+      if (button.textContent !== text) button.textContent = text;
+      button.dataset.tabLocation = location;
       button.setAttribute('aria-label', button.textContent + (location ? ': ' + location : ''));
-      button.addEventListener('click', function () { switchTab(tab.id); });
-      var close = document.createElement('button');
-      close.type = 'button'; close.className = 'document-tab-close'; close.innerHTML = Icons.svg('close', 12);
-      close.setAttribute('data-tab-focus', 'close-' + tab.id);
-      close.setAttribute('aria-label', tabText('tabs.close', 'Close tab') + ': ' + (name || tabText('tabs.untitled', 'Untitled')));
-      close.addEventListener('click', function () { closeTab(tab.id); });
-      item.appendChild(button); item.appendChild(close); bar.appendChild(item);
+      rename.title = t('tabs.rename');
+      rename.setAttribute('aria-label', rename.title + ': ' + label);
+      close.setAttribute('aria-label', tabText('tabs.close', 'Close tab') + ': ' + label);
     });
     scrollTabIntoView(bar, scrollId);
-    if (focusId) {
+    if (focusId && !bar.contains(focused)) {
       var replacement = bar.querySelector('[data-tab-focus="' + focusId + '"]');
       if (replacement) replacement.focus({ preventScroll: true });
     }
+    positionTabRename();
   }
   function moveTab(from, to) {
     if (pendingSave || pendingDiscard || from === to || from < 0 || to < 0 || to >= tabs.length) return;
@@ -358,7 +513,7 @@
     // Pointer capture keeps tab reordering separate from native file drops.
     bar.addEventListener('pointerdown', function (event) {
       if (drag || !event.isPrimary || event.button !== 0 || event.pointerType === 'touch' ||
-          tabs.length < 2 || pendingSave || pendingDiscard || event.target.closest('.document-tab-close')) return;
+          tabs.length < 2 || pendingSave || pendingDiscard || event.target.closest('.document-tab-close, .document-tab-rename')) return;
       var source = event.target.closest('.document-tab');
       if (!source) return;
       drag = { source: source, pointer: event.pointerId, vertical: state.verticalTabs,
@@ -430,13 +585,14 @@
   }
   function listTabs() {
     captureTab();
-    return tabs.map(function (tab) { return { id: tab.id, name: tab.name, source: tab.source,
+    return tabs.map(function (tab) { return { id: tab.id, name: tab.name, customTitle: tab.customTitle, source: tab.source,
       dirty: tab.dirty, hasDocument: tab.hasDocument, needsSave: tab.needsSave, active: tab === activeTab, handle: tab.handle, saved: tab.saved,
       bom: tab.bom, eol: tab.eol, encoding: tab.encoding, baseUrl: tab.baseUrl, autoBase: tab.autoBase,
       format: tab.format, formatOverride: tab.formatOverride, draftName: tab.draftName, showSource: tab.showSource }; });
   }
   function restoreTab(snapshot, original) {
     if (!snapshot || (!original && typeof snapshot.source !== 'string')) return false;
+    var empty = !original && snapshot.empty === true;
     var metadata = { bom: !!snapshot.bom, eol: snapshot.eol === '\r\n' ? '\r\n' : '\n', encoding: 'utf-8',
       format: snapshot.format, formatOverride: snapshot.formatOverride, draftName: snapshot.draftName };
     var name = typeof snapshot.name === 'string' ? snapshot.name : 'README.md';
@@ -444,24 +600,29 @@
     var handle = original ? original.handle : null;
     var source = original ? original.decoded.text : snapshot.source;
     if (original) Object.assign(metadata, original.decoded);
-    if (tabs.length === 1 && !state.hasDocument && !el.editor.value && !pendingSave && !pendingDiscard) {
-      setDoc(source, name, handle, metadata); id = activeTab.id;
-    } else id = newTab(source, name, handle, metadata);
+    if (tabs.length === 1 && !state.hasDocument && !activeTab.customTitle && !el.editor.value && !pendingSave && !pendingDiscard) {
+      if (!empty) setDoc(source, name, handle, metadata);
+      id = activeTab.id;
+    } else id = empty ? newTab() : newTab(source, name, handle, metadata);
     if (!id) return false;
+    activeTab.customTitle = normalizeTabTitle(snapshot.customTitle);
     activeTab.showSource = !!snapshot.showSource;
-    if (!original) {
+    if (!original && !empty) {
       state.needsSave = true;
       setDirty(true);
-    } else trackModified();
+    } else {
+      if (original) trackModified();
+      updateChrome();
+    }
     if (activeTab.showSource) render({ immediate: true });
     return id;
   }
   function readSessionFile(handle) {
-    return handle.getFile().then(function (file) { return file.arrayBuffer(); }).then(function (buffer) {
-      var bytes = new Uint8Array(buffer);
-      var decoded = Encoding.decode(bytes);
-      decoded.bytes = bytes;
-      return decoded.binary ? null : { handle: handle, decoded: decoded };
+    return handle.getFile().then(function (file) {
+      return file.arrayBuffer().then(function (buffer) {
+        var decoded = decodeDocument(file, buffer);
+        return decoded.binary ? null : { handle: handle, decoded: decoded };
+      });
     });
   }
   function closeTab(id) {
@@ -473,6 +634,7 @@
     return confirmDiscard().then(function (ok) {
       if (!ok) { switchTab(previous, true); return false; }
       var index = tabs.indexOf(tab);
+      releasePdfViewer(tab);
       tabs.splice(index, 1); activeTab = null;
       if (tab.editor && tab.editor !== el.editor && tab.editor.parentNode) tab.editor.parentNode.removeChild(tab.editor);
       if (tabs.length) switchTab(tabs[Math.min(index, tabs.length - 1)].id, true);
@@ -480,10 +642,12 @@
       renderTabs(); return true;
     });
   }
-  function confirmAllDirty() {
-    if (pendingSave) return pendingSave.then(function () { return confirmAllDirty(); });
+  function confirmAllDirty(pdfOnly) {
+    if (pendingSave) return pendingSave.then(function () { return confirmAllDirty(pdfOnly); });
     captureTab();
-    var original = activeTab.id, ids = tabs.map(function (tab) { return tab.id; });
+    var original = activeTab.id, ids = tabs.filter(function (tab) {
+      return !pdfOnly || tab.format === 'pdf' && tab.dirty;
+    }).map(function (tab) { return tab.id; });
     function next(index) {
       if (index === ids.length) { switchTab(original, true); return Promise.resolve(true); }
       switchTab(ids[index], true);
@@ -497,9 +661,7 @@
   function openFileTab(file, handle) {
     if (!file) return Promise.resolve(false);
     return file.arrayBuffer().then(function (buffer) {
-      var bytes = new Uint8Array(buffer);
-      var decoded = Encoding.decode(bytes);
-      decoded.bytes = bytes;
+      var decoded = decodeDocument(file, buffer);
       if (decoded.binary) { toast(t('error.binary', { name: file.name || '' }), 'error'); return false; }
       if (pendingSave || pendingDiscard) return false;
       var existing = handle && handle.path && tabs.filter(function (tab) {
@@ -595,7 +757,8 @@
       return;
     }
     var tab = comparisonTab();
-    var signature = [tab.id, tab.source, tab.name, tab.format, tab.formatOverride, tab.baseUrl, tab.handle, tab.showSource, state.dirMode, I18n.getLocale()];
+    var signature = [tab.id, tab.source, tab.name, tab.format, tab.formatOverride, tab.baseUrl, tab.handle, tab.showSource,
+      state.dirMode, I18n.getLocale(), tab.format === 'pdf' ? tab.diskBytes : null];
     if (comparison.signature && signature.every(function (value, index) {
       return value === comparison.signature[index];
     })) return;
@@ -608,9 +771,9 @@
       preview.textContent = '';
       preview.setAttribute('dir', 'ltr');
       var type = VisualPreview.kind(tab, tab.source);
-      var visual = type && !tab.showSource;
+      var visual = type && (type === 'pdf' || !tab.showSource);
       var view = visual ? createVisualView(type, tab, tab.source) : createFileView(tab, tab.source);
-      if (type) addFileViewSwitch(view, visual, function (mode) {
+      if (type && type !== 'pdf') addFileViewSwitch(view, visual, function (mode) {
         tab.showSource = mode === 'code';
         refreshComparison();
         preview.querySelector('[data-file-view="' + mode + '"]').focus({ preventScroll: true });
@@ -1076,6 +1239,10 @@
 
   function updateChrome() {
     if (state.readingFocus && !state.hasDocument) { setReadingFocus(false); return; }
+    var isPdf = state.format === 'pdf';
+    var pdf = isPdf && activeTab && activeTab.pdfViewer;
+    if (pdf) pdf.setChrome(pdfChrome(state.name));
+    var mode = syncMode();
     el.btnFocus.disabled = !state.hasDocument;
     el.btnFocus.setAttribute('aria-pressed', String(state.readingFocus));
     renderTabs();
@@ -1089,10 +1256,11 @@
     el.fileState.textContent = sub;
     el.fileState.setAttribute('data-state', state.dirty ? 'dirty' : (state.hasDocument ? 'clean' : 'empty'));
 
-    el.btnSave.disabled = !state.hasDocument;
-    el.btnSaveAs.disabled = !state.hasDocument;
+    el.btnSave.disabled = el.btnSaveAs.disabled = !state.hasDocument || isPdf && !(pdf && pdf.ready);
     el.btnReload.disabled = !state.handle;
-    el.btnExport.disabled = !state.hasDocument;
+    el.btnExport.disabled = !state.hasDocument || isPdf;
+    el.btnEdit.disabled = isPdf;
+    $('btnPreviewFormat').disabled = isPdf;
 
     el.statusFile.textContent = state.hasDocument ? state.name : t('status.ready');
     el.statusFile.setAttribute('data-dirty', state.dirty ? '1' : '0');
@@ -1109,13 +1277,15 @@
     el.btnToc.setAttribute('aria-pressed', (window.innerWidth <= 900 ? mobileSidebar : state.sidebar) ? 'true' : 'false');
 
     eachNode('[data-mode-btn]', function (b) {
-      b.setAttribute('aria-pressed', b.getAttribute('data-mode-btn') === state.mode ? 'true' : 'false');
+      var selected = b.getAttribute('data-mode-btn') === mode;
+      b.setAttribute('aria-pressed', String(selected));
+      b.disabled = isPdf && !selected;
     });
     eachNode('[data-dir]', function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-dir') === state.dirMode ? 'true' : 'false');
     });
 
-    el.statusEncoding.textContent = state.hasDocument
+    el.statusEncoding.textContent = isPdf ? 'PDF' : state.hasDocument
       ? (state.encoding ? state.encoding + ' · ' : '') + (state.eol === '\r\n' ? 'CRLF' : 'LF') +
         (state.bom ? ' · BOM' : '')
       : '';
@@ -1193,7 +1363,50 @@
     heading.appendChild(group);
   }
 
+  function pdfChrome(name) {
+    var root = document.documentElement;
+    return { name: name, locale: I18n.getLocale(), dir: root.dir, theme: root.dataset.theme, translate: t };
+  }
+
+  function releasePdfViewer(tab) {
+    if (!tab.pdfViewer) return;
+    tab.pdfViewer.dispose();
+    tab.pdfViewer = null;
+  }
+
+  function createPdfView(doc) {
+    var chrome = pdfChrome(doc.name);
+    if (doc !== state) {
+      return RV.PdfPreview.create(document, doc.diskBytes, Object.assign(chrome, { readOnly: true, onCycle: cycleDocumentTabs }));
+    }
+    var tab = activeTab, workspace = $('pdfWorkspace');
+    var reader = tab.pdfViewer;
+    if (!reader) {
+      reader = tab.pdfViewer = RV.PdfPreview.create(document, doc.diskBytes, Object.assign(chrome, {
+        onReady: function () { if (tab === activeTab) updateChrome(); },
+        onEdit: function () {
+          if (tab === activeTab) { if (!state.dirty) setDirty(true); }
+          else if (!tab.dirty) { tab.dirty = true; updateChrome(); }
+        },
+        onSave: function (copy) { if (tab === activeTab) save(copy); },
+        onCycle: cycleDocumentTabs
+      }));
+    }
+    // Moving an iframe restarts its document. Keep each PDF attached until its tab closes.
+    return {
+      element: document.createElement('div'), entries: [],
+      mount: function () {
+        if (!reader.element.isConnected) workspace.appendChild(reader.element);
+        reader.element.hidden = false;
+        workspace.hidden = false;
+        reader.mount();
+      },
+      dispose: function () { reader.element.hidden = true; workspace.hidden = true; }
+    };
+  }
+
   function createVisualView(type, doc, src) {
+    if (type === 'pdf') return createPdfView(doc);
     var view = VisualPreview.create(document, type, src, doc.name, t, nativeAvailable() ? RV.Native : null, doc.handle);
     var heading = document.createElement('div');
     heading.className = 'structured-heading';
@@ -1212,16 +1425,21 @@
   function setDoc(text, name, handle, meta) {
     closePreviewFormat();
     state.documentId++;
-    if (activeTab) { activeTab.tocCollapsed = []; activeTab.structuredFolds = null; activeTab.showSource = false; }
+    if (activeTab) {
+      releasePdfViewer(activeTab);
+      activeTab.tocCollapsed = []; activeTab.structuredFolds = null; activeTab.showSource = false;
+    }
     var oldEditor = el.editor;
     mountEditor(null, text);
     resetUndo();
     if (!tabs.some(function (tab) { return tab.editor === oldEditor; }) && oldEditor.parentNode) oldEditor.parentNode.removeChild(oldEditor);
     state.name = name || '';
+    var isPdf = meta && meta.format === 'pdf' && meta.bytes;
     state.draftName = !!(meta && meta.draftName);
-    state.formatOverride = formatChoice(meta && meta.formatOverride);
+    state.formatOverride = isPdf ? '' : formatChoice(meta && meta.formatOverride);
     var previousFormat = formatChoice(meta && meta.format);
-    state.format = state.formatOverride || (previousFormat === 'json' || previousFormat === 'ini' ? previousFormat : documentFormat(state.name, text));
+    state.format = isPdf ? 'pdf' : state.formatOverride ||
+      (previousFormat === 'json' || previousFormat === 'ini' ? previousFormat : documentFormat(state.name, text));
     state.saved = text;
     state.needsSave = false;
     state.handle = handle || null;
@@ -1246,7 +1464,7 @@
   function setEmpty() {
     closePreviewFormat();
     state.documentId++;
-    if (activeTab) { activeTab.tocCollapsed = []; activeTab.showSource = false; }
+    if (activeTab) { releasePdfViewer(activeTab); activeTab.tocCollapsed = []; activeTab.showSource = false; }
     var oldEditor = el.editor;
     mountEditor(null, '');
     resetUndo();
@@ -1333,6 +1551,7 @@
   }
 
   function markDirtyFromValue(inputType) {
+    if (state.format === 'pdf') return;
     recordEdit(inputType);
     if (!state.hasDocument) {
       state.hasDocument = el.editor.value.length > 0;
@@ -1355,15 +1574,25 @@
     });
   }
 
+  function isPdfName(name) { return /\.pdf$/i.test(name || ''); }
+
+  function decodeDocument(file, buffer) {
+    var bytes = new Uint8Array(buffer);
+    if (isPdfName(file.name) && nativeAvailable() && RV.Native.supportsPdf && RV.Native.supportsPdf()) {
+      return { text: '', format: 'pdf', bytes: bytes };
+    }
+    var decoded = Encoding.decode(bytes);
+    decoded.bytes = bytes;
+    return decoded;
+  }
+
   function loadFile(file, handle, quiet) {
     if (!file) return Promise.resolve(false);
     var documentId = state.documentId;
     var source = el.editor.value;
     return file.arrayBuffer().then(function (buf) {
       if (state.documentId !== documentId || el.editor.value !== source) return false;
-      var bytes = new Uint8Array(buf);
-      var decoded = Encoding.decode(bytes);
-      decoded.bytes = bytes;
+      var decoded = decodeDocument(file, buf);
       if (decoded.binary) {
         toast(t('error.binary', { name: file.name || '' }), 'error');
         return false;
@@ -1459,11 +1688,26 @@
 
   function saveDocument(forceNew) {
     if (!state.hasDocument) return Promise.resolve(false);
+    if (state.format === 'pdf') {
+      var pdf = activeTab.pdfViewer, id = state.documentId;
+      if (!pdf || !pdf.ready) return Promise.resolve(false);
+      return pdf.serialize().then(function (bytes) {
+        return id === state.documentId && writeDocument(forceNew, bytes, 'application/pdf');
+      }).catch(function (error) {
+        toast(t('error.save', { name: state.name, reason: (error && error.message) || String(error) }), 'error');
+        return false;
+      }).finally(function () { pdf.releaseSave(); });
+    }
+    var payload = Encoding.encode(el.editor.value, { bom: state.bom, eol: state.eol });
+    var mime = (state.format === 'json' ? 'application/json' : state.format === 'markdown' ? 'text/markdown' : 'text/plain') + ';charset=utf-8';
+    return writeDocument(forceNew, payload, mime);
+  }
+
+  function writeDocument(forceNew, payload, mime) {
     var text = el.editor.value;
     var documentId = state.documentId;
     var name = state.name;
-    var payload = Encoding.encode(text, { bom: state.bom, eol: state.eol });
-    var mime = (state.format === 'json' ? 'application/json' : state.format === 'markdown' ? 'text/markdown' : 'text/plain') + ';charset=utf-8';
+    var isPdf = state.format === 'pdf';
     var payloadBlob = new Blob([payload], { type: mime });
     var originalHandle = state.handle, diskBytes = state.diskBytes;
 
@@ -1475,12 +1719,12 @@
       state.handle = handle || null;
       state.diskBytes = bytes || null;
       state.name = handle ? handle.name : name;
-      if (state.name !== name && !state.formatOverride) state.format = documentFormat(state.name, text);
+      if (!isPdf && state.name !== name && !state.formatOverride) state.format = documentFormat(state.name, text);
       applyHandleBase(handle);
       if (state.name !== name || (handle && handle.baseUrl)) render({ immediate: true });
       state.encoding = 'utf-8';
       trackModified();
-      setDirty(el.editor.value !== text);
+      setDirty(!isPdf && el.editor.value !== text);
       saveSettings();
       toast(t('info.saved', { name: state.name }), 'success');
       return true;
@@ -1577,7 +1821,7 @@
   }
 
   async function exportHtml() {
-    if (!state.hasDocument) return;
+    if (!state.hasDocument || state.format === 'pdf') return;
     render({ immediate: true });
     var structured = !!structuredPreview;
     if (structuredPreview && structuredPreview.complete) structuredPreview.complete();
@@ -1799,14 +2043,15 @@
   }
 
   function applyTaskMode() {
-    var usable = state.editPreview && state.tasksOk;
+    var editing = state.editPreview && state.format !== 'pdf';
+    var usable = editing && state.tasksOk;
     el.preview.setAttribute('data-edit', usable ? '1' : '0');
     var boxes = el.preview.querySelectorAll('input[data-rv-task]');
     for (var i = 0; i < boxes.length; i++) boxes[i].disabled = !usable;
 
-    el.btnEdit.setAttribute('aria-pressed', state.editPreview ? 'true' : 'false');
-    el.editBadge.hidden = !state.editPreview;
-    if (!state.editPreview) return;
+    el.btnEdit.setAttribute('aria-pressed', String(editing));
+    el.editBadge.hidden = !editing;
+    if (!editing) return;
     if (state.tasksOk) {
       el.editBadge.setAttribute('data-kind', 'on');
       el.editBadge.setAttribute('title', t('edit.on'));
@@ -1968,7 +2213,7 @@
     var folds = activeTab.structuredFolds || (activeTab.structuredFolds = new Map());
     var documentId = state.documentId;
     var type = VisualPreview.kind(state, src);
-    var visual = type && !activeTab.showSource && state.mode !== 'write';
+    var visual = type && (type === 'pdf' || !activeTab.showSource && state.mode !== 'write');
     var inlineEdit = !visual && state.editPreview && (state.format === 'text' || state.format.startsWith('code:'));
     var key = inlineEdit && JSON.stringify([documentId, state.name, state.format, I18n.getLocale()]);
     var newVisual = false;
@@ -2008,7 +2253,7 @@
       });
     }
     var view = structuredPreview;
-    if (type && (newVisual || !visual && !oldCode)) addFileViewSwitch(view, visual, showFileSource);
+    if (type && type !== 'pdf' && (newVisual || !visual && !oldCode)) addFileViewSwitch(view, visual, showFileSource);
     $('structuredFind').hidden = !!visual;
     if (visual && !el.findBar.hidden) closeFind();
     if (inlineEdit) {
@@ -2601,6 +2846,12 @@
   var statsTimer = 0;
 
   function updateStats(src, ms) {
+    if (state.format === 'pdf') {
+      el.statusPos.textContent = el.statusCount.textContent = el.statusPerf.textContent = el.statusLang.textContent = '';
+      el.editorMeta.textContent = el.previewMeta.textContent = '';
+      updateChrome();
+      return;
+    }
     var lines = src ? src.split('\n') : [''];
     var cursor = structuredPreview && structuredPreview.input === document.activeElement ? structuredPreview.input : el.editor;
     var upto = src.slice(0, cursor.selectionStart);
@@ -2677,9 +2928,17 @@
     buildGutter();
   }
 
+  function syncMode() {
+    var mode = state.format === 'pdf' ? 'preview' : state.mode;
+    if (el.panes.dataset.mode !== mode) {
+      document.body.dataset.mode = mode;
+      el.panes.dataset.mode = mode;
+    }
+    return mode;
+  }
+
   function applyMode() {
-    document.body.setAttribute('data-mode', state.mode);
-    el.panes.setAttribute('data-mode', state.mode);
+    syncMode();
     // Anchors measured while a pane was hidden are meaningless: re-measure.
     scheduleRender(null, 0);
   }
@@ -2704,6 +2963,7 @@
   }
 
   function setEditPreview(on) {
+    if (state.format === 'pdf') return;
     var wasInline = structuredPreview && structuredPreview.input === document.activeElement;
     state.editPreview = !!on;
     if (on && VisualPreview.kind(state, el.editor.value)) activeTab.showSource = true;
@@ -2750,7 +3010,7 @@
 
   function openPreviewFormat() {
     var panel = $('previewFormatPanel'), trigger = $('btnPreviewFormat');
-    if (pendingSave || pendingDiscard || $('previewEditDialog').open ||
+    if (state.format === 'pdf' || pendingSave || pendingDiscard || $('previewEditDialog').open ||
         !$('appearancePanel').hidden || !$('serviceModal').hidden) return;
     if (!panel.hidden) { closePreviewFormat(true); return; }
     if (state.readingFocus) setReadingFocus(false);
@@ -2919,6 +3179,7 @@
     requestAnimationFrame(function () { measureParts(); markActiveToc(); });
   }
   function setMode(mode) {
+    if (state.format === 'pdf') return;
     if (state.readingFocus) setReadingFocus(false);
     if (state.mode === mode) return;
     state.mode = mode;
@@ -3433,6 +3694,7 @@
       var b = e.target.closest ? e.target.closest('[data-path]') : null;
       if (!b) return;
       var path = b.getAttribute('data-path');
+      if (isPdfName(path)) { RV.Native.openRecent(path).then(openHandleTab).catch(reportOpen); return; }
       replaceFromPath(path, RV.Native.openRecent);
     });
   }
@@ -3590,6 +3852,7 @@
   }
 
   function openFind() {
+    if (state.format === 'pdf') { if (activeTab.pdfViewer) activeTab.pdfViewer.openFind(); return; }
     if (state.readingFocus) setReadingFocus(false);
     if (state.mode === 'write') setMode('split');
     if (VisualPreview.kind(state, el.editor.value) && !activeTab.showSource) showFileSource('code');
@@ -3783,6 +4046,7 @@
   }
 
   function focusContentsFilter() {
+    if (state.format === 'pdf') { openFind(); return; }
     if (state.readingFocus) setReadingFocus(false);
     if (window.innerWidth <= 900) mobileSidebar = true;
     else state.sidebar = true;
@@ -4094,6 +4358,14 @@
     }
     tabbar.setAttribute('role', 'tablist');
     wireTabReordering(tabbar);
+    wireTabRename(tabbar);
+    tabbar.addEventListener('scroll', hideTabPreview, { passive: true });
+    window.addEventListener('resize', hideTabPreview);
+    window.addEventListener('blur', hideTabPreview);
+    document.addEventListener('pointerdown', hideTabPreview, true);
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') hideTabPreview();
+    });
     wireTabRailResizer();
     function revealActiveTab() { scrollTabIntoView(tabbar); }
     if (typeof ResizeObserver === 'function') new ResizeObserver(revealActiveTab).observe(tabbar);
@@ -4145,7 +4417,7 @@
           return workspaceReady.then(function () {
             return RV.Reading && RV.Reading.saveSession();
           }).then(function (saved) {
-            return saved || confirmAllDirty();
+            return confirmAllDirty(!!saved);
           });
         }, onError: reportOpen,
         onDrag: function (active) { document.body.classList.toggle('dragover', !!active); }

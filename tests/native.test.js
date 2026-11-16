@@ -28,6 +28,26 @@ function adapter(overrides = {}) {
   return { native: mocks.window.RV.Native, calls };
 }
 
+test('the Windows PDF save picker keeps PDF bytes and does not grant document asset access', async () => {
+  const calls = [], choices = [];
+  const bytes = [37, 80, 68, 70, 45];
+  const { native } = adapter({
+    window: { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: 'Windows NT' } },
+    save: async options => { choices.push(options); return '/docs/saved.pdf'; },
+    invoke: async (command, args) => { calls.push([command, args]); return 'revision'; }
+  });
+  assert.equal(native.supportsPdf(), true);
+  const file = await native.pickSave('reading.pdf', 'application/pdf');
+  const writer = await file.createWritable();
+  await writer.write(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }));
+  await writer.close();
+  assert.equal(choices[0].defaultPath, 'reading.pdf');
+  assert.equal(choices[0].filters[0].extensions[0], 'pdf');
+  assert.deepEqual(calls.map(call => call[0]), ['write_document_atomic']);
+  assert.deepEqual(Array.from(calls[0][1].bytes), bytes);
+  assert.equal(adapter({ window: { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: 'Linux' } } }).native.supportsPdf(), false);
+});
+
 test('desktop browser preview only forwards HTML to the dedicated native command', async () => {
   const invoked = [];
   const { native } = adapter({ invoke: async (command, args) => invoked.push([command, args]) });
@@ -157,20 +177,26 @@ for (const [platform, glass, tint] of [
 ]) {
   test(`${platform} reveals the shared title bar before opening launch documents (glass: ${glass})`, async () => {
     const calls = [], timers = new Map();
-    let onResize, stateReads = 0, timerId = 0;
+    let onResize, maximized = false, stateReads = 0, timerId = 0;
     const nodes = new Map();
     const documentElement = { dataset: { theme: 'dark' } };
     const { native } = adapter({
-      window: { __TAURI_INTERNALS__: {}, RV: {}, navigator: { userAgent: platform } },
+      window: { __TAURI_INTERNALS__: {}, RV: {
+        I18n: { t: key => key }, Icons: { svg: name => name }
+      }, navigator: { userAgent: platform } },
       document: {
         documentElement,
         getElementById(id) {
-          if (!nodes.has(id)) nodes.set(id, { hidden: true, dataset: { i18nAria: 'window.maximize' }, addEventListener() {} });
+          if (!nodes.has(id)) nodes.set(id, { hidden: true, dataset: { i18nAria: 'window.maximize' }, addEventListener() {}, setAttribute() {} });
           return nodes.get(id);
         }
       },
       MutationObserver: class { observe() {} },
-      setTimeout(callback) { timers.set(++timerId, callback); return timerId; },
+      setTimeout(callback) {
+        const id = ++timerId;
+        timers.set(id, () => { timers.delete(id); return callback(); });
+        return id;
+      },
       clearTimeout(id) { timers.delete(id); },
       invoke: async command => {
         if (command === 'set_window_backdrop') return glass;
@@ -180,7 +206,7 @@ for (const [platform, glass, tint] of [
       getCurrentWindow: () => ({
         onDragDropEvent: async () => {}, onCloseRequested: async () => {},
         onResized: async callback => { onResize = callback; },
-        isMaximized: async () => { stateReads++; return false; },
+        isMaximized: async () => { stateReads++; return maximized; },
         show: async () => {
           assert.equal(documentElement.dataset.desktopTitlebar, '');
           assert.equal(documentElement.dataset.windowGlass, tint);
@@ -191,11 +217,20 @@ for (const [platform, glass, tint] of [
     });
     await native.initialize({ openPath: async path => { calls.push(path); } });
     assert.deepEqual(calls, ['show', '/docs/start.md', '/docs/queued.md']);
+    assert.equal(documentElement.dataset.windowMaximized, undefined);
+    maximized = true;
     for (let i = 0; i < 20; i++) onResize();
     assert.equal(stateReads, 1, 'resize events do not poll the window while dragging');
     assert.equal(timers.size, 1);
     await timers.values().next().value();
     assert.equal(stateReads, 2, 'one window state read after resizing');
+    assert.equal(nodes.get('btnWindowMaximize').dataset.i18nAria, 'window.restore');
+    assert.equal(documentElement.dataset.windowMaximized, platform === 'Windows NT' ? '' : undefined);
+    maximized = false;
+    onResize();
+    await timers.values().next().value();
+    assert.equal(nodes.get('btnWindowMaximize').dataset.i18nAria, 'window.maximize');
+    assert.equal(documentElement.dataset.windowMaximized, undefined);
   });
 }
 test('desktop open paths use the scoped Rust resolver, content URIs remain direct', async () => {

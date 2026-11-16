@@ -766,15 +766,37 @@ body.dragover .drop-hint { display: grid; }
   border-radius: var(--r-sm);
 }
 
-/* tables never break the layout */
+/* Keep the rounded frame around the scroll area for wide Markdown tables. */
+
+.markdown-body :is(.table-wrap, table) {
+  border: var(--rv-md-theme-12);
+  border-radius: 15px;
+}
 
 .markdown-body .table-wrap {
+  inline-size: fit-content;
+  max-inline-size: 100%;
   overflow-x: auto;
   margin-block: 0 16px;
 }
 
-.markdown-body .table-wrap table { margin: 0; display: table; inline-size: max-content; max-inline-size: 100%; }
-.markdown-body :is(th, td) { padding: 7px 13px; }
+.markdown-body table { border-collapse: separate; }
+
+.markdown-body .table-wrap > table {
+  display: table;
+  inline-size: max-content;
+  max-inline-size: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.markdown-body table :is(th, td) { padding: 7px 13px; border: 0; }
+.markdown-body table :is(th, td) + :is(th, td) { border-inline-start: var(--rv-md-theme-12); }
+.markdown-body table tr + tr > :is(th, td),
+.markdown-body table :is(thead, tbody) + :is(tbody, tfoot) > tr:first-child > :is(th, td) {
+  border-block-start: var(--rv-md-theme-12);
+}
 
 /* ---------- task lists ---------- */
 
@@ -1151,7 +1173,7 @@ mark.rv-find.current { background: #ff9632; }
 .workspacebar { display: flex; align-items: center; min-width: 0; width: 100%; gap: 4px; padding: 3px 12px; }
 .workspace-actions { display: flex; flex: none; align-items: center; gap: 4px; }
 .document-tabs { display: flex; flex: 0 1 auto; min-width: 0; max-width: calc(100% - 270px); padding-block: 6px; overflow-x: auto; gap: 4px; scrollbar-width: thin; }
-.document-tab { position: relative; display: flex; align-items: center; flex: 0 0 auto; min-width: 116px; max-width: 280px; padding: 0 10px; gap: 8px; min-height: 36px; border-block-end: 2px solid transparent; border-radius: var(--r-sm) var(--r-sm) 0 0; color: var(--fg-muted); font-size: 12px; text-align: start; cursor: pointer; user-select: none; }
+.document-tab { position: relative; display: flex; align-items: center; flex: 0 0 auto; min-width: 116px; max-width: 280px; padding: 0 10px; gap: 4px; min-height: 36px; border-block-end: 2px solid transparent; border-radius: var(--r-sm) var(--r-sm) 0 0; color: var(--fg-muted); font-size: 12px; text-align: start; cursor: pointer; user-select: none; }
 .document-tab:not(.is-active):hover { background: var(--bg-hover); color: var(--fg); }
 .document-tab.is-active {
   background: var(--bg);
@@ -1159,8 +1181,9 @@ mark.rv-find.current { background: #ff9632; }
   color: var(--fg);
   font-weight: 650;
 }
-.document-tab-close { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 22px; height: 22px; padding: 3px; border: 0; border-radius: 4px; background: transparent; color: var(--fg-muted); cursor: pointer; }
-.document-tab-close:hover { background: var(--bg-active); color: var(--fg); }
+.document-tab-close, .document-tab-rename { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 22px; height: 22px; padding: 3px; border: 0; border-radius: 4px; background: transparent; color: var(--fg-muted); cursor: pointer; }
+.document-tab-rename { width: 18px; color: color-mix(in srgb, var(--fg-muted) 72%, transparent); }
+.document-tab-close:hover, .document-tab-rename:is(:hover, :focus-visible, [aria-expanded="true"]) { background: var(--bg-active); color: var(--fg); }
 .new-tab { align-self: center; flex-shrink: 0; margin-inline-end: auto; }
 .new-tab .ic { stroke-width: 2; }
 .brand-mark { width: 26px; height: 26px; background: transparent; color: var(--fg); border-radius: 0; }
@@ -1170,6 +1193,27 @@ mark.rv-find.current { background: #ff9632; }
 @media print { .workspacebar { display: none; } }
 
 .document-tab > [role="tab"] { display: block; flex: 1; min-width: 0; max-width: 228px; height: 34px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: 12px; text-align: start; cursor: pointer; }
+.tab-preview, .tab-rename {
+  position: fixed;
+  z-index: 41;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-lg);
+  color: var(--fg);
+  font-size: 12px;
+}
+.tab-preview {
+  width: min(304px, calc(100vw - 16px));
+  padding: 10px 12px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+.tab-rename { display: flex; align-items: center; gap: 4px; padding: 6px; width: min(252px, calc(100vw - 16px)); }
+.tab-rename input { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg-inset); color: var(--fg); font: inherit; }
+.tab-rename button { flex: none; width: 30px; height: 30px; }
+.tab-preview-location { margin-block-end: 6px; overflow: hidden; color: var(--fg-muted); text-overflow: ellipsis; white-space: nowrap; }
+.tab-preview-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; }
 .document-tabs:has(> .document-tab:nth-child(2)) .document-tab > [role="tab"] { cursor: grab; }
 .document-tabs[data-reordering], .document-tabs[data-reordering] .document-tab > [role="tab"] { cursor: grabbing; }
 .document-tab.is-dragged { opacity: .45; }
@@ -1516,6 +1560,7 @@ body { grid-template-columns: minmax(0, 1fr); }
   .document-tab { min-width: 112px; max-width: 220px; min-height: 44px; }
   .document-tab > [role="tab"] { height: 44px; max-width: 160px; }
   .document-tab-close, .new-tab, .workspace-compare, .reading-options summary { min-width: 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center; }
+  .document-tab-rename { width: 32px; height: 44px; }
   .reading-focus { min-height: 44px; }
   .document-tab-close { flex-shrink: 0; }
   .reading-options { margin-inline-start: 0; }
@@ -1798,7 +1843,8 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   --titlebar-drag-min: 36px;
 }
 [data-desktop-titlebar] body { --window-base: var(--bg-inset); background: var(--window-base); }
-[data-desktop-titlebar][data-window-glass] body {
+/* Prevent the native caption controls showing through the Windows WebView on maximize. */
+[data-desktop-titlebar][data-window-glass]:where(:not([data-window-maximized])) body {
   --window-base: color-mix(in srgb, var(--bg-inset) var(--titlebar-opacity, 70%), transparent);
   --workspace-rail: color-mix(in srgb, var(--bg-subtle) 88%, transparent);
 }
@@ -1943,6 +1989,7 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   [data-desktop-titlebar] .titlebar-tabs .document-tab { min-width: 76px; height: 34px; min-height: 34px; }
   [data-desktop-titlebar] .titlebar-tabs .document-tab > [role="tab"] { height: 32px; min-height: 32px; }
   [data-desktop-titlebar] .titlebar-tabs .document-tab-close { width: 24px; min-width: 24px; height: 28px; }
+  [data-desktop-titlebar] .titlebar-tabs .document-tab-rename { width: 18px; height: 28px; }
   [data-desktop-titlebar] .titlebar-tabs .new-tab { width: 30px; min-width: 30px; height: 30px; min-height: 30px; }
 }
 @media (max-width: 420px) {
@@ -1953,8 +2000,8 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
   [data-desktop-titlebar] .menu-line > .brand-mark { width: 34px; }
   [data-desktop-titlebar] .menu-line > .tab-layout-toggle { width: 28px; }
   [data-desktop-titlebar] .titlebar-tabs { gap: 4px; margin-left: 3px; }
-  [data-desktop-titlebar] .titlebar-tabs .document-tab { min-width: 60px; padding-inline: 5px; }
-  [data-desktop-titlebar] .titlebar-tabs .document-tab-close { width: 20px; min-width: 20px; }
+  [data-desktop-titlebar] .titlebar-tabs .document-tab { min-width: 60px; padding-inline: 3px; gap: 1px; }
+  [data-desktop-titlebar] .titlebar-tabs :is(.document-tab-close, .document-tab-rename) { width: 16px; min-width: 16px; padding-inline: 2px; }
   [data-desktop-titlebar] .titlebar-tabs .new-tab { width: 26px; min-width: 26px; height: 26px; min-height: 26px; }
   [data-desktop-titlebar] .caption-buttons button { width: 34px; }
 }
@@ -2019,6 +2066,15 @@ body[data-reading-focus="1"] .focus-exit { display: inline-flex; }
 .visual-file-svg img { display: block; max-width: 100%; max-height: 75vh; object-fit: contain; background: transparent; }
 .visual-file-stage .visual-file-message { padding: 16px; margin: 0; color: var(--fg-muted); }
 .preview:has(.visual-file) { padding-block-end: var(--s6); }
+
+.preview:has(> .markdown-body > .pdf-view) { padding: 0; overflow: hidden; }
+.preview:has(> .markdown-body > .pdf-view) > .markdown-body { block-size: 100%; }
+#pdfWorkspace { position: absolute; inset: 0; }
+#previewScroll:has(> #pdfWorkspace:not([hidden])) { padding: 0; overflow: hidden; }
+#previewScroll:has(> #pdfWorkspace:not([hidden])) > #preview { display: none; }
+body[data-reading-focus="1"] #pdfWorkspace { inset-block-start: 60px; }
+.pdf-view, .pdf-view iframe { display: block; inline-size: 100%; block-size: 100%; border: 0; }
+.pdf-view-error { margin: 0; padding: 12px; text-align: center; }
 
 .visual-svg-gallery {
   display: block; place-items: normal; min-height: 0; padding: 0; border: 0; background: none;

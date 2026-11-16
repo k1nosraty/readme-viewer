@@ -12,6 +12,7 @@
   }
 
   function kind(doc, source) {
+    if (doc.format === 'pdf') return 'pdf';
     if (doc.format === 'code:html') return 'html';
     if (doc.format !== 'code:xml') return '';
     if (/\.(?:html?|xhtml)$/i.test(doc.name)) return 'html';

@@ -1,6 +1,7 @@
 {
   "frontend": 6291456,
-  "windows": 4194304,
+  "frontend-windows": 11534336,
+  "windows": 6815744,
   "deb": 6815744,
   "appimage": 89128960,
   "android-arm64": 41943040,
