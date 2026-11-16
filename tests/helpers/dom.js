@@ -28,8 +28,9 @@ const POLYFILL = `
 (function () {
   if (!window.matchMedia) {
     window.matchMedia = function (q) {
+      var maxWidth = q.startsWith('(max-width:') ? parseInt(q.split(':')[1], 10) : NaN;
       return {
-        media: q, matches: false, onchange: null,
+        media: q, get matches() { return window.innerWidth <= maxWidth; }, onchange: null,
         addEventListener: function () {}, removeEventListener: function () {},
         addListener: function () {}, removeListener: function () {},
         dispatchEvent: function () { return false; }
