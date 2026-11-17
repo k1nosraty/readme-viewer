@@ -1,10 +1,9 @@
-# README Viewer 2.2.2
+# README Viewer 2.2.3
 
-## Changes since 2.2.1
+- Fix a rendering issue on Linux where maximizing the window on GNOME with X11 left part of the desktop visible. The document now fills the entire maximized window.
+- Preserve rounded corners when returning to the normal window size on composited desktops.
 
-- Match the window frame on Windows and Linux. Use rounded outer corners for normal windows on supported desktops and square corners when maximized.
-- Give desktop window controls a consistent layout and keep larger touch targets on touchscreens.
-- Validate frame geometry and opacity in the installed desktop apps. Check that Android’s system bars and keyboard leave the editor visible.
+This release also includes the desktop frame and title bar improvements from 2.2.2.
 
 ## Downloads and upgrades
 

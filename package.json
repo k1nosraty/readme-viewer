@@ -1,6 +1,6 @@
 {
   "name": "readme-viewer",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "private": true,
   "description": "An offline viewer for Markdown, source code and configuration files.",
   "license": "MIT",

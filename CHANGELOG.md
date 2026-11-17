@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 2.2.3 — 2026-11-17
+
+- Fix a rendering issue on Linux where maximizing the window on GNOME with X11 left part of the desktop visible. The document now fills the entire maximized window.
+- Preserve rounded corners when returning to the normal window size on composited desktops.
+
 ## 2.2.2 — 2026-11-17
 
 - Match the window frame on Windows and Linux. Use rounded outer corners for normal windows on supported desktops and square corners when maximized.
